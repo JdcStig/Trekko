@@ -1,0 +1,23 @@
+{
+  "name": "trakko",
+  "version": "1.0.0",
+  "description": "Trekko sports statistics provider web app",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JdcStig/Trekko.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/JdcStig/Trekko/issues"
+  },
+  "homepage": "https://github.com/JdcStig/Trekko#readme",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
