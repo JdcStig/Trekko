@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import User from './models/userModel.js';
+import Player from './models/playerModel.js';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -22,10 +23,27 @@ const users = [
   },
 ];
 
+const players = [
+  {
+    id: '1',
+    name: 'XForward',
+    position: 'Forward',
+    teamId: "XPX1",
+},
+{
+    id: '2',
+    name: 'XStriker',
+    position: 'Striker',
+    teamId: "XPX2",
+},
+];
+
 const importData = async () => {
   try {
     await User.deleteMany(); // Clears previous users
     await User.insertMany(users); // Reinserts whats above
+    await Player.deleteMany(); // Clears previous users
+    await Player.insertMany(players); // Reinserts whats above
     console.log("Seeded successfully");
     process.exit();
   } catch (error) {
