@@ -18,8 +18,8 @@ const Header = () => {
                     <Navbar.Toggle aria-controls="basic-navbar-nav" />
                     <Navbar.Collapse id="basic-navbar-nav">
                         <Nav className="ms-auto">
-                            <Nav.Link href="/cart"><FaUsers /> Squade Management</Nav.Link>
-                            <Nav.Link href="/login"><FaUser /> Login</Nav.Link>
+                            <Nav.Link href="/SquadManagementScreen"><FaUsers /> Squade Management</Nav.Link>
+                            <Nav.Link href="/LoginScreen"><FaUser /> Login</Nav.Link>
                         </Nav>
                     </Navbar.Collapse>
                 </Container>
