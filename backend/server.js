@@ -8,6 +8,7 @@ dotenv.config();
 import connectDB from './config/db.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import productRoutes from './routes/productRoutes.js';
+import playerRoutes from './routes/playerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 
 const app = express();
@@ -34,6 +35,7 @@ app.get('*', (req, res, next) => {
 
 app.use('/api/products', productRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/players', playerRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
