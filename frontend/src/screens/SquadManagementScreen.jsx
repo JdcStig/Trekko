@@ -9,7 +9,7 @@ const SquadManagementScreen = () => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await fetch('http://localhost:5000/api/users'); // Fetch users from backend
+                const response = await fetch('http://localhost:5000/api/users'); // Fetch users from backend // --To Do make a global variable
                 if (!response.ok) {
                     throw new Error(`HTTP Error! Status: ${response.status}`);
                 }
@@ -48,7 +48,7 @@ const SquadManagementScreen = () => {
                 <Table striped bordered hover responsive className="table-sm">
                     <thead className="table-dark">
                         <tr>
-                            <th>ID</th>
+                            {/* <th>ID</th> */}
                             <th>Name</th>
                             <th>Email</th>
                         </tr>
@@ -56,7 +56,7 @@ const SquadManagementScreen = () => {
                     <tbody>
                         {users.map((user) => (
                             <tr key={user._id}>
-                                <td>{user.id || 'N/A'}</td>
+                                {/* <td>{user.id || 'N/A'}</td> */}
                                 <td>{user.name}</td>
                                 <td>{user.email}</td>
                             </tr>

@@ -15,10 +15,13 @@ import {
 } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
+
+
 // @desc   Fetch all users from MongoDB
 // @route  GET /api/users
 // @access Public
 router.route('/').post(registerUser).get(getUsers); 
+
 
 router.post('/logout', logoutUser);
 router.post('/auth', authUser);
