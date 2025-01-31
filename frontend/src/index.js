@@ -5,6 +5,8 @@ import './assets/styles/index.css'
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import SquadManagementScreen from'./screens/SquadManagementScreen';
+import LoginScreen from'./screens/LoginScreen';
+
 
 import {
   createBrowserRouter,
@@ -17,6 +19,7 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<App />}>
     <Route index={true} path="/SquadManagementScreen" element={<SquadManagementScreen />} />
+    <Route  path="/LoginScreen" element={<LoginScreen />} />
     </Route>
   )
 
