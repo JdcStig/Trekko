@@ -171,7 +171,8 @@ const deletePlayer = asyncHandler(async (req, res) => {
 // @route  PUT /api/players/:id
 // @access Private/Admin
 const updatePlayer = asyncHandler(async (req, res) => {
-    const player = await Player.findOne({ id: req.params.id });
+    // Change this line to use findById instead of findOne({ id: req.params.id })
+    const player = await Player.findById(req.params.id);
 
     if (player) {
         player.name = req.body.name || player.name;
@@ -186,12 +187,13 @@ const updatePlayer = asyncHandler(async (req, res) => {
             name: updatedPlayer.name,
             position: updatedPlayer.position,
             teamId: updatedPlayer.teamId,
-        })
+        });
     } else {
         res.status(404);
         throw new Error('Player not found');
     }
 });
+
 
 export{
     authPlayer,

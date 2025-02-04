@@ -4,8 +4,14 @@ import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
-import { useGetPlayersQuery, useDeletePlayerMutation, useCreatePlayerMutation } from '../slices/playersApiSlice';
-import AddPlayerModal from '../components/AddPlayerModal';
+import { 
+  useGetPlayersQuery, 
+  useDeletePlayerMutation, 
+  useCreatePlayerMutation,
+  useUpdatePlayerMutation,
+} from '../slices/playersApiSlice';
+import AddPlayerModal from '../components/Player/AddPlayerModal';
+import EditPlayerModal from '../components/Player/EditPlayerModal';
 
 const SquadManagementScreen = () => {
   // RTK Query hook for fetching players
@@ -13,11 +19,16 @@ const SquadManagementScreen = () => {
   // RTK Query hook for deleting a player
   const [deletePlayer, { isLoading: loadingDelete }] = useDeletePlayerMutation();
   const [createPlayer, { isLoading: loadingCreate }] = useCreatePlayerMutation();
+  const [updatePlayer, { isLoading: loadingUpdate }] = useUpdatePlayerMutation();
 
   // Local state for confirming deletion
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  
+  // Local state for editing a player
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEditPlayer, setSelectedEditPlayer] = useState(null);
 
   // When trash icon is clicked, open the confirm deletion modal
   const handleDeleteClick = (player) => {
@@ -45,12 +56,30 @@ const SquadManagementScreen = () => {
     setSelectedPlayer(null);
   };
 
-  // Called when a new player is submitted via the modal
+  // Called when a new player is submitted via the Add modal
   const handleAddPlayer = async (playerData) => {
     try {
       await createPlayer(playerData).unwrap();
       refetch();
       setShowAddModal(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // When edit icon is clicked, open the edit modal
+  const handleEditClick = (player) => {
+    setSelectedEditPlayer(player);
+    setShowEditModal(true);
+  };
+
+  // Called when the user submits the edit form in the edit modal
+  const handleEditPlayer = async (playerData) => {
+    try {
+      await updatePlayer(playerData).unwrap();
+      refetch();
+      setShowEditModal(false);
+      setSelectedEditPlayer(null);
     } catch (err) {
       console.error(err);
     }
@@ -70,8 +99,8 @@ const SquadManagementScreen = () => {
         </Col>
       </Row>
 
-      {/* Show loader if fetching or deleting */}
-      {isLoading || loadingDelete || loadingCreate ? (
+      {/* Show loader if fetching, deleting, creating, or updating */}
+      {isLoading || loadingDelete || loadingCreate || loadingUpdate ? (
         <Loader />
       ) : error ? (
         <Message variant="danger">
@@ -95,7 +124,11 @@ const SquadManagementScreen = () => {
                 <td>{player.position}</td>
                 <td>{player.teamId}</td>
                 <td>
-                  <Button variant="light" className="btn-sm mx-2">
+                  <Button 
+                    variant="light" 
+                    className="btn-sm mx-2" 
+                    onClick={() => handleEditClick(player)}
+                  >
                     <FaEdit />
                   </Button>
                 </td>
@@ -134,6 +167,14 @@ const SquadManagementScreen = () => {
         show={showAddModal}
         onHide={() => setShowAddModal(false)}
         onAddPlayer={handleAddPlayer}
+      />
+
+      {/* Edit Player Modal */}
+      <EditPlayerModal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
+        onEditPlayer={handleEditPlayer}
+        initialData={selectedEditPlayer}
       />
     </Container>
   );
