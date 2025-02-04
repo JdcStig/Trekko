@@ -5,6 +5,7 @@ import './assets/styles/index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import SquadManagementScreen from './screens/SquadManagementScreen';
+import UserManagementScreen from './screens/UserManagementScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import { Provider } from 'react-redux';
@@ -30,6 +31,7 @@ const router = createBrowserRouter(
       {/* Protected Routes */}
       <Route element={<PrivateRoute />}>
         <Route path="/SquadManagementScreen" element={<SquadManagementScreen />} />
+        <Route path="/UserManagementScreen" element={<UserManagementScreen />} />
       </Route>
     </Route>
   )

@@ -38,6 +38,9 @@ const Header = () => {
               <Nav.Link href="/SquadManagementScreen">
                 <FaUsers /> Squad Management
               </Nav.Link>
+              <Nav.Link href="/UserManagementScreen">
+                <FaUsers /> User Management
+              </Nav.Link>
               {userInfo ? (
                 <NavDropdown title={userInfo.name} id="username">
                   <NavDropdown.Item onClick={logoutHandler}>
