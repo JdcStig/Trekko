@@ -1,65 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import FormContainer from '../components/FormContainer';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Form, Button, Row, Col } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
+import FormContainer from '../components/FormContainer';
 import Loader from '../components/Loader';
-import { useLoginMutation } from '../slices/usersApiSlices';
+import { useRegisterMutation } from '../slices/usersApiSlices';
 import { setCredentials } from '../slices/authSlice';
 import { toast } from 'react-toastify';
 
-const LoginScreen = () => {
+const RegisterScreen = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Setup the login mutation from querying
-  const [login, { isLoading }] = useLoginMutation();
+  const [register, { isLoading }] = useRegisterMutation();
 
-   // Get user information from the Redux to check if a user is logged in
   const { userInfo } = useSelector((state) => state.auth);
 
-  // Parse the query string to get the redirect URL after login
   const { search } = useLocation();
   const sp = new URLSearchParams(search);
   const redirect = sp.get('redirect') || '/SquadManagementScreen';
 
-
-   // If the user is already logged in, navigate to the redirect URL
   useEffect(() => {
     if (userInfo) {
       navigate(redirect);
     }
   }, [userInfo, redirect, navigate]);
 
-
   const submitHandler = async (e) => {
     e.preventDefault();
-    // console.log('Submitting login request:', { email, password });
-
-
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
     try {
-       // unwrap returns the actual an error or success.
-      const res = await login({ email, password }).unwrap();
-      //console.log('Login response:', res);
-
-      // Dispatch the credentials to update the Redux store
+      const res = await register({ name, email, password }).unwrap();
       dispatch(setCredentials(res));
-
-      // Navigate to the redirect URL after successful login
       navigate(redirect);
     } catch (error) {
-      //console.error('Login error:', error);
       toast.error(error?.data?.message || error.error);
     }
   };
 
   return (
     <FormContainer>
-      <h1>Sign In</h1>
+      <h1>Sign Up</h1>
       <Form onSubmit={submitHandler}>
+        <Form.Group controlId="name" className="my-3">
+          <Form.Label>Name</Form.Label>
+          <Form.Control
+            type="text"
+            placeholder="Enter name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          ></Form.Control>
+        </Form.Group>
+
         <Form.Group controlId="email" className="my-3">
           <Form.Label>Email Address</Form.Label>
           <Form.Control
@@ -80,17 +80,27 @@ const LoginScreen = () => {
           ></Form.Control>
         </Form.Group>
 
+        <Form.Group controlId="confirmPassword" className="my-3">
+          <Form.Label>Confirm Password</Form.Label>
+          <Form.Control
+            type="password"
+            placeholder="Confirm password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          ></Form.Control>
+        </Form.Group>
+
         <Button type="submit" variant="primary" className="mt-2" disabled={isLoading}>
-          Sign In
+          Register
         </Button>
 
         {isLoading && <Loader />}
       </Form>
       <Row className="py-3">
         <Col>
-          New Customer?{' '}
-          <Link to={redirect ? `/RegisterScreen?redirect=${redirect}` : '/RegisterScreen'}>
-            Register
+          Already have an account?{' '}
+          <Link to={redirect ? `/LoginScreen?redirect=${redirect}` : '/LoginScreen'}>
+            Login
           </Link>
         </Col>
       </Row>
@@ -98,4 +108,4 @@ const LoginScreen = () => {
   );
 };
 
-export default LoginScreen;
+export default RegisterScreen;

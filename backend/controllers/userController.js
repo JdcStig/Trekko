@@ -2,6 +2,7 @@ import { response } from 'express';
 import asyncHandler from '../middleware/asyncHandler.js';
 import User from '../models/userModel.js';
 import generateToken from '../utils/generateToken.js';
+import bcrypt from 'bcryptjs'; 
 
 // @desc   Auth user & get token
 // @route  POST /api/users/login
@@ -9,6 +10,8 @@ import generateToken from '../utils/generateToken.js';
 const authUser = asyncHandler(async (req, res) => {
     // Takes out the email and password
     const { email, password } = req.body;
+
+    console.log('------- Backend received:', email, password);
 
     const user = await User.findOne({ email });
 
