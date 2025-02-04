@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Table, Button, Container, Alert, Row, Col } from 'react-bootstrap';
-import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
@@ -14,6 +14,8 @@ import EditSquadModal from '../components/Squad Management/EditSquadModal';
 const UserManagementScreen = () => {
   // RTK Query hook for fetching squads
   const { data, isLoading, error, refetch } = useGetSquadsQuery();
+  // Sorting state (Starts at Ascending and no columns are sorted at the start "null")
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   // RTK Query hook for deleting a squad
   const [deleteSquad, { isLoading: loadingDelete }] = useDeleteSquadMutation();
   const [createSquad, { isLoading: loadingCreate }] = useCreateSquadMutation();
@@ -24,7 +26,28 @@ const UserManagementScreen = () => {
   const [selectedSquad, setSelectedSquad] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+ 
+  // Creates a sortedSquads copy of the data, will sort through the data based on the strings
+  const sortedSquads = [...(data?.squads || [])].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    const valueA = a[sortConfig.key].toLowerCase();
+    const valueB = b[sortConfig.key].toLowerCase();
 
+    if (sortConfig.direction === 'asc') {
+      return valueA.localeCompare(valueB);
+    } else {
+      return valueB.localeCompare(valueA);
+    }
+  });
+
+  // Toggles the sorting, determines if the user clicks the column 
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+    
   // When trash icon is clicked, opens the confirm deletion modal
   const handleDeleteClick = (squad) => {
     setSelectedSquad(squad);
@@ -104,14 +127,20 @@ const UserManagementScreen = () => {
         <Table striped bordered hover responsive className="table-sm">
           <thead className="table-dark">
             <tr>
-              <th>Name</th>
-              <th>Team ID</th>
+              {/* Contains a sorting feature */}
+              <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+              {/* if it is ascending, cursor is up, else its down */}
+                Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+              <th onClick={() => handleSort('teamId')} style={{ cursor: 'pointer' }}>
+                Team ID {sortConfig.key === 'teamId' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
               <th></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {data.squads.map((squad) => (
+            {sortedSquads.map((squad) => (
               <tr key={squad._id}>
                 <td>{squad.name}</td>
                 <td>{squad.teamId}</td>
