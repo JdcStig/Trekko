@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Table, Button, Container, Alert, Row, Col } from 'react-bootstrap';
-import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { Table, Button, Container, Alert, Row, Col, Form } from 'react-bootstrap';
+import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
@@ -16,19 +16,34 @@ import EditPlayerModal from '../components/Player/EditPlayerModal';
 const SquadManagementScreen = () => {
   // RTK Query hook for fetching players
   const { data, isLoading, error, refetch } = useGetPlayersQuery();
-  // RTK Query hook for deleting a player
+  // RTK Query hooks players
   const [deletePlayer, { isLoading: loadingDelete }] = useDeletePlayerMutation();
   const [createPlayer, { isLoading: loadingCreate }] = useCreatePlayerMutation();
   const [updatePlayer, { isLoading: loadingUpdate }] = useUpdatePlayerMutation();
 
-  // Local state for confirming deletion
+  
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   
-  // Local state for editing a player
+ 
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEditPlayer, setSelectedEditPlayer] = useState(null);
+
+  
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  
+  const [filterPosition, setFilterPosition] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Function to handle sorting when a header is clicked
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   // When trash icon is clicked, open the confirm deletion modal
   const handleDeleteClick = (player) => {
@@ -67,7 +82,7 @@ const SquadManagementScreen = () => {
     }
   };
 
-  // When edit icon is clicked, open the edit modal
+  // When edit icon is clicked open the edit modal
   const handleEditClick = (player) => {
     setSelectedEditPlayer(player);
     setShowEditModal(true);
@@ -85,6 +100,45 @@ const SquadManagementScreen = () => {
     }
   };
 
+  // sorts players if data is available to sort 
+  let sortedPlayers = [];
+  if (data && data.players) {
+    sortedPlayers = [...data.players];
+    if (sortConfig.key) {
+      sortedPlayers.sort((a, b) => {
+        // Compare values 
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+  }
+
+  // creates an array of unique player positions and populates it into the players sort drop down
+  const uniquePositions = sortedPlayers.reduce((acc, player) => {
+    if (!acc.includes(player.position)) {
+      acc.push(player.position);
+    }
+    return acc;
+  }, []);
+
+  // Filter the sorted players by the selected filter and search term
+  let filteredPlayers = sortedPlayers;
+  if (filterPosition !== 'All') {
+    filteredPlayers = filteredPlayers.filter(
+      (player) => player.position.toLowerCase() === filterPosition.toLowerCase()
+    );
+  }
+  if (searchTerm.trim() !== '') {
+    filteredPlayers = filteredPlayers.filter((player) =>
+      player.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
+
   return (
     <Container>
       {/* Header with Squad Management title and plus button */}
@@ -99,6 +153,40 @@ const SquadManagementScreen = () => {
         </Col>
       </Row>
 
+      {/* Filter and Search Controls */}
+      <Row className="mb-3">
+        <Col md={4}>
+          {/* Filter by Position */}
+          <Form.Group controlId="filterPosition">
+            <Form.Label>Filter by Position</Form.Label>
+            <Form.Control
+              as="select"
+              value={filterPosition}
+              onChange={(e) => setFilterPosition(e.target.value)}
+            >
+              <option value="All">All</option>
+              {uniquePositions.map((position) => (
+                <option key={position} value={position}>
+                  {position}
+                </option>
+              ))}
+            </Form.Control>
+          </Form.Group>
+        </Col>
+        <Col md={4}>
+          {/* Search by Name */}
+          <Form.Group controlId="searchTerm">
+            <Form.Label>Search by Name</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+      </Row>
+
       {/* Show loader if fetching, deleting, creating, or updating */}
       {isLoading || loadingDelete || loadingCreate || loadingUpdate ? (
         <Loader />
@@ -106,19 +194,25 @@ const SquadManagementScreen = () => {
         <Message variant="danger">
           {error.data?.message || error.error}
         </Message>
-      ) : data && data.players && data.players.length > 0 ? (
+      ) : filteredPlayers && filteredPlayers.length > 0 ? (
         <Table striped bordered hover responsive className="table-sm">
           <thead className="table-dark">
             <tr>
-              <th>Name</th>
-              <th>Position</th>
-              <th>Team ID</th>
+              <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                Name {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+              <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
+                Position {sortConfig.key === 'position' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+              <th onClick={() => handleSort('teamId')} style={{ cursor: 'pointer' }}>
+                Team ID {sortConfig.key === 'teamId' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
               <th></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {data.players.map((player) => (
+            {filteredPlayers.map((player) => (
               <tr key={player._id}>
                 <td>{player.name}</td>
                 <td>{player.position}</td>
