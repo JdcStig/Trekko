@@ -15,7 +15,6 @@ const LoginScreen = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Setup the login mutation from querying
   const [login, { isLoading }] = useLoginMutation();
 
    // Get user information from the Redux to check if a user is logged in
