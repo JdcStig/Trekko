@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Button, Container, Alert, Row, Col } from 'react-bootstrap';
+import { Table, Button, Container, Alert, Row, Col, Form } from 'react-bootstrap';
 import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
@@ -39,6 +39,8 @@ const UserManagementScreen = () => {
       return valueB.localeCompare(valueA);
     }
   });
+
+  const [filterSport, setFilterSport] = useState('All');
 
   // Toggles the sorting, determines if the user clicks the column 
   const handleSort = (key) => {
@@ -102,19 +104,49 @@ const UserManagementScreen = () => {
     }
   };
 
+   // creates an array of unique squad sports and populates it into the squads sort drop down
+   const uniqueSports = sortedSquads.reduce((acc, squad) => {
+    if (!acc.includes(squad.sport)) {
+      acc.push(squad.sport);
+    }
+    return acc;
+  }, []);
+
   return (
     <Container>
       {/* Header with User Management title and plus button */}
       <Row className="align-items-center my-4">
         <Col>
           <h2>User Management</h2>
-        </Col>
+        </Col>      
         <Col className="text-end">
           <Button variant="primary" className="btn-sm" onClick={() => setShowAddModal(true)}>
             <FaPlus />
           </Button>
         </Col>
       </Row>
+
+      {/* Filter and Search Controls */}
+            <Row className="mb-3">
+              <Col md={4}>
+                {/* Filter by Sport */}
+                <Form.Group controlId="filterSport">
+                  <Form.Label>Filter by Sport</Form.Label>
+                  <Form.Control
+                    as="select"
+                    value={filterSport}
+                    onChange={(e) => setFilterSport(e.target.value)}
+                  >
+                    <option value="All">All</option>
+                    {uniqueSports.map((sport) => (
+                      <option key={sport} value={sport}>
+                        {sport}
+                      </option>
+                    ))}
+                  </Form.Control>
+                </Form.Group>
+              </Col>         
+            </Row>
 
       {/* Show loader if fetching or deleting */}
       {isLoading || loadingDelete || loadingCreate || loadingUpdate ? (
@@ -135,15 +167,21 @@ const UserManagementScreen = () => {
               <th onClick={() => handleSort('teamId')} style={{ cursor: 'pointer' }}>
                 Team ID {sortConfig.key === 'teamId' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
+                <th onClick={() => handleSort('sport')} style={{ cursor: 'pointer' }}>
+                Sport {sortConfig.key === 'sport' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
               <th></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {sortedSquads.map((squad) => (
+                {sortedSquads
+                 .filter((squad) => filterSport === 'All' || squad.sport === filterSport) // Filtering logic
+                 .map((squad) => (
               <tr key={squad._id}>
                 <td>{squad.name}</td>
                 <td>{squad.teamId}</td>
+                <td>{squad.sport}</td>
                 <td>
                   <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(squad)}>
                     <FaEdit />

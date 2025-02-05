@@ -3,21 +3,24 @@ import { Modal, Button, Form } from 'react-bootstrap';
 
 const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
   const [name, setName] = useState('');
+  const [sport, setSport] = useState('');
   const [teamId, setTeamId] = useState('');
 
-  //If the squad exists, it will put the name and TeamId into the inputs
+  //If the squad exists, it will put the name, sport and TeamId into the inputs
   useEffect(() => {
     if (squad) {
       setName(squad.name);
+      setSport(squad.sport);
       setTeamId(squad.teamId);
     }
   }, [squad]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onEditSquad({ id: squad.id, name, teamId });
+    onEditSquad({ id: squad.id, name, sport, teamId });
     
     setName('');
+    setSport('');
     setTeamId('');
   };
 
@@ -37,7 +40,19 @@ const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
               onChange={(e) => setName(e.target.value)}
               required
             />
-          </Form.Group>      
+          </Form.Group> 
+
+          <Form.Group controlId="squadSport" className="mb-3">
+            <Form.Label>Sport</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Enter squad's sport"
+              value={sport}
+              onChange={(e) => setSport(e.target.value)}
+              required
+            />
+          </Form.Group>
+
           <Form.Group controlId="squadTeamId" className="mb-3">
             <Form.Label>Team ID</Form.Label>
             <Form.Control
