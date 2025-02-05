@@ -9,10 +9,10 @@ const Message = ( { variant , children}) => {
   )
 }
 
+// Default props in case no variant is provided
 Message.defaultProps = {
   variant: 'info',
 }
-
 
 
 export default Message

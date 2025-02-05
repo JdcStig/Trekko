@@ -10,6 +10,7 @@ const AddSquadModal = ({ show, onHide, onAddSquad }) => {
     e.preventDefault();
     onAddSquad({ name, sport, teamId });
     
+    //resets data after submit to balnk
     setName('');
     setSport('');
     setTeamId('');

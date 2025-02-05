@@ -12,22 +12,23 @@ import AddSquadModal from '../components/Squad Management/AddSquadModal';
 import EditSquadModal from '../components/Squad Management/EditSquadModal';
 
 const UserManagementScreen = () => {
-  // RTK Query hook for fetching squads
+  // RTK Query hook 
   const { data, isLoading, error, refetch } = useGetSquadsQuery();
-  // Sorting state (Starts at Ascending and no columns are sorted at the start "null")
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  // RTK Query hook for deleting a squad
+  
   const [deleteSquad, { isLoading: loadingDelete }] = useDeleteSquadMutation();
   const [createSquad, { isLoading: loadingCreate }] = useCreateSquadMutation();
   const [updateSquad, { isLoading: loadingUpdate }] = useUpdateSquadMutation();
 
-  // Local state for confirming deletion
+    // Sorting state (Starts at Ascending/null)
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedSquad, setSelectedSquad] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
  
-  // Creates a sortedSquads copy of the data, will sort through the data based on the strings
+  // Creates a sortedSquads copy of the data
   const sortedSquads = [...(data?.squads || [])].sort((a, b) => {
     if (!sortConfig.key) return 0;
     const valueA = a[sortConfig.key].toLowerCase();
@@ -69,7 +70,7 @@ const UserManagementScreen = () => {
       refetch();
       setShowEditModal(false);
     } catch (err) {
-      console.error(err);
+      //console.error(err);
     }
   };
 
@@ -80,7 +81,7 @@ const UserManagementScreen = () => {
       await deleteSquad(selectedSquad._id).unwrap();
       refetch();
     } catch (err) {
-      console.error(err);
+      //console.error(err);
     } finally {
       setShowConfirm(false);
       setSelectedSquad(null);
@@ -100,7 +101,7 @@ const UserManagementScreen = () => {
       refetch();
       setShowAddModal(false);
     } catch (err) {
-      console.error(err);
+      //console.error(err);
     }
   };
 

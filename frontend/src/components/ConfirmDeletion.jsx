@@ -1,11 +1,11 @@
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
 
-const ConfirmDeletion = ({ show, onConfirm, onCancel, title, message }) => {
+const ConfirmDeletion = ({ show, onConfirm, onCancel, message }) => {
   return (
     <Modal show={show} onHide={onCancel} centered>
       <Modal.Header closeButton>
-        <Modal.Title>{title || 'Confirm Deletion'}</Modal.Title>
+        <Modal.Title>{'Confirm Deletion'}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <p>{message || 'Are you sure you want to delete this item?'}</p>

@@ -19,6 +19,7 @@ const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
     e.preventDefault();
     onEditSquad({ id: squad.id, name, sport, teamId });
     
+    //resets data after submit to balnk
     setName('');
     setSport('');
     setTeamId('');
