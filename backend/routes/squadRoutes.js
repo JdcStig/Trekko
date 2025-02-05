@@ -3,9 +3,7 @@ import Squad from "../models/squadModel.js";
 import asyncHandler from 'express-async-handler';
 const router = express.Router();
 import {
-    authSquad,
     registerSquad,
-    logoutSquad,
     getSquadProfile,
     updateSquadProfile,
     getSquads,
@@ -23,8 +21,6 @@ import { protect } from '../middleware/authMiddleware.js';
 router.route('/').post(registerSquad).get(getSquads); 
 
 
-router.post('/logout', logoutSquad);
-router.post('/auth', authSquad);
 router.route('/profile').get(protect, getSquadProfile).put(protect, updateSquadProfile);
 router.route('/:id').delete(protect, deleteSquad).get(protect, getSquadByID).put(protect, updateSquad);
 

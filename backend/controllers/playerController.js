@@ -3,29 +3,6 @@ import asyncHandler from '../middleware/asyncHandler.js';
 import Player from '../models/playerModel.js';
 import generateToken from '../utils/generateToken.js';
 
-// @desc   Auth player & get token
-// @route  POST /api/players/login
-// @access Public
-const authPlayer = asyncHandler(async (req, res) => {
-    // Takes out the name and position
-    const { name, position } = req.body;
-
-    const player = await Player.findOne({ position });
-
-    if (player && (await player.findOne({ name }))) {
-        generateToken(res, player._id);
-
-        res.status(200).json({
-         _id: player._id,
-         id: player.id,
-         name: player.name,
-         position: player.position,
-        });
-    } else {
-      res.status(401);
-      throw new Error('Invalid name or position');
-    }
-});
 
 // @desc   Register player
 // @route  POST /api/players
@@ -65,18 +42,6 @@ const registerPlayer = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('Invalid player data');
     }
-});
-
-// @desc   Logout player / clear cookie
-// @route  POST /api/players/logout
-// @access Private
-const logoutPlayer = asyncHandler(async (req, res) => {
-    res.cookie('jwt', '', {
-        httpOnly: true,
-        expires: new Date(0)
-    });
-
-    res.status(200).json({ message: 'Logged out successfully' });
 });
 
 // @desc   Get player profile
@@ -196,9 +161,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
 
 
 export{
-    authPlayer,
     registerPlayer,
-    logoutPlayer,
     getPlayerProfile,
     updatePlayerProfile,
     getPlayers,
