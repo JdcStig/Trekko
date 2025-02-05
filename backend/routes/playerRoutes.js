@@ -3,9 +3,7 @@ import Player from "../models/playerModel.js";
 import asyncHandler from 'express-async-handler';
 const router = express.Router();
 import {
-    authPlayer,
     registerPlayer,
-    logoutPlayer,
     getPlayerProfile,
     updatePlayerProfile,
     getPlayers,
@@ -23,8 +21,6 @@ import { protect } from '../middleware/authMiddleware.js';
 router.route('/').post(registerPlayer).get(getPlayers); 
 
 
-router.post('/logout', logoutPlayer);
-router.post('/auth', authPlayer);
 router.route('/profile').get(protect, getPlayerProfile).put(protect, updatePlayerProfile);
 router.route('/:id').delete(protect, deletePlayer).get(protect, getPlayerByID).put(protect, updatePlayer);
 

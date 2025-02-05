@@ -3,28 +3,7 @@ import asyncHandler from '../middleware/asyncHandler.js';
 import Squad from '../models/squadModel.js';
 import generateToken from '../utils/generateToken.js';
 
-// @desc   Auth squad & get token
-// @route  POST /api/squads/login
-// @access Public
-const authSquad = asyncHandler(async (req, res) => {
-    // Takes out the name and position
-    const { name, teamId } = req.body;
 
-    const squad = await Squad.findOne({ name });
-
-    if (squad && (await squad.findOne({ name }))) {
-        generateToken(res, squad._id);
-
-        res.status(200).json({
-         _id: squad._id,
-         id: squad.id,
-         name: squad.name,
-        });
-    } else {
-      res.status(401);
-      throw new Error('Invalid name or position');
-    }
-});
 
 // @desc   Register squad
 // @route  POST /api/squads
@@ -64,18 +43,6 @@ const registerSquad = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('Invalid squad data');
     }
-});
-
-// @desc   Logout squad / clear cookie
-// @route  POST /api/squads/logout
-// @access Private
-const logoutSquad = asyncHandler(async (req, res) => {
-    res.cookie('jwt', '', {
-        httpOnly: true,
-        expires: new Date(0)
-    });
-
-    res.status(200).json({ message: 'Logged out successfully' });
 });
 
 // @desc   Get squad profile
@@ -185,9 +152,7 @@ const updateSquad = asyncHandler(async (req, res) => {
 });
 
 export{
-    authSquad,
     registerSquad,
-    logoutSquad,
     getSquadProfile,
     updateSquadProfile,
     getSquads,
