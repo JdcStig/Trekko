@@ -3,13 +3,15 @@ import { Modal, Button, Form } from 'react-bootstrap';
 
 const AddSquadModal = ({ show, onHide, onAddSquad }) => {
   const [name, setName] = useState('');
+  const [sport, setSport] = useState('');
   const [teamId, setTeamId] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAddSquad({ name, teamId });
+    onAddSquad({ name, sport, teamId });
     
     setName('');
+    setSport('');
     setTeamId('');
   };
 
@@ -29,7 +31,19 @@ const AddSquadModal = ({ show, onHide, onAddSquad }) => {
               onChange={(e) => setName(e.target.value)}
               required
             />
-          </Form.Group>      
+          </Form.Group>   
+          
+          <Form.Group controlId="squadSport" className="mb-3">
+            <Form.Label>Sport</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Enter squad's sport"
+              value={sport}
+              onChange={(e) => setSport(e.target.value)}
+              required
+            />
+          </Form.Group> 
+             
           <Form.Group controlId="squadTeamId" className="mb-3">
             <Form.Label>Team ID</Form.Label>
             <Form.Control

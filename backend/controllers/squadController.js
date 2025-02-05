@@ -30,7 +30,7 @@ const authSquad = asyncHandler(async (req, res) => {
 // @route  POST /api/squads
 // @access Public
 const registerSquad = asyncHandler(async (req, res) => {
-    const { name, teamId } = req.body;
+    const { name, sport, teamId } = req.body;
 
     const squadExists = await Squad.findOne({ name });
 
@@ -46,6 +46,7 @@ const registerSquad = asyncHandler(async (req, res) => {
     const squad = await Squad.create({
         id: newId,
         name,
+        sport,
         teamId,
     });
 
@@ -56,6 +57,7 @@ const registerSquad = asyncHandler(async (req, res) => {
         _id: squad._id,
         id: squad.id,
         name: squad.name,
+        sport: squad.sport,
         teamId: squad.teamId,
        }); 
     } else {
@@ -102,6 +104,7 @@ const updateSquadProfile = asyncHandler(async (req, res) => {
 
     if (squad) {
         squad.name = req.body.name || squad.name; 
+        squad.sport = req.body.sport || squad.sport; 
         squad.teamId = req.body.teamId || squad.teamId; 
 
 
@@ -163,6 +166,7 @@ const updateSquad = asyncHandler(async (req, res) => {
 
     if (squad) {
         squad.name = req.body.name || squad.name;
+        squad.sport = req.body.sport || squad.sport; 
         squad.teamId = req.body.teamId || squad.teamId;
 
         const updatedSquad = await squad.save();
@@ -171,6 +175,7 @@ const updateSquad = asyncHandler(async (req, res) => {
             _id: updatedSquad._id,
             id: updatedSquad.id,
             name: updatedSquad.name,
+            sport: updatedSquad.sport,
             teamId: updatedSquad.teamId,
         })
     } else {
