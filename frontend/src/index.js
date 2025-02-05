@@ -18,15 +18,15 @@ import {
   RouterProvider,
 } from 'react-router-dom';
 
+
+console.log("Google Client ID Loaded:", process.env.REACT_APP_GOOGLE_CLIENT_ID);
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<App />}>
-
-
       {/* Public Routes */}
       <Route path="/LoginScreen" element={<LoginScreen />} />
       <Route path="/RegisterScreen" element={<RegisterScreen />} />
-      
 
       {/* Protected Routes */}
       <Route element={<PrivateRoute />}>

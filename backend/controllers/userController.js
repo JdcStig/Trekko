@@ -11,7 +11,7 @@ const authUser = asyncHandler(async (req, res) => {
     // Takes out the email and password
     const { email, password } = req.body;
 
-    console.log('------- Backend received:', email, password);
+    //console.log('------- Backend received:', email, password);
 
     const user = await User.findOne({ email });
 
@@ -29,6 +29,40 @@ const authUser = asyncHandler(async (req, res) => {
       throw new Error('Invalid email or password');
     }
 });
+
+
+
+
+
+// @desc   Authenticate user via Google
+// @route  POST /api/users/google-auth
+// @access Public
+const googleAuthUser = asyncHandler(async (req, res) => {
+    const { email, name, googleId } = req.body;
+    let user = await User.findOne({ email });
+  
+    if (!user) {
+      user = await User.create({
+        id: googleId,
+        name,
+        email,
+        password: googleId, // Dummy password for Google login
+      });
+    }
+  
+    generateToken(res, user._id);
+    res.status(200).json({
+      _id: user._id,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    });
+  });
+
+
+
+
+
 
 // @desc   Register user
 // @route  POST /api/users
@@ -201,6 +235,7 @@ const updateUser = asyncHandler(async (req, res) => {
 
 export{
     authUser,
+    googleAuthUser,
     registerUser,
     logoutUser,
     getUserProfile,
