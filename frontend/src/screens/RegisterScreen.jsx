@@ -25,6 +25,7 @@ const RegisterScreen = () => {
   const sp = new URLSearchParams(search);
   const redirect = sp.get('redirect') || '/SquadManagementScreen';
 
+  // Redirect user if already logged in
   useEffect(() => {
     if (userInfo) {
       navigate(redirect);

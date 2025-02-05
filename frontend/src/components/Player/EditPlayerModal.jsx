@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
 const EditPlayerModal = ({ show, onHide, onEditPlayer, initialData }) => {
+  // State variables to store player details initialized with initialData or empty values
   const [name, setName] = useState(initialData?.name || '');
   const [position, setPosition] = useState(initialData?.position || '');
   const [teamId, setTeamId] = useState(initialData?.teamId || '');

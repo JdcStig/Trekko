@@ -14,9 +14,11 @@ import AddPlayerModal from '../components/Player/AddPlayerModal';
 import EditPlayerModal from '../components/Player/EditPlayerModal';
 
 const SquadManagementScreen = () => {
-  // RTK Query hook for fetching players
-  const { data, isLoading, error, refetch } = useGetPlayersQuery();
-  // RTK Query hooks players
+
+  // RTK Query hooks 
+ 
+const { data, isLoading, error, refetch } = useGetPlayersQuery();
+
   const [deletePlayer, { isLoading: loadingDelete }] = useDeletePlayerMutation();
   const [createPlayer, { isLoading: loadingCreate }] = useCreatePlayerMutation();
   const [updatePlayer, { isLoading: loadingUpdate }] = useUpdatePlayerMutation();
@@ -58,7 +60,7 @@ const SquadManagementScreen = () => {
       await deletePlayer(selectedPlayer._id).unwrap();
       refetch();
     } catch (err) {
-      console.error(err);
+     // console.error(err);
     } finally {
       setShowConfirm(false);
       setSelectedPlayer(null);
@@ -78,7 +80,7 @@ const SquadManagementScreen = () => {
       refetch();
       setShowAddModal(false);
     } catch (err) {
-      console.error(err);
+      //console.error(err);
     }
   };
 
@@ -96,7 +98,7 @@ const SquadManagementScreen = () => {
       setShowEditModal(false);
       setSelectedEditPlayer(null);
     } catch (err) {
-      console.error(err);
+      //console.error(err);
     }
   };
 

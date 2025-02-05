@@ -10,12 +10,10 @@ import { toast } from 'react-toastify';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 
-// ✅ Load Google Client ID from .env
+//loads info from the front end .env
 const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
-if (!clientId) {
-  console.error("🚨 Google Client ID is missing. Make sure it's defined in .env");
-}
+
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -33,6 +31,7 @@ const LoginScreen = () => {
   const sp = new URLSearchParams(search);
   const redirect = sp.get('redirect') || '/SquadManagementScreen';
 
+  // redirect user if already loged in
   useEffect(() => {
     if (userInfo) {
       navigate(redirect);
@@ -53,22 +52,21 @@ const LoginScreen = () => {
 
   const handleGoogleSuccess = async (response) => {
     try {
-      const decoded = jwtDecode(response.credential);
-      const { email, name, sub } = decoded;
+      const decoded = jwtDecode(response.credential);// Decode JWT token from Google
+      const { email, name, sub } = decoded;// Extract user details
 
-      console.log("✅ Google Login Successful:", decoded);
 
       const res = await googleLogin({ email, name, googleId: sub }).unwrap();
       dispatch(setCredentials(res));
       navigate(redirect);
     } catch (error) {
-      console.error("❌ Google login error:", error);
+      
       toast.error("Google login failed. Please try again.");
     }
   };
 
   const handleGoogleFailure = () => {
-    console.error("❌ Google login failed.");
+   
     toast.error("Google login failed. Please try again.");
   };
 

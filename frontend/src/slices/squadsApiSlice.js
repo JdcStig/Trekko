@@ -17,14 +17,16 @@ export const squadsApiSlice = createApi({
             ]
           : [{ type: 'Squad', id: 'LIST' }],
     }),
+   
     deleteSquad: builder.mutation({
       query: (id) => ({
         url: `squads/${id}`,
         method: 'DELETE',
         credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Squad', id: 'LIST' }],
+      invalidatesTags: [{ type: 'Squad', id: 'LIST' }], // Refresh squad list after deletion
     }),
+
     createSquad: builder.mutation({
       query: (squadData) => ({
         url: 'squads',
@@ -32,8 +34,9 @@ export const squadsApiSlice = createApi({
         body: squadData,
         credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Squad', id: 'LIST' }],
+      invalidatesTags: [{ type: 'Squad', id: 'LIST' }], // Refresh squad list after creation
     }),
+
     updateSquad: builder.mutation({
       query: ({ id, ...squadData }) => ({
         url: `squads/${id}`,
@@ -41,7 +44,7 @@ export const squadsApiSlice = createApi({
         body: squadData,
         credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Squad', id: 'LIST' }],
+      invalidatesTags: [{ type: 'Squad', id: 'LIST' }],// Refresh squad list after update
     }),
   }),
 });

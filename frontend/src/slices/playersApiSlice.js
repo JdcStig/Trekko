@@ -6,6 +6,7 @@ export const playersApiSlice = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: BASE_URL }),
   tagTypes: ['Player'],
   endpoints: (builder) => ({
+    //fetch all players
     getPlayers: builder.query({
       query: () => 'players', // This concatenates to BASE_URL + 'players'
       transformResponse: (responseData) => ({ players: responseData }),
@@ -17,6 +18,8 @@ export const playersApiSlice = createApi({
             ]
           : [{ type: 'Player', id: 'LIST' }],
     }),
+
+    
     deletePlayer: builder.mutation({
       query: (id) => ({
         url: `players/${id}`,
@@ -25,6 +28,8 @@ export const playersApiSlice = createApi({
       }),
       invalidatesTags: [{ type: 'Player', id: 'LIST' }],
     }),
+
+
     createPlayer: builder.mutation({
       query: (playerData) => ({
         url: 'players',
@@ -34,6 +39,8 @@ export const playersApiSlice = createApi({
       }),
       invalidatesTags: [{ type: 'Player', id: 'LIST' }],
     }),
+
+    
     updatePlayer: builder.mutation({
       query: ({ id, ...patch }) => ({
         url: `players/${id}`,
