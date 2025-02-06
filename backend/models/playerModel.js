@@ -1,10 +1,6 @@
 import mongoose from "mongoose";
 
 const playerSchema = new mongoose.Schema({
-  id: {
-    type: Number,
-    required: true,
-  },
   name: {
     type: String,
     required: true,
@@ -13,7 +9,7 @@ const playerSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  teamId: {
+  teamName: {
     type: String,
     required: true,
   },

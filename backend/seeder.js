@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import User from './models/userModel.js';
 import Player from './models/playerModel.js';
-import Squad from './models/squadModel.js';
+import Team from './models/teamModel.js';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -26,32 +26,26 @@ const users = [
 
 const players = [
   {
-    id: '1',
     name: 'XForward',
     position: 'Forward',
-    teamId: "XPX1",
+    teamName: "XPX1",
 },
 {
-    id: '2',
     name: 'XStriker',
     position: 'Striker',
-    teamId: "XPX2",
+    teamName: "XPX2",
 },
 ];
 
 
-const squads = [
+const teams = [
   {
-    id: '1',
     name: 'XTeam 1',
     sport: 'GAA',
-    teamId: "XPX1",
 },
 {
-    id: '2',
     name: 'XTeam 2',
     sport: 'Soccer',
-    teamId: "XPX2",
 },
 ];
 
@@ -61,8 +55,8 @@ const importData = async () => {
     await User.insertMany(users); // Reinserts whats above
     await Player.deleteMany(); // Clears previous players
     await Player.insertMany(players); // Reinserts whats above
-    await Squad.deleteMany(); // Clears previous squads
-    await Squad.insertMany(squads); // Reinserts whats above
+    await Team.deleteMany(); // Clears previous teams
+    await Team.insertMany(teams); // Reinserts whats above
     console.log("Seeded successfully");
     process.exit();
   } catch (error) {
