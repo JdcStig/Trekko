@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
 const AddSquadModal = ({ show, onHide, onAddSquad }) => {
   const [name, setName] = useState('');
   const [sport, setSport] = useState('');
   const [teamId, setTeamId] = useState('');
+
+  useEffect(() => {
+    if (!show) {
+      setName('');
+      setSport('');
+      setTeamId('');
+    }
+  }, [show]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

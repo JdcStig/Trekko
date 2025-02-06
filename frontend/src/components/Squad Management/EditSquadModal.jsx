@@ -6,29 +6,27 @@ const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
   const [sport, setSport] = useState('');
   const [teamId, setTeamId] = useState('');
 
-  //If the squad exists, it will put the name, sport and TeamId into the inputs
+  // Reset form fields when modal is opened
   useEffect(() => {
-    if (squad) {
+    if (show && squad) {
       setName(squad.name);
       setSport(squad.sport);
       setTeamId(squad.teamId);
     }
-  }, [squad]);
+  }, [show, squad]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onEditSquad({ id: squad.id, name, sport, teamId });
-    
-    //resets data after submit to balnk
-    setName('');
-    setSport('');
-    setTeamId('');
+
+    // Close modal after submission
+    onHide();
   };
 
   return (
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Edit New Squad</Modal.Title>
+        <Modal.Title>Edit Squad</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
@@ -65,7 +63,7 @@ const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
             />
           </Form.Group>
           <Button variant="primary" type="submit">
-          Update Squad
+            Update Squad
           </Button>
         </Form>
       </Modal.Body>
