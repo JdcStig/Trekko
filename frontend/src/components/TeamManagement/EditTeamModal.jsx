@@ -1,23 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
-const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
+const EditTeamModal = ({ show, onHide, onEditTeam, team }) => {
   const [name, setName] = useState('');
   const [sport, setSport] = useState('');
   const [teamId, setTeamId] = useState('');
 
-  // Reset form fields when modal is opened
   useEffect(() => {
-    if (show && squad) {
-      setName(squad.name);
-      setSport(squad.sport);
-      setTeamId(squad.teamId);
+    if (show && team) {
+      setName(team.name);
+      setSport(team.sport);
     }
-  }, [show, squad]);
+  }, [show, team]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onEditSquad({ id: squad.id, name, sport, teamId });
+    onEditTeam({ id: team.id, name, sport });
 
     // Close modal after submission
     onHide();
@@ -26,44 +24,35 @@ const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
   return (
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
-        <Modal.Title>Edit Squad</Modal.Title>
+        <Modal.Title>Edit Team</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          <Form.Group controlId="squadName" className="mb-3">
+          <Form.Group controlId="teamName" className="mb-3">
             <Form.Label>Name</Form.Label>
             <Form.Control
               type="text"
-              placeholder="Enter squad's name"
+              placeholder="Enter team's name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
             />
-          </Form.Group> 
+          </Form.Group>
 
-          <Form.Group controlId="squadSport" className="mb-3">
+          <Form.Group controlId="teamSport" className="mb-3">
             <Form.Label>Sport</Form.Label>
             <Form.Control
               type="text"
-              placeholder="Enter squad's sport"
+              placeholder="Enter team's sport"
               value={sport}
               onChange={(e) => setSport(e.target.value)}
               required
             />
           </Form.Group>
 
-          <Form.Group controlId="squadTeamId" className="mb-3">
-            <Form.Label>Team ID</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter team ID"
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              required
-            />
-          </Form.Group>
+
           <Button variant="primary" type="submit">
-            Update Squad
+            Update Team
           </Button>
         </Form>
       </Modal.Body>
@@ -71,4 +60,4 @@ const EditSquadModal = ({ show, onHide, onEditSquad, squad }) => {
   );
 };
 
-export default EditSquadModal;
+export default EditTeamModal;

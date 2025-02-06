@@ -13,7 +13,7 @@ import {
 import AddPlayerModal from '../components/Player/AddPlayerModal';
 import EditPlayerModal from '../components/Player/EditPlayerModal';
 
-const SquadManagementScreen = () => {
+const PlayerManagementScreen = () => {
 
   // RTK Query hooks 
  
@@ -143,10 +143,10 @@ const { data, isLoading, error, refetch } = useGetPlayersQuery();
 
   return (
     <Container>
-      {/* Header with Squad Management title and plus button */}
+      {/* Header with player Management title and plus button */}
       <Row className="align-items-center my-4">
         <Col>
-          <h2>Squad Management</h2>
+          <h2>Player Management</h2>
         </Col>
         <Col className="text-end">
           <Button variant="primary" className="btn-sm" onClick={() => setShowAddModal(true)}>
@@ -206,9 +206,10 @@ const { data, isLoading, error, refetch } = useGetPlayersQuery();
               <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
                 Position {sortConfig.key === 'position' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-              <th onClick={() => handleSort('teamId')} style={{ cursor: 'pointer' }}>
-                Team ID {sortConfig.key === 'teamId' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
+                Team Name {sortConfig.key === 'position' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
+              
               <th></th>
               <th></th>
             </tr>
@@ -218,7 +219,8 @@ const { data, isLoading, error, refetch } = useGetPlayersQuery();
               <tr key={player._id}>
                 <td>{player.name}</td>
                 <td>{player.position}</td>
-                <td>{player.teamId}</td>
+                <td>{player.teamName}</td>
+              
                 <td>
                   <Button 
                     variant="light" 
@@ -276,4 +278,4 @@ const { data, isLoading, error, refetch } = useGetPlayersQuery();
   );
 };
 
-export default SquadManagementScreen;
+export default PlayerManagementScreen;
