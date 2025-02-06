@@ -29,7 +29,7 @@ const LoginScreen = () => {
 
   const { search } = useLocation();
   const sp = new URLSearchParams(search);
-  const redirect = sp.get('redirect') || '/SquadManagementScreen';
+  const redirect = sp.get('redirect') || '/TeamManagementScreen';
 
   // redirect user if already loged in
   useEffect(() => {

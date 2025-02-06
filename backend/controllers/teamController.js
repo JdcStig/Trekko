@@ -121,7 +121,7 @@ const deleteTeam = asyncHandler(async (req, res) => {
 // @route  PUT /api/teams/:id
 // @access Private/Admin
 const updateTeam = asyncHandler(async (req, res) => {
-    const team = await Team.findOne({ id: req.params.id });
+    const team = await Team.findById(req.params.id);
 
     if (team) {
         team.name = req.body.name || team.name;
@@ -133,7 +133,7 @@ const updateTeam = asyncHandler(async (req, res) => {
             _id: updatedTeam._id,
             name: updatedTeam.name,
             sport: updatedTeam.sport,
-        })
+        });
     } else {
         res.status(404);
         throw new Error('Team not found');

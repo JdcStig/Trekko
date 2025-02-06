@@ -64,14 +64,16 @@ const TeamManagementScreen = () => {
 
   // Updates the team and closes the modal
   const handleEditTeam = async (updatedTeam) => {
+    console.log("Updating team:", updatedTeam); // Debugging output
     try {
       await updateTeam(updatedTeam).unwrap();
       refetch();
       setShowEditModal(false);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to update team:", err);
     }
   };
+  
 
   // Called when the user confirms deletion
   const handleConfirmDeletion = async () => {

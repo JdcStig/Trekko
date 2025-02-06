@@ -24,7 +24,7 @@ export const teamsApiSlice = createApi({
         method: 'DELETE',
         credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Team', id: 'LIST' }], // Refresh team list after deletion
+      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
     }),
 
     createTeam: builder.mutation({
@@ -34,17 +34,17 @@ export const teamsApiSlice = createApi({
         body: teamData,
         credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Team', id: 'LIST' }], // Refresh team list after creation
+      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
     }),
 
     updateTeam: builder.mutation({
-      query: ({ id, ...teamData }) => ({
-        url: `teams/${id}`,
+      query: ({ _id, ...teamData }) => ({
+        url: `teams/${_id}`, // Ensure _id is used here
         method: 'PUT',
         body: teamData,
         credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Team', id: 'LIST' }], // Refresh team list after update
+      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
     }),
   }),
 });
