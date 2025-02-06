@@ -20,7 +20,6 @@ const authUser = asyncHandler(async (req, res) => {
 
         res.status(200).json({
          _id: user._id,
-         id: user.id,
          name: user.name,
          email: user.email,
         });
@@ -77,14 +76,8 @@ const registerUser = asyncHandler(async (req, res) => {
       throw new Error('User already exists');
     }
 
-    // Finds the highest `id` in the database
-    const lastUser = await User.findOne().sort({ id: -1 });
-
-    // Auto-increments the "id" (If no users exist, start from 1)
-    const newId = lastUser ? lastUser.id + 1 : 1;
 
     const user = await User.create({
-        id: newId, // Auto-incremented
         name,
         email,
         password,
@@ -95,7 +88,6 @@ const registerUser = asyncHandler(async (req, res) => {
 
        res.status(201).json({
         _id: user._id,
-        id: user.id,
         name: user.name,
         email: user.email,
        }); 
@@ -126,7 +118,6 @@ const getUserProfile = asyncHandler(async (req, res) => {
     if (user) {
        res.status(200).json({
         _id: user._id,
-        id: user.id,
         name: user.name,
         email: user.email,
        }); 
@@ -154,7 +145,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 
        res.status(200).json({
         _id: updatedUser._id,
-        id: user.id,
         name: updateUser.name,
         email: updatedUser.email,
        });
@@ -209,7 +199,7 @@ const deleteUser = asyncHandler(async (req, res) => {
 // @route  PUT /api/users/:id
 // @access Private/Admin
 const updateUser = asyncHandler(async (req, res) => {
-    const user = await User.findOne({ id: req.params.id }); // Uses id instead of _id
+    const user = await User.findById(req.params.id);
 
     if (user) {
         user.name = req.body.name || user.name;
@@ -223,7 +213,6 @@ const updateUser = asyncHandler(async (req, res) => {
 
         res.status(200).json({
             _id: updatedUser._id,
-            id: updatedUser.id,
             name: updatedUser.name,
             email: updatedUser.email,
         })

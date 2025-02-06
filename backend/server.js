@@ -8,7 +8,7 @@ dotenv.config();
 
 import connectDB from './config/db.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
-import squadRoutes from './routes/squadRoutes.js';
+import teamRoutes from './routes/teamRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 
@@ -33,7 +33,7 @@ const __dirname = path.resolve();
 //routes handle backend API endpoints
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
-app.use('/api/squads', squadRoutes);
+app.use('/api/teams', teamRoutes);
 
 
 app.use(express.static(path.join(__dirname, '/frontend/build')));

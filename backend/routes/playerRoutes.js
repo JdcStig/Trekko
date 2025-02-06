@@ -19,8 +19,6 @@ import { protect } from '../middleware/authMiddleware.js';
 // @route  GET /api/players
 // @access Public
 router.route('/').post(registerPlayer).get(getPlayers); 
-
-
 router.route('/profile').get(protect, getPlayerProfile).put(protect, updatePlayerProfile);
 router.route('/:id').delete(protect, deletePlayer).get(protect, getPlayerByID).put(protect, updatePlayer);
 
