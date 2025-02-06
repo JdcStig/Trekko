@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { useSelector } from 'react-redux';
+import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
+import { useGetPlayersQuery } from "../../slices/playersApiSlice";
+
+
 
 const AddPlayerModal = ({ show, onHide, onAddPlayer }) => {
   // State variables to store player details
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [teamName, setTeamName] = useState('');
+  const { refetch } = useGetPlayersQuery();
 
+
+  // Gets user info
+  const { userInfo } = useSelector((state) => state.auth);
+
+  // Fetches teams
+  const { data: teamsData } = useGetTeamsQuery();
+
+  const filteredTeams = teamsData?.teams?.filter(team => team.userId === userInfo?._id) || [];
   // Reset fields when modal closes
   useEffect(() => {
     if (!show) {
@@ -25,7 +39,7 @@ const AddPlayerModal = ({ show, onHide, onAddPlayer }) => {
     }
 
     // Calls the onAddPlayer function and passes the new player data
-    onAddPlayer({ name, position, teamName });
+    onAddPlayer({ name, position, teamName, userId: userInfo._id }).then(() => refetch());
 
     // Clear input fields after submission
     setName('');
@@ -41,7 +55,6 @@ const AddPlayerModal = ({ show, onHide, onAddPlayer }) => {
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          {/* Player Name Input */}
           <Form.Group controlId="playerName" className="mb-3">
             <Form.Label>Name</Form.Label>
             <Form.Control
@@ -53,7 +66,6 @@ const AddPlayerModal = ({ show, onHide, onAddPlayer }) => {
             />
           </Form.Group>
 
-          {/* Player Position Input */}
           <Form.Group controlId="playerPosition" className="mb-3">
             <Form.Label>Position</Form.Label>
             <Form.Control
@@ -65,16 +77,21 @@ const AddPlayerModal = ({ show, onHide, onAddPlayer }) => {
             />
           </Form.Group>
 
-          {/* Team Name Input */}
-          <Form.Group controlId="playerTeam" className="mb-3">
+          {/* Team Dropdown - Only show teams created by the logged-in user */}
+          <Form.Group controlId="team">
             <Form.Label>Team Name</Form.Label>
             <Form.Control
-              type="text"
-              placeholder="Enter team name"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              required
-            />
+             as="select"
+             value={teamName}
+             onChange={(e) => setTeamName(e.target.value)}
+              >
+              <option value="">Select Team</option>
+                 {filteredTeams.map((team) => (
+                 <option key={team._id} value={team.name}>
+                  {team.name}
+              </option>
+                   ))}
+</Form.Control>
           </Form.Group>
 
           <Button variant="primary" type="submit">

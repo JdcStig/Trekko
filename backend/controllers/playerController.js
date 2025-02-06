@@ -1,6 +1,7 @@
 import { response } from 'express';
 import asyncHandler from '../middleware/asyncHandler.js';
 import Player from '../models/playerModel.js';
+import Team from '../models/teamModel.js';
 import generateToken from '../utils/generateToken.js';
 
 
@@ -9,29 +10,29 @@ import generateToken from '../utils/generateToken.js';
 // @access Public
 const registerPlayer = asyncHandler(async (req, res) => {
     const { name, position, teamName } = req.body;
+    const userId = req.user._id; // Gets the logged-in user's ID
 
-    const playerExists = await Player.findOne({ name });
+    const team = await Team.findOne({ name: teamName, userId });
 
-    if (playerExists) {
-      res.status(400);
-      throw new Error('player already exists');
+    if (!team) {
+        res.status(400);
+        throw new Error("Team does not exist");
     }
 
     const player = await Player.create({
         name,
         position,
         teamName,
+        userId,
     });
 
     if (player) {
-       {/*generateToken(res, player._id);*/}
-
-       res.status(201).json({
-        _id: player._id,
-        name: player.name,
-        position: player.position,
-        teamName: player.teamName,
-       }); 
+        res.status(200).json({
+            _id: player._id,
+            name: player.name,
+            position: player.position,
+            userId: player.userId,
+           });
     } else {
         res.status(400);
         throw new Error('Invalid player data');
@@ -83,7 +84,7 @@ const updatePlayerProfile = asyncHandler(async (req, res) => {
 // @route  GET /api/players
 // @access Private/Admin
 const getPlayers = asyncHandler(async (req, res) => {
-    const players = await Player.find({});
+    const players = await Player.find({ userId: req.user._id }); // Only returns user's players
     res.status(200).json(players);
 });
 

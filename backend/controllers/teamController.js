@@ -10,8 +10,9 @@ import generateToken from '../utils/generateToken.js';
 // @access Public
 const registerTeam = asyncHandler(async (req, res) => {
     const { name, sport } = req.body;
+    const userId = req.user._id; // Gets the logged-in user's ID
 
-    const teamExists = await Team.findOne({ name });
+    const teamExists = await Team.findOne({ name, userId });
 
     if (teamExists) {
       res.status(400);
@@ -22,16 +23,16 @@ const registerTeam = asyncHandler(async (req, res) => {
     const team = await Team.create({
         name,
         sport,
+        userId,
     });
 
     if (team) {
-       {/*generateToken(res, team._id);*/}
-
-       res.status(201).json({
-        _id: team._id,
-        name: team.name,
-        sport: team.sport,
-       }); 
+        res.status(200).json({
+            _id: team._id,
+            name: team.name,
+            sport: team.sport,
+            userId: team.userId,
+           });
     } else {
         res.status(400);
         throw new Error('Invalid team data');
@@ -84,7 +85,7 @@ const updateTeamProfile = asyncHandler(async (req, res) => {
 // @route  GET /api/teams
 // @access Private/Admin
 const getTeams = asyncHandler(async (req, res) => {
-    const teams = await Team.find({});
+    const teams = await Team.find({ userId: req.user._id }); // Only returns user's teams
     res.status(200).json(teams);
 });
 
