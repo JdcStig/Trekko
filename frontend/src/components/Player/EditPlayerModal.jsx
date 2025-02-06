@@ -2,24 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
 const EditPlayerModal = ({ show, onHide, onEditPlayer, initialData }) => {
-  // State variables to store player details initialized with initialData or empty values
-  const [name, setName] = useState(initialData?.name || '');
-  const [position, setPosition] = useState(initialData?.position || '');
-  const [teamId, setTeamId] = useState(initialData?.teamId || '');
+  // State variables to store player details
+  const [name, setName] = useState('');
+  const [position, setPosition] = useState('');
+  const [teamId, setTeamId] = useState('');
 
-  // Update form fields when the initialData changes
+  // Update form fields when the modal opens
   useEffect(() => {
-    if (initialData) {
+    if (show && initialData) {
       setName(initialData.name);
       setPosition(initialData.position);
       setTeamId(initialData.teamId);
     }
-  }, [initialData]);
+  }, [show, initialData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Pass the updated data including the player's id
     onEditPlayer({ id: initialData._id, name, position, teamId });
+
+    // Close the modal after submission
+    onHide();
   };
 
   return (

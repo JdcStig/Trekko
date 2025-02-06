@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
 const AddPlayerModal = ({ show, onHide, onAddPlayer }) => {
@@ -7,6 +7,14 @@ const AddPlayerModal = ({ show, onHide, onAddPlayer }) => {
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [teamId, setTeamId] = useState('');
+
+  useEffect(() => {
+    if (!show) {
+      setName('');
+      setPosition('');
+      setTeamId('');
+    }
+  }, [show]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

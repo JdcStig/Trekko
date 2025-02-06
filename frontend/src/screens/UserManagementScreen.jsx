@@ -163,7 +163,7 @@ const UserManagementScreen = () => {
               {/* Contains a sorting feature */}
               <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
               {/* if it is ascending, cursor is up, else its down */}
-                Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                Team Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
               <th onClick={() => handleSort('teamId')} style={{ cursor: 'pointer' }}>
                 Team ID {sortConfig.key === 'teamId' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
