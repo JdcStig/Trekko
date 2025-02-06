@@ -44,13 +44,20 @@ const AddSquadModal = ({ show, onHide, onAddSquad }) => {
           
           <Form.Group controlId="squadSport" className="mb-3">
             <Form.Label>Sport</Form.Label>
+           
             <Form.Control
-              type="text"
-              placeholder="Enter squad's sport"
+              as="select"
               value={sport}
               onChange={(e) => setSport(e.target.value)}
               required
-            />
+            >
+              <option value="">Select a sport</option>
+              <option value="Soccer">Soccer</option>
+              <option value="GAA Football">GAA Football</option>
+              <option value="GAA Hurling">GAA Hurling</option>
+              <option value="Rugby">Rugby</option>
+              <option value="Other">Other</option>
+            </Form.Control>
           </Form.Group> 
              
           <Form.Group controlId="squadTeamId" className="mb-3">
