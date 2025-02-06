@@ -18,8 +18,8 @@ import { protect } from '../middleware/authMiddleware.js';
 // @desc   Fetch all teams from MongoDB
 // @route  GET /api/teams
 // @access Public
-router.route('/').post(registerTeam).get(getTeams); 
+router.route('/').post(protect, registerTeam).get(protect, getTeams); 
 router.route('/profile').get(protect, getTeamProfile).put(protect, updateTeamProfile);
-router.route('/:id').delete(protect, deleteTeam).get(protect, getTeamByID).put(protect, updateTeam);
+router.route('/:id').delete(protect, deleteTeam).put(protect, updateTeam);
 
 export default router;

@@ -8,16 +8,13 @@ export const playersApiSlice = createApi({
   endpoints: (builder) => ({
     //fetch all players
     getPlayers: builder.query({
-      query: () => 'players', // This concatenates to BASE_URL + 'players'
+      query: () => ({
+          url: "players",
+          credentials: "include", // Ensures authentication is included
+      }),
       transformResponse: (responseData) => ({ players: responseData }),
-      providesTags: (result = { players: [] }, error, arg) =>
-        result.players.length
-          ? [
-              ...result.players.map(({ _id }) => ({ type: 'Player', id: _id })),
-              { type: 'Player', id: 'LIST' },
-            ]
-          : [{ type: 'Player', id: 'LIST' }],
-    }),
+  }),
+  
 
     
     deletePlayer: builder.mutation({
@@ -34,7 +31,7 @@ export const playersApiSlice = createApi({
       query: (playerData) => ({
         url: 'players',
         method: 'POST',
-        body: playerData,
+        body: { ...playerData }, // Ensure userId is sent
         credentials: 'include',
       }),
       invalidatesTags: [{ type: 'Player', id: 'LIST' }],

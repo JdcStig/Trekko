@@ -7,16 +7,13 @@ export const teamsApiSlice = createApi({
   tagTypes: ['Team'],
   endpoints: (builder) => ({
     getTeams: builder.query({
-      query: () => 'teams',
+      query: () => ({
+          url: "teams",
+          credentials: "include",
+      }),
       transformResponse: (responseData) => ({ teams: responseData }),
-      providesTags: (result = { teams: [] }) =>
-        result.teams.length
-          ? [
-              ...result.teams.map(({ _id }) => ({ type: 'Team', id: _id })),
-              { type: 'Team', id: 'LIST' },
-            ]
-          : [{ type: 'Team', id: 'LIST' }],
-    }),
+  }),
+  
 
     deleteTeam: builder.mutation({
       query: (id) => ({
