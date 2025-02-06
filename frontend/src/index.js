@@ -3,8 +3,8 @@ import ReactDOM from 'react-dom/client';
 import './assets/styles/bootstrap.custom.css';
 import './assets/styles/index.css';
 import App from './App';
-import SquadManagementScreen from './screens/SquadManagementScreen';
-import UserManagementScreen from './screens/UserManagementScreen';
+import PlayerManagementScreen from './screens/PlayerManagementScreen';
+import TeamManagementScreen from './screens/TeamManagementScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import { Provider } from 'react-redux';
@@ -27,9 +27,9 @@ const router = createBrowserRouter(
 
       {/* Protected Routes */}
       <Route element={<PrivateRoute />}>
-        <Route path="/SquadManagementScreen" element={<SquadManagementScreen />} />
-        <Route path="/UserManagementScreen" element={<UserManagementScreen />} />
-        <Route path="/" element={<UserManagementScreen />} />
+        <Route path="/PlayerManagementScreen" element={<PlayerManagementScreen />} />
+        <Route path="/TeamManagementScreen" element={<TeamManagementScreen />} />
+        <Route path="/" element={<TeamManagementScreen />} />
       </Route>
     </Route>
   )
