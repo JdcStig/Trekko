@@ -3,7 +3,6 @@ import path from 'path';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
-// Remove the cors import (and from package.json if not needed elsewhere)
 dotenv.config();
 
 import connectDB from './config/db.js';
@@ -15,32 +14,27 @@ import userRoutes from './routes/userRoutes.js';
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Connect to the database
 connectDB();
 
-// Remove any CORS middleware – client and API will share the same origin
-
-// Middleware to parse JSON bodies and URL-encoded data
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-const __dirname = path.resolve();
-
-// API routes (they are now relative to the same origin)
+// Register API routes
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 
-// Serve static files from the React app build folder
+// Serve React static files in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '/frontend/build')));
+  const __dirname = path.resolve();
+  app.use(express.static(path.join(__dirname, 'frontend/build')));
   app.get('*', (req, res) =>
     res.sendFile(path.resolve(__dirname, 'frontend', 'build', 'index.html'))
   );
 } else {
   app.get('/', (req, res) => {
-    res.send('API is running....');
+    res.send('API is running...');
   });
 }
 
