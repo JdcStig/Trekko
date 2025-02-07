@@ -38,17 +38,22 @@ export const playersApiSlice = createApi({
     }),
 
     
-    updatePlayer: builder.mutation({
-      query: ({ id, ...patch }) => ({
-        url: `players/${id}`,
-        method: 'PUT', 
-        body: patch,
-        credentials: 'include',
-      }),
-      invalidatesTags: [{ type: 'Player', id: 'LIST' }],
-    }),
+
+updatePlayer: builder.mutation({
+  query: (player) => ({
+      url: `/players/${player.id}`,
+      method: 'PUT',
+      body: { name: player.name, position: player.position, teamName: player.teamName },
+      credentials: 'include',
   }),
-});
+  invalidatesTags: ['Player'], 
+}),
+
+}),
+})
+
+
+
 
 export const { 
   useGetPlayersQuery, 

@@ -121,27 +121,31 @@ const deletePlayer = asyncHandler(async (req, res) => {
 // @route  PUT /api/players/:id
 // @access Private/Admin
 const updatePlayer = asyncHandler(async (req, res) => {
-    // Change this line to use findById instead of findOne({ id: req.params.id })
+    const { name, position, teamName } = req.body;
     const player = await Player.findById(req.params.id);
 
-    if (player) {
-        player.name = req.body.name || player.name;
-        player.position = req.body.position || player.position;
-        player.teamName = req.body.teamName || player.teamName;
-
-        const updatedPlayer = await player.save();
-
-        res.status(200).json({
-            _id: updatedPlayer._id,
-            name: updatedPlayer.name,
-            position: updatedPlayer.position,
-            teamName: updatedPlayer.teamName,
-        });
-    } else {
+    if (!player) {
         res.status(404);
-        throw new Error('Player not found');
+        throw new Error("Player not found");
     }
+
+    // ✅ Ensure only provided fields are updated
+    if (name) player.name = name;
+    if (position) player.position = position;
+    if (teamName) player.teamName = teamName;
+
+    const updatedPlayer = await player.save();
+
+    res.status(200).json({
+        _id: updatedPlayer._id,
+        name: updatedPlayer.name,
+        position: updatedPlayer.position,
+        teamName: updatedPlayer.teamName,
+    });
 });
+
+
+
 
 
 export{

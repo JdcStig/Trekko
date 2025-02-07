@@ -1,7 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-
-
-// checks if user info is saved in localStorage if so it sets it as the initial userInfo otherwise it sets userInfo to null
+import { apiSlice } from '../slices/apiSlice'; // Fix import name
 
 const initialState = {
   userInfo: localStorage.getItem('userInfo')
@@ -18,7 +16,6 @@ const authSlice = createSlice({
       localStorage.setItem('userInfo', JSON.stringify(action.payload));
     },
     
-    //clears the user info from both the state and localStorage.
     logout: (state) => {
       state.userInfo = null;
       localStorage.removeItem('userInfo');
@@ -27,5 +24,10 @@ const authSlice = createSlice({
 });
 
 export const { setCredentials, logout } = authSlice.actions;
-
 export default authSlice.reducer;
+
+// Thunk function to handle logout properly
+export const logoutUser = () => (dispatch) => {
+  dispatch(logout()); // Clear user info from state & localStorage
+  dispatch(apiSlice.util.resetApiState()); // Fix: Use apiSlice instead of api
+};
