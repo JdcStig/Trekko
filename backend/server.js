@@ -20,12 +20,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Register API routes
+// API routes (registered before static files)
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 
-// Serve React static files in production
+// Serve static React files in production
 if (process.env.NODE_ENV === 'production') {
   const __dirname = path.resolve();
   app.use(express.static(path.join(__dirname, 'frontend/build')));
