@@ -36,6 +36,20 @@ app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 
 
+if (process.env.NODE_ENV === 'production') {
+  // set static folder
+  app.use(express.static(path.join(__dirname, '/frontend/build')));
+
+  // any route that is not api will be redirected to index.html
+  app.get('*', (req, res) =>
+      res.sendFile(path.resolve(__dirname, 'frontend', 'build', 'index.html'))
+  );
+} else {
+  app.get('/', (req, res) => {
+    res.send('API is running....');
+  });
+}
+
 app.use(express.static(path.join(__dirname, '/frontend/build')));
 
 
