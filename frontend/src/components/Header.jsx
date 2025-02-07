@@ -21,7 +21,7 @@ const Header = () => {
       await logout().unwrap(); // Call backend logout
       dispatch(logoutAction()); // Clear Redux state and localStorage
       dispatch(apiSlice.util.resetApiState()); // Reset RTK Query cache
-      navigate('/login'); // Redirect user
+      navigate('/LoginScreen'); // Redirect user
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -30,7 +30,7 @@ const Header = () => {
   // Ensure the user is redirected if they are logged out
   useEffect(() => {
     if (!userInfo) {
-      navigate('/login');
+      navigate('/LoginScreen');
     }
   }, [userInfo, navigate]);
 
