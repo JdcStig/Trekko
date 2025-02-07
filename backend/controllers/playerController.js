@@ -129,7 +129,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
         throw new Error("Player not found");
     }
 
-    // ✅ Ensure only provided fields are updated
+    // Ensure only provided fields are updated
     if (name) player.name = name;
     if (position) player.position = position;
     if (teamName) player.teamName = teamName;
