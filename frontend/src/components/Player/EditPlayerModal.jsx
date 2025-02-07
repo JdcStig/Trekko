@@ -1,29 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
+import { useSelector } from 'react-redux';
+import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
+import sportPositions from '../../data/sportPositions.json';
 
 const EditPlayerModal = ({ show, onHide, onEditPlayer, initialData }) => {
-  // State variables to store player details
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [teamName, setTeamName] = useState('');
+  const [sport, setSport] = useState('');
 
-  // Update form fields when the modal opens
+  const { userInfo } = useSelector((state) => state.auth);
+  const { data: teamsData } = useGetTeamsQuery();
+
+  const filteredTeams = useMemo(() => {
+    return teamsData?.teams?.filter(team => team.userId === userInfo?._id) || [];
+  }, [teamsData, userInfo]);
+
   useEffect(() => {
     if (show && initialData) {
-      setName(initialData.name || '');
-      setPosition(initialData.position || '');
-      setTeamName(initialData.teamName || '');
-    }
-  }, [show, initialData]);
+      console.log('Initial data:', initialData);
 
-  const handleSubmit = (e) => {
+      setName(initialData.name || '');
+      setTeamName(initialData.teamName || '');
+      setPosition(initialData.position || '');
+
+      const selectedTeam = filteredTeams.find(team => team.name === initialData.teamName);
+      setSport(selectedTeam?.sport || 'Other');
+    }
+  }, [show, initialData, filteredTeams]);
+
+  const handleTeamChange = (e) => {
+    const selectedTeamName = e.target.value;
+    setTeamName(selectedTeamName);
+
+    const selectedTeam = filteredTeams.find(team => team.name === selectedTeamName);
+    if (selectedTeam) {
+      setSport(selectedTeam.sport);
+      setPosition(''); // Reset position when changing teams
+    }
+  };
+
+  
+  const handlePositionChange = (e) => {
+    setPosition(e.target.value);
+    console.log('Updated Position:', e.target.value);
+  };
+
+  
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Call onEditPlayer with updated data
-    onEditPlayer({ id: initialData._id, name, position, teamName });
+    if (!name.trim() || !position.trim() || !teamName.trim()) {
+      return alert('All fields are required!');
+    }
 
-    // Close the modal after submission
-    onHide();
+    console.log('Submitting:', { id: initialData._id, name, position, teamName });
+
+    await onEditPlayer({ id: initialData._id, name, position, teamName });
+
+    onHide(); // Close modal after updating
   };
 
   return (
@@ -33,45 +69,47 @@ const EditPlayerModal = ({ show, onHide, onEditPlayer, initialData }) => {
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          {/* Player Name Input */}
           <Form.Group controlId="playerName" className="mb-3">
             <Form.Label>Name</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter player's name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+            <Form.Control 
+              type="text" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+              required 
             />
           </Form.Group>
 
-          {/* Player Position Input */}
-          <Form.Group controlId="playerPosition" className="mb-3">
-            <Form.Label>Position</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter player's position"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          {/* Team Name Input */}
-          <Form.Group controlId="playerTeamName" className="mb-3">
+          <Form.Group controlId="team">
             <Form.Label>Team Name</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter Team Name"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
+            <Form.Control 
+              as="select" 
+              value={teamName} 
+              onChange={handleTeamChange} 
               required
-            />
+            >
+              <option value="">Select Team</option>
+              {filteredTeams.map(team => (
+                <option key={team._id} value={team.name}>{team.name} ({team.sport})</option>
+              ))}
+            </Form.Control>
           </Form.Group>
 
-          <Button variant="primary" type="submit">
-            Save Changes
-          </Button>
+          <Form.Group controlId="playerPosition">
+            <Form.Label>Position</Form.Label>
+            <Form.Control 
+              as="select" 
+              value={position} 
+              onChange={handlePositionChange} 
+              required
+            >
+              <option value="">Select Position</option>
+              {sportPositions[sport]?.map((pos, index) => (
+                <option key={index} value={pos}>{pos}</option>
+              ))}
+            </Form.Control>
+          </Form.Group>
+
+          <Button type="submit">Save Changes</Button>
         </Form>
       </Modal.Body>
     </Modal>

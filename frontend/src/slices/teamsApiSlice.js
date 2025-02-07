@@ -1,47 +1,43 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { BASE_URL } from '../constants';
+import { apiSlice } from './apiSlice';
 
-export const teamsApiSlice = createApi({
-  reducerPath: 'teamsApi',
-  baseQuery: fetchBaseQuery({ baseUrl: BASE_URL }),
-  tagTypes: ['Team'],
+export const teamsApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
+    // Fetch Teams
     getTeams: builder.query({
       query: () => ({
-          url: "teams",
-          credentials: "include",
+        url: "teams",
       }),
-      transformResponse: (responseData) => ({ teams: responseData }),
-  }),
-  
+      providesTags: ['Team'],
+      transformResponse: (responseData) => ({ teams: responseData }), // Keep this if needed
+    }),
 
+    // Delete a Team
     deleteTeam: builder.mutation({
       query: (id) => ({
         url: `teams/${id}`,
         method: 'DELETE',
-        credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
+      invalidatesTags: ['Team'], // Ensures UI updates correctly
     }),
 
+    // Create a New Team
     createTeam: builder.mutation({
       query: (teamData) => ({
         url: 'teams',
         method: 'POST',
         body: teamData,
-        credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
+      invalidatesTags: ['Team'], // Triggers a refetch
     }),
 
+    // Update a Team
     updateTeam: builder.mutation({
       query: ({ _id, ...teamData }) => ({
-        url: `teams/${_id}`, // Ensure _id is used here
+        url: `teams/${_id}`,
         method: 'PUT',
         body: teamData,
-        credentials: 'include',
       }),
-      invalidatesTags: [{ type: 'Team', id: 'LIST' }],
+      invalidatesTags: ['Team'], // Ensures updated data is refetched
     }),
   }),
 });

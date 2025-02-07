@@ -5,6 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout as logoutAction } from '../slices/authSlice';
 import { useLogoutMutation } from '../slices/usersApiSlices';
+import { apiSlice } from '../slices/apiSlice'; // Import for resetting cache
+import { useEffect } from 'react';
 
 const Header = () => {
   const dispatch = useDispatch();
@@ -12,19 +14,25 @@ const Header = () => {
 
   const { userInfo } = useSelector((state) => state.auth);
 
-  const [logout] = useLogoutMutation();
+  const [logout, { isLoading, isError }] = useLogoutMutation();
 
   const logoutHandler = async () => {
     try {
-      // Call backend logout to clear cookie
-      await logout().unwrap();
-      // Clear Redux state and localStorage
-      dispatch(logoutAction());
-      navigate('/LoginScreen');
+      await logout().unwrap(); // Call backend logout
+      dispatch(logoutAction()); // Clear Redux state and localStorage
+      dispatch(apiSlice.util.resetApiState()); // Reset RTK Query cache
+      navigate('/login'); // Redirect user
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
+
+  // Ensure the user is redirected if they are logged out
+  useEffect(() => {
+    if (!userInfo) {
+      navigate('/login');
+    }
+  }, [userInfo, navigate]);
 
   return (
     <header>
@@ -43,9 +51,10 @@ const Header = () => {
               </Nav.Link>
               {userInfo ? (
                 <NavDropdown title={userInfo.name} id="username">
-                  <NavDropdown.Item onClick={logoutHandler}>
-                    <FaSignOutAlt /> Logout
+                  <NavDropdown.Item onClick={logoutHandler} disabled={isLoading}>
+                    <FaSignOutAlt /> {isLoading ? 'Logging out...' : 'Logout'}
                   </NavDropdown.Item>
+                  {isError && <span className="text-danger">Logout failed</span>}
                 </NavDropdown>
               ) : (
                 <Nav.Link href="/LoginScreen">

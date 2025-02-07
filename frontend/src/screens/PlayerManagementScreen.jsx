@@ -90,17 +90,25 @@ const { data, isLoading, error, refetch } = useGetPlayersQuery();
     setShowEditModal(true);
   };
 
+
+  
   // Called when the user submits the edit form in the edit modal
   const handleEditPlayer = async (playerData) => {
     try {
-      await updatePlayer(playerData).unwrap();
-      refetch();
-      setShowEditModal(false);
-      setSelectedEditPlayer(null);
+        console.log('Sending update:', playerData); // Debugging
+        await updatePlayer({ id: playerData.id, name: playerData.name, position: playerData.position, teamName: playerData.teamName }).unwrap();
+
+        refetch();
+        setShowEditModal(false);
+        setSelectedEditPlayer(null);
     } catch (err) {
-      //console.error(err);
+        console.error("Error updating player:", err);
     }
-  };
+};
+
+
+
+
 
   // sorts players if data is available to sort 
   let sortedPlayers = [];
@@ -203,11 +211,13 @@ const { data, isLoading, error, refetch } = useGetPlayersQuery();
               <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
                 Name {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
+              
+              <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
+                Team Name {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
               <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
                 Position {sortConfig.key === 'position' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
-                Team Name {sortConfig.key === 'position' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
               
               <th></th>
@@ -218,8 +228,9 @@ const { data, isLoading, error, refetch } = useGetPlayersQuery();
             {filteredPlayers.map((player) => (
               <tr key={player._id}>
                 <td>{player.name}</td>
-                <td>{player.position}</td>
                 <td>{player.teamName}</td>
+                <td>{player.position}</td>
+                
               
                 <td>
                   <Button 

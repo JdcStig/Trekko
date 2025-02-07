@@ -1,0 +1,8 @@
+{
+    "Soccer": ["FullBack", "CentreDefender", "Midfield", "Forward"],
+    "GAA Football": ["GoalKeeper", "Defender", "Midfielder", "Forward"],
+    "GAA Hurling": ["GoalKeeper", "Defender", "Midfielder", "Forward"],
+    "Rugby": ["Forward", "Back"],
+    "Other": ["Other"]
+  }
+  
