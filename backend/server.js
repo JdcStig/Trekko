@@ -12,7 +12,13 @@ import playerRoutes from './routes/playerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 
 const app = express();
-const port = process.env.PORT || 5000;
+
+// Use only the PORT provided by the environment
+const port = process.env.PORT;
+if (!port) {
+  console.error('PORT environment variable is not defined.');
+  process.exit(1); // Exit if no port is provided
+}
 
 connectDB();
 
