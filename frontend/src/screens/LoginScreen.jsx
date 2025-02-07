@@ -109,15 +109,18 @@ const LoginScreen = () => {
             onError={handleGoogleFailure} 
           />
         </div>
+        <Row className="py-3 text-center">
+  <Col>
+    <p>Don't have an account?</p>
+    <Link 
+      to={redirect ? `/RegisterScreen?redirect=${redirect}` : '/RegisterScreen'} 
+      className="btn btn-outline-primary mt-2"
+    >
+      Register
+    </Link>
+  </Col>
+</Row>
 
-        <Row className="py-3">
-          <Col>
-            New Customer?{' '}
-            <Link to={redirect ? `/RegisterScreen?redirect=${redirect}` : '/RegisterScreen'}>
-              Register
-            </Link>
-          </Col>
-        </Row>
       </FormContainer>
     </GoogleOAuthProvider>
   );
