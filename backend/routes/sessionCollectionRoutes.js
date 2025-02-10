@@ -6,7 +6,7 @@ import {
     registerSessionCollection,
     getSessionCollectionProfile,
     updateSessionCollectionProfile,
-    getSessionCollectionByID,
+    //getSessionCollectionByID,
     getSessionCollections,
     deleteSessionCollection,
     updateSessionCollection,
