@@ -5,6 +5,7 @@ import './assets/styles/index.css';
 import App from './App';
 import PlayerManagementScreen from './screens/PlayerManagementScreen';
 import TeamManagementScreen from './screens/TeamManagementScreen';
+import SessionManagementScreen from './screens/SessionManagementScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import { Provider } from 'react-redux';
@@ -17,7 +18,6 @@ import {
   RouterProvider,
 } from 'react-router-dom';
 
-
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<App />}>
@@ -29,7 +29,8 @@ const router = createBrowserRouter(
       <Route element={<PrivateRoute />}>
         <Route path="/PlayerManagementScreen" element={<PlayerManagementScreen />} />
         <Route path="/TeamManagementScreen" element={<TeamManagementScreen />} />
-        <Route path="/" element={<TeamManagementScreen />} />
+        <Route path="/SessionManagementScreen" element={<SessionManagementScreen />} />
+        <Route index element={<TeamManagementScreen />} />
       </Route>
     </Route>
   )
@@ -43,4 +44,3 @@ root.render(
     </Provider>
   </React.StrictMode>
 );
-
