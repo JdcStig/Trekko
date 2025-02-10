@@ -11,6 +11,7 @@ import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import teamRoutes from './routes/teamRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import sessionCollectionRoutes from './routes/sessionCollectionRoutes.js';
 
 const app = express();
 
@@ -39,6 +40,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/sessionCollections', sessionCollectionRoutes);
 
 // Serve static React files in production
 if (process.env.NODE_ENV === 'production') {
