@@ -2,10 +2,10 @@ import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
 import { FaUsers, FaUser, FaSignOutAlt } from 'react-icons/fa';
 import logo from '../assets/logo.png';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { logout as logoutAction } from '../slices/authSlice';
 import { useLogoutMutation } from '../slices/usersApiSlices';
-import { apiSlice } from '../slices/apiSlice'; // Import for resetting cache
+import { apiSlice } from '../slices/apiSlice';
 import { useEffect } from 'react';
 
 const Header = () => {
@@ -13,21 +13,19 @@ const Header = () => {
   const navigate = useNavigate();
 
   const { userInfo } = useSelector((state) => state.auth);
-
   const [logout, { isLoading, isError }] = useLogoutMutation();
 
   const logoutHandler = async () => {
     try {
-      await logout().unwrap(); // Call backend logout
-      dispatch(logoutAction()); // Clear Redux state and localStorage
-      dispatch(apiSlice.util.resetApiState()); // Reset RTK Query cache
-      navigate('/LoginScreen'); // Redirect user
+      await logout().unwrap();
+      dispatch(logoutAction());
+      dispatch(apiSlice.util.resetApiState());
+      navigate('/LoginScreen');
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  // Ensure the user is redirected if they are logged out
   useEffect(() => {
     if (!userInfo) {
       navigate('/LoginScreen');
@@ -38,16 +36,20 @@ const Header = () => {
     <header>
       <Navbar bg="dark" variant="dark" expand="md" collapseOnSelect>
         <Container>
-          <img src={logo} alt="TrakkoLogo" className="logo" />
-          <Navbar.Brand href="/">Trakko</Navbar.Brand>
+          <Navbar.Brand as={Link} to="/">
+            <img src={logo} alt="TrakkoLogo" className="logo" /> Trakko
+          </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Nav className="ms-auto">
-              <Nav.Link href="/PlayerManagementScreen">
+              <Nav.Link as={Link} to="/PlayerManagementScreen">
                 <FaUsers /> Player Management
               </Nav.Link>
-              <Nav.Link href="/TeamManagementScreen">
+              <Nav.Link as={Link} to="/TeamManagementScreen">
                 <FaUsers /> Team Management
+              </Nav.Link>
+              <Nav.Link as={Link} to="/SessionManagementScreen">
+                <FaUsers /> Session Management
               </Nav.Link>
               {userInfo ? (
                 <NavDropdown title={userInfo.name} id="username">
@@ -57,7 +59,7 @@ const Header = () => {
                   {isError && <span className="text-danger">Logout failed</span>}
                 </NavDropdown>
               ) : (
-                <Nav.Link href="/LoginScreen">
+                <Nav.Link as={Link} to="/LoginScreen">
                   <FaUser /> Login
                 </Nav.Link>
               )}
