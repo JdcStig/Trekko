@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import cors from 'cors'; // Import cors
 
 dotenv.config();
 
@@ -17,7 +18,7 @@ const app = express();
 const port = process.env.PORT;
 if (!port) {
   console.error('PORT environment variable is not defined.');
-  process.exit(1); // Exit if no port is provided
+  process.exit(1);
 }
 
 connectDB();
@@ -25,6 +26,14 @@ connectDB();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Enable CORS for local development: allow requests from http://localhost:3000
+if (process.env.NODE_ENV === 'development') {
+  app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  }));
+}
 
 // API routes (registered before static files)
 app.use('/api/users', userRoutes);
