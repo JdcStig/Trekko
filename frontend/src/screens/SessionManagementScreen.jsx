@@ -201,7 +201,7 @@ const SessionManagementScreen = () => {
                 <td>{session.teamName || "N/A"}</td>
                 <td>{session.sessionName || "N/A"}</td>
                 <td>{new Date(session.date).toLocaleDateString()}</td>
-                <td>{Array.isArray(session.files) ? session.files.length : 0}</td>
+                <td>{session.number}</td>
                 <td>{session.type || "N/A"}</td>
                 <td>{session.duration || "N/A"}</td>
                 <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
