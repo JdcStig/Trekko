@@ -18,13 +18,11 @@ import EditSessionModal from '../components/SessionManagement/EditSessionModal';
 const SessionManagementScreen = () => {
   // Fetch sessions using RTK Query
   const { data, isLoading, error, refetch } = useGetSessionsQuery();
-//console.log("Fetched Sessions:", data); 
 
   const [createSession, { isLoading: loadingCreate }] = useCreateSessionMutation();
   const [deleteSession, { isLoading: loadingDelete }] = useDeleteSessionMutation();
   const [updateSession, { isLoading: loadingUpdate }] = useUpdateSessionMutation();
 
-  // Modal and deletion state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -43,6 +41,49 @@ const SessionManagementScreen = () => {
     }
     setSortConfig({ key, direction });
   };
+
+  let sortedSessions = data ? [...data] : [];
+  if (sortConfig.key) {
+    sortedSessions.sort((a, b) => {
+      const valueA = a[sortConfig.key];
+      const valueB = b[sortConfig.key];
+
+      // Ensure numbers are properly compared
+      if (sortConfig.key === 'duration') {
+        return sortConfig.direction === 'asc'
+          ? Number(valueA) - Number(valueB)
+          : Number(valueB) - Number(valueA);
+      }
+
+      // Special handling for dates
+      if (sortConfig.key === 'date') {
+        return sortConfig.direction === 'asc'
+          ? new Date(a.date) - new Date(b.date)
+          : new Date(b.date) - new Date(a.date);
+      }
+
+      // Special handling for splits (array length sorting)
+      if (sortConfig.key === 'splits' && Array.isArray(valueA) && Array.isArray(valueB)) {
+        return sortConfig.direction === 'asc'
+          ? valueA.length - valueB.length
+          : valueB.length - valueA.length;
+      }
+
+      // If values are numbers
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return sortConfig.direction === 'asc' ? valueA - valueB : valueB - valueA;
+      }
+
+      // If values are strings
+      if (typeof valueA === 'string' && typeof valueB === 'string') {
+        return sortConfig.direction === 'asc'
+          ? valueA.localeCompare(valueB)
+          : valueB.localeCompare(valueA);
+      }
+
+      return 0;
+    });
+  }
 
   // Handle deletion modal
   const handleDeleteClick = (session) => {
@@ -73,7 +114,7 @@ const SessionManagementScreen = () => {
   const handleAddSession = async (sessionData) => {
     try {
       await createSession(sessionData).unwrap();
-      toast.success('Session added successfully!', { position: 'top-right' });
+      //toast.success('Session added successfully!', { position: 'top-right' });
       refetch();
       setShowAddModal(false);
     } catch (err) {
@@ -99,23 +140,6 @@ const SessionManagementScreen = () => {
     }
   };
 
-  // Sort sessions
-  let sortedSessions = [];
-  if (data && Array.isArray(data)) {
-    sortedSessions = [...data]; // Ensure data is an array
-    if (sortConfig.key) {
-      sortedSessions.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-  }
-
   // Build a list of unique session types for filtering
   const uniqueTypes = [...new Set(sortedSessions.map(session => session.type))];
 
@@ -131,8 +155,6 @@ const SessionManagementScreen = () => {
       session.sessionName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }
-
-  //console.log("Filtered Sessions:", filteredSessions);
 
   return (
     <Container>
@@ -183,13 +205,34 @@ const SessionManagementScreen = () => {
         <Table striped bordered hover responsive className="table-sm">
           <thead className="table-dark">
             <tr>
-              <th>Team</th>
-              <th>Session Name</th>
-              <th>Date</th>
-              <th>Number</th>
-              <th>Type</th>
-              <th>Duration</th>
-              <th>Splits</th>
+              <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
+                Team {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
+              <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
+                Session Name {sortConfig.key === 'sessionName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
+              <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
+                Date {sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
+              <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
+                Number {sortConfig.key === 'number' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
+              <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
+                Type {sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
+              <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
+                Duration {sortConfig.key === 'duration' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
+              <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
+                Splits {sortConfig.key === 'splits' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+              </th>
+
               <th>Notes</th>
               <th></th>
               <th></th>
@@ -198,16 +241,24 @@ const SessionManagementScreen = () => {
           <tbody>
             {filteredSessions.map((session) => (
               <tr key={session._id}>
-                <td>{session.teamName || "N/A"}</td>
-                <td>{session.sessionName || "N/A"}</td>
+                <td>{session.teamName}</td>
+                <td>{session.sessionName}</td>
                 <td>{new Date(session.date).toLocaleDateString()}</td>
                 <td>{session.number}</td>
-                <td>{session.type || "N/A"}</td>
-                <td>{session.duration || "N/A"}</td>
+                <td>{session.type}</td>
+                <td>{session.duration || 'N/A'}</td>
                 <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
-                <td>{session.notes || "N/A"}</td>
-                <td><FaEdit onClick={() => handleEditClick(session)} /></td>
-                <td><FaTrash onClick={() => handleDeleteClick(session)} /></td>
+                <td>{session.notes || 'N/A'}</td>
+                <td>
+                  <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(session)}>
+                    <FaEdit />
+                  </Button>
+                </td>
+                <td>
+                  <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(session)}>
+                    <FaTrash />
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -216,7 +267,26 @@ const SessionManagementScreen = () => {
         <Alert variant="info">No sessions found.</Alert>
       )}
 
-      <AddSessionModal show={showAddModal} onHide={() => setShowAddModal(false)} onAddSession={handleAddSession} />
+      {/* Confirm deletion modal */}
+      <ConfirmDeletion 
+        show={showConfirm}
+        onConfirm={handleConfirmDeletion}
+        onCancel={handleCancelDeletion}
+        message={`Are you sure you want to delete the session "${selectedSession?.sessionName}"?`}
+      />
+
+      <AddSessionModal 
+        show={showAddModal} 
+        onHide={() => setShowAddModal(false)} 
+        onAddSession={handleAddSession} 
+      />
+
+      <EditSessionModal 
+        show={showEditModal} 
+        onHide={() => setShowEditModal(false)} 
+        onEditSession={handleEditSession} 
+        session={selectedSession} 
+      />
     </Container>
   );
 };
