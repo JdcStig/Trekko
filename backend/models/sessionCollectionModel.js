@@ -21,7 +21,7 @@ const sessionCollectionSchema = new mongoose.Schema(
     },
     number: {
       type: Number,
-      default: 1, // Default value 
+      default: 0, // Default value 
       required: true,
     },
     type: {
