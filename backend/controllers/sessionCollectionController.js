@@ -3,7 +3,6 @@ import SessionCollection from '../models/sessionCollectionModel.js';
 import SessionData from '../models/sessionDataModel.js';
 import parseCSV from '../calculation/parseCSV.js';
 import updateSessionCount from '../calculation/updateSessionCount.js';
-import updateSessionFiles from '../calculation/updateSessionFiles.js';
 import Team from '../models/teamModel.js';
 
 // @desc   Register sessionCollection
@@ -46,9 +45,6 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
         userId,
         number: 1, // Default to 1 on creation
     });
-
-    // Updates CSV count for this user
-    await updateSessionFiles(userId);
 
     if (sessionCollection) {
         res.status(200).json(sessionCollection);
@@ -204,9 +200,6 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
     if (notes) sessionCollection.notes = notes;
 
     const updatedSessionCollection = await sessionCollection.save();
-
-    // Updates CSV count for this user
-    await updateSessionFiles(sessionCollection.userId);
 
     res.status(200).json(updatedSessionCollection);
 });
