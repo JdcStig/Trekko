@@ -1,20 +1,19 @@
-import { response } from 'express';
 import asyncHandler from '../middleware/asyncHandler.js';
 import SessionCollection from '../models/sessionCollectionModel.js';
 import SessionData from '../models/sessionDataModel.js';
 import parseCSV from '../calculation/parseCSV.js';
 import updateSessionCount from '../calculation/updateSessionCount.js';
+import updateSessionFiles from '../calculation/updateSessionFiles.js';
 import Team from '../models/teamModel.js';
-
 
 // @desc   Register sessionCollection
 // @route  POST /api/sessionCollections
-// @access Public
+// @access Protected
 const registerSessionCollection = asyncHandler(async (req, res) => {
     const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
     const userId = req.user._id; // Gets the logged-in user's ID
 
-    // Validates and parses the date
+    // Validate and parse the date
     let parsedDate;
     if (typeof date === 'string') {
         parsedDate = new Date(date).getTime();
@@ -31,10 +30,9 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     }
 
     const team = await Team.findOne({ name: teamName, userId });
-
     if (!team) {
         res.status(400);
-        throw new Error("Team does not exist");
+        throw new Error("Team does not exist. Please create a team first.");
     }
 
     const sessionCollection = await SessionCollection.create({
@@ -53,29 +51,16 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     await updateSessionFiles(userId);
 
     if (sessionCollection) {
-        res.status(200).json({
-            _id: sessionCollection._id,
-            teamName: sessionCollection.teamName,
-            sessionName: sessionCollection.sessionName,
-            date: sessionCollection.date,
-            type: sessionCollection.type,
-            duration: sessionCollection.duration,
-            splits: sessionCollection.splits,
-            notes: sessionCollection.notes,
-            userId: sessionCollection.userId,
-            number: sessionCollection.number,
-           });
+        res.status(200).json(sessionCollection);
     } else {
         res.status(400);
-        throw new Error('Invalid session Collection data');
+        throw new Error("Invalid session collection data");
     }
 });
 
-/**
- * Uploads a CSV file and processes it into session data.
- * @route POST /api/sessionCollections/upload
- * @access Private
- */
+// @desc   Upload and process session CSV
+// @route  POST /api/sessionCollections/upload
+// @access Private
 const uploadSessionCSV = asyncHandler(async (req, res) => {
     const { sessionId } = req.body;
     const userId = req.user._id;
@@ -121,77 +106,11 @@ const uploadSessionCSV = asyncHandler(async (req, res) => {
     }
 });
 
-
 // @desc   Get sessionCollection profile
 // @route  GET /api/sessionCollections/profile
-// @access Private
+// @access Protected
 const getSessionCollectionProfile = asyncHandler(async (req, res) => {
-    const sessionCollection = await SessionCollection.findById(req.sessionCollection._id);
-
-    if (sessionCollection) {
-       res.status(200).json({
-        _id: sessionCollection._id,
-        teamName: sessionCollection.teamName,
-        sessionName: sessionCollection.sessionName,
-        date: sessionCollection.date,
-        type: sessionCollection.type,
-        duration: sessionCollection.duration,
-        splits: sessionCollection.splits,
-        notes: sessionCollection.notes,
-       }); 
-    } else {
-      res.status(404);
-      throw new Error('Session Collection not found');
-    }
-});
-
-// @desc   Update sessionCollection profile
-// @route  PUT /api/sessionCollections/profile
-// @access Private
-const updateSessionCollectionProfile = asyncHandler(async (req, res) => {
-    const sessionCollection = await SessionCollection.findById(req.sessionCollection._id);
-
-    if (sessionCollection) {
-        sessionCollection.teamName = req.body.teamName || sessionCollection.teamName; 
-        sessionCollection.sessionName = req.body.sessionName || sessionCollection.sessionName; 
-        sessionCollection.date = req.body.date || sessionCollection.date; 
-        sessionCollection.type = req.body.type || sessionCollection.type; 
-        sessionCollection.duration = req.body.duration || sessionCollection.duration; 
-        sessionCollection.splits = req.body.splits || sessionCollection.splits; 
-        sessionCollection.notes = req.body.notes || sessionCollection.notes; 
-
-       const updatedSessionCollection = await sessionCollection.save();
-
-       res.status(200).json({
-        _id: updatedSessionCollection._id,
-        teamName: updateSessionCollection.teamName,
-        sessionName: updatedSessionCollection.sessionName,
-        date: updatedSessionCollection.date,
-        type: updatedSessionCollection.type,
-        duration: updatedSessionCollection.duration,
-        splits: updatedSessionCollection.splits,
-        notes: updatedSessionCollection.notes,
-       });
-    } else {
-      res.status(404);
-      throw new Error('Session Collection not found');  
-    }
-});
-
-// @desc   Get sessionCollections
-// @route  GET /api/sessionCollections
-// @access Private/Admin
-const getSessionCollections = asyncHandler(async (req, res) => {
-    const sessionCollections = await SessionCollection.find({ userId: req.user._id }); // Only returns user's session Collections
-    res.status(200).json(sessionCollections);
-});
-
-// @desc   Get sessionCollection by ID
-// @route  GET /api/sessionCollections/:id
-// @access Private/Admin
-const getSessionCollectionByID = asyncHandler(async (req, res) => {
-    const sessionCollection = await SessionCollection.findById(req.params.id);
-
+    const sessionCollection = await SessionCollection.findOne({ userId: req.user._id });
     if (sessionCollection) {
         res.status(200).json(sessionCollection);
     } else {
@@ -200,24 +119,72 @@ const getSessionCollectionByID = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc   Delete sessionCollections
-// @route  DELETE /api/sessionCollections/:id
-// @access Private/Admin
-const deleteSessionCollection = asyncHandler(async (req, res) => {
-   const sessionCollection = await SessionCollection.findById(req.params.id);
+// @desc   Update sessionCollection profile
+// @route  PUT /api/sessionCollections/profile
+// @access Protected
+const updateSessionCollectionProfile = asyncHandler(async (req, res) => {
+    const sessionCollection = await SessionCollection.findOne({ userId: req.user._id });
+    if (sessionCollection) {
+        sessionCollection.teamName = req.body.teamName || sessionCollection.teamName;
+        sessionCollection.sessionName = req.body.sessionName || sessionCollection.sessionName;
+        sessionCollection.date = req.body.date || sessionCollection.date;
+        sessionCollection.type = req.body.type || sessionCollection.type;
+        sessionCollection.duration = req.body.duration || sessionCollection.duration;
+        sessionCollection.splits = req.body.splits || sessionCollection.splits;
+        sessionCollection.notes = req.body.notes || sessionCollection.notes;
 
-   if (sessionCollection) {
-    await SessionCollection.deleteOne({_id: sessionCollection._id})
-    res.status(200).json({ message: 'Session Collection deleted successfully'})
-   } else {
-    res.status(404);
-    throw new Error('Session Collection not found');
-   }
+        const updatedSessionCollection = await sessionCollection.save();
+        res.status(200).json(updatedSessionCollection);
+    } else {
+        res.status(404);
+        throw new Error('Session Collection not found');
+    }
 });
 
-// @desc   Update sessionCollections
+// @desc   Get all sessionCollections for a user
+// @route  GET /api/sessionCollections
+// @access Protected/Admin
+const getSessionCollections = asyncHandler(async (req, res) => {
+    const sessionCollections = await SessionCollection.find({ userId: req.user._id });
+
+    if (!sessionCollections || sessionCollections.length === 0) {
+        res.status(404);
+        throw new Error("No sessions found.");
+    }
+
+    res.status(200).json(sessionCollections);
+});
+
+// @desc   Get sessionCollection by ID
+// @route  GET /api/sessionCollections/:id
+// @access Protected/Admin
+const getSessionCollectionByID = asyncHandler(async (req, res) => {
+    const sessionCollection = await SessionCollection.findById(req.params.id);
+    if (sessionCollection) {
+        res.status(200).json(sessionCollection);
+    } else {
+        res.status(404);
+        throw new Error('Session Collection not found');
+    }
+});
+
+// @desc   Delete sessionCollection
+// @route  DELETE /api/sessionCollections/:id
+// @access Protected/Admin
+const deleteSessionCollection = asyncHandler(async (req, res) => {
+    const sessionCollection = await SessionCollection.findById(req.params.id);
+    if (sessionCollection) {
+        await SessionCollection.deleteOne({ _id: sessionCollection._id });
+        res.status(200).json({ message: 'Session Collection deleted successfully' });
+    } else {
+        res.status(404);
+        throw new Error('Session Collection not found');
+    }
+});
+
+// @desc   Update sessionCollection by ID
 // @route  PUT /api/sessionCollections/:id
-// @access Private/Admin
+// @access Protected/Admin
 const updateSessionCollection = asyncHandler(async (req, res) => {
     const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
     const sessionCollection = await SessionCollection.findById(req.params.id);
@@ -241,28 +208,17 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
     // Updates CSV count for this user
     await updateSessionFiles(sessionCollection.userId);
 
-    res.status(200).json({
-        _id: updatedSessionCollection._id,
-        teamName: updatedSessionCollection.teamName,
-        sessionName: updatedSessionCollection.sessionName,
-        date: updatedSessionCollection.date,
-        type: updatedSessionCollection.type,
-        duration: updatedSessionCollection.duration,
-        splits: updatedSessionCollection.splits,
-        notes: updatedSessionCollection.notes,
-    });
+    res.status(200).json(updatedSessionCollection);
 });
 
-
-
-
-
-export{
+// Export controllers
+export {
     registerSessionCollection,
     uploadSessionCSV,
     getSessionCollectionProfile,
     updateSessionCollectionProfile,
     getSessionCollections,
+    getSessionCollectionByID,
     deleteSessionCollection,
-    updateSessionCollection,
-}
+    updateSessionCollection
+};
