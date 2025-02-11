@@ -42,12 +42,15 @@ const Header = () => {
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Nav className="ms-auto">
-              <Nav.Link as={Link} to="/PlayerManagementScreen">
+
+            <Nav.Link as={Link} to="/PlayerManagementScreen">
                 <FaUsers /> Player Management
               </Nav.Link>
-              <Nav.Link as={Link} to="/TeamManagementScreen">
+              
+            <Nav.Link as={Link} to="/TeamManagementScreen">
                 <FaUsers /> Team Management
-              </Nav.Link>
+              </Nav.Link>      
+             
               <Nav.Link as={Link} to="/SessionManagementScreen">
                 <FaUsers /> Session Management
               </Nav.Link>
