@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const sessionDataSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      required: true,
+    },
     playerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'players', // References the players table in MongoDB
