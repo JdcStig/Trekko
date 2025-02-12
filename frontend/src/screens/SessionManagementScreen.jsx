@@ -1,4 +1,3 @@
-// src/screens/SessionManagementScreen.js
 import React, { useState } from 'react';
 import { Table, Button, Container, Alert, Row, Col, Form } from 'react-bootstrap';
 import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
@@ -113,12 +112,13 @@ const SessionManagementScreen = () => {
   // Handle add session via the modal
   const handleAddSession = async (sessionData) => {
     try {
-      await createSession(sessionData).unwrap();
-      //toast.success('Session added successfully!', { position: 'top-right' });
-      refetch();
-      setShowAddModal(false);
-    } catch (err) {
-      toast.error(err.data?.message || 'Failed to add session.', { position: 'top-right' });
+      // Use createSession (not addSession) to call the mutation
+      const response = await createSession(sessionData).unwrap();
+      // Return the session object with _id, if available.
+      return response.session || response;
+    } catch (error) {
+      console.error("Error creating session:", error);
+      throw error;
     }
   };
 
@@ -208,31 +208,24 @@ const SessionManagementScreen = () => {
               <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
                 Team {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-
               <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
                 Session Name {sortConfig.key === 'sessionName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-
               <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
                 Date {sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-
               <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
                 Number {sortConfig.key === 'number' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-
               <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
                 Type {sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-
               <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
                 Duration {sortConfig.key === 'duration' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-
               <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
                 Splits {sortConfig.key === 'splits' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
               </th>
-
               <th>Notes</th>
               <th></th>
               <th></th>

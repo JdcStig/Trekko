@@ -2,6 +2,7 @@ import { apiSlice } from './apiSlice';
 
 export const sessionsApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
+    
     // GET all session collections
     getSessions: builder.query({
       query: () => '/sessionCollections', // Ensure this matches backend route
@@ -13,7 +14,6 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
             ]
           : [{ type: 'SessionCollection', id: 'LIST' }],
     }),
-    
 
     // CREATE a new session collection
     createSession: builder.mutation({
@@ -43,6 +43,16 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (result, error, arg) => [{ type: 'SessionCollection', id: arg }],
     }),
+
+    // UPLOAD CSV file for a session collection
+    uploadSessionCSV: builder.mutation({
+      query: (formData) => ({
+        url: '/sessionCollections/upload', // Ensure backend route is correct
+        method: 'POST',
+        body: formData,
+      }),
+      invalidatesTags: [{ type: 'SessionCollection', id: 'LIST' }],
+    }),
   }),
 });
 
@@ -51,4 +61,5 @@ export const {
   useCreateSessionMutation,
   useUpdateSessionMutation,
   useDeleteSessionMutation,
+  useUploadSessionCSVMutation,
 } = sessionsApiSlice;
