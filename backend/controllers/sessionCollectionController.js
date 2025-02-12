@@ -9,9 +9,8 @@ import Team from '../models/teamModel.js';
 // @access Protected
 const registerSessionCollection = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
-  const userId = req.user._id; // Gets the logged-in user's ID
+  const userId = req.user._id;
 
-  // Validate and parse the date
   let parsedDate;
   if (typeof date === 'string') {
     parsedDate = new Date(date).getTime();
@@ -42,7 +41,7 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     splits: Array.isArray(splits) ? splits : [],
     notes,
     userId,
-    number: 0, // Set to 0 on creation since no CSV has been uploaded yet
+    number: 0,
   });
 
   if (sessionCollection) {
@@ -60,33 +59,31 @@ const uploadSessionCSV = asyncHandler(async (req, res) => {
   console.log("📌 Received file upload request");
 
   const { sessionId } = req.body;
-  
-  console.log(`📦 Received body:`, req.body); // Debugging
-  console.log(`📄 Received file:`, req.file); // Debugging
+  console.log(`📦 Received body:`, req.body);
+  console.log(`📄 Received file:`, req.file);
 
   if (!sessionId) {
-      console.error("🚨 No session ID provided!");
-      return res.status(400).json({ message: "Session ID is required." });
+    console.error("🚨 No session ID provided!");
+    return res.status(400).json({ message: "Session ID is required." });
   }
 
   if (!req.file) {
-      console.error("🚨 No file uploaded!");
-      return res.status(400).json({ message: "No file uploaded." });
+    console.error("🚨 No file uploaded!");
+    return res.status(400).json({ message: "No file uploaded." });
   }
 
   console.log(`✅ File received: ${req.file.originalname}`);
 
   try {
-      await parseCSV(req.file.buffer, sessionId, req.user._id);
-      const updatedSession = await SessionCollection.findById(sessionId).populate('sessionData');
+    await parseCSV(req.file.buffer, sessionId, req.user._id);
+    const updatedSession = await SessionCollection.findById(sessionId).populate('sessionData');
 
-      res.status(201).json(updatedSession);
+    res.status(201).json(updatedSession);
   } catch (error) {
-      console.error("🚨 Error processing CSV:", error.message);
-      res.status(500).json({ message: error.message });
+    console.error("🚨 Error processing CSV:", error.message);
+    res.status(500).json({ message: error.message });
   }
 });
-
 
 // @desc   Get sessionCollection profile
 // @route  GET /api/sessionCollections/profile
@@ -176,7 +173,6 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
     throw new Error("Session Collection not found");
   }
 
-  // Update only the provided fields
   if (teamName) sessionCollection.teamName = teamName;
   if (sessionName) sessionCollection.sessionName = sessionName;
   if (date) sessionCollection.date = date;
@@ -190,7 +186,6 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
   res.status(200).json(updatedSessionCollection);
 });
 
-// Export controllers
 export {
   registerSessionCollection,
   uploadSessionCSV,
