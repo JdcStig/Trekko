@@ -48,6 +48,10 @@ const sessionCollectionSchema = new mongoose.Schema(
     notes: {
       type: String, 
     },
+    avgDistance: { 
+      type: Number, 
+      default: 0 
+    },
     sessionData: [
       {
         type: mongoose.Schema.Types.ObjectId,

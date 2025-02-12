@@ -95,6 +95,8 @@ const uploadSessionCSV = asyncHandler(async (req, res) => {
         // Updates session count for this user
         await updateSessionCount(userId);
 
+        await updateSessionCount(sessionId); // ✅ Update avgDistance
+
         res.status(201).json({ message: "CSV processed successfully", sessionDataEntry });
     } catch (error) {
         res.status(500);
@@ -148,7 +150,12 @@ const getSessionCollections = asyncHandler(async (req, res) => {
         throw new Error("No sessions found.");
     }
 
-    res.status(200).json(sessionCollections);
+    res.status(200).json(sessionCollections.map(session => ({
+        ...session.toObject(),
+        avgDistance: session.avgDistance
+    })));
+
+    // res.status(200).json(sessionCollections);
 });
 
 // @desc   Get sessionCollection by ID
