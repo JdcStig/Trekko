@@ -1,10 +1,11 @@
-import mongoose from "mongoose";
+// sessionCollectionModel.js
+import mongoose from 'mongoose';
 
 const sessionCollectionSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users", // Reference to the users model
+      ref: "User", // Reference to the users model
       required: true,
     },
     teamName: {
@@ -47,10 +48,7 @@ const sessionCollectionSchema = new mongoose.Schema(
     ],
     notes: {
       type: String, 
-    },
-    avgDistance: { 
-      type: Number, 
-      default: 0 
+      default: '',
     },
     sessionData: [
       {
@@ -64,6 +62,5 @@ const sessionCollectionSchema = new mongoose.Schema(
   }
 );
 
-const SessionCollection = mongoose.model("SessionCollection", sessionCollectionSchema);
-
-export default SessionCollection;
+// Export as default:
+export default mongoose.model('SessionCollection', sessionCollectionSchema);

@@ -3,9 +3,10 @@ import { Modal, Button, Form } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
+import { useUploadSessionCSVMutation } from '../../slices/sessionsApiSlice';
 
 const AddSessionModal = ({ show, onHide, onAddSession }) => {
-  // State variables
+  // State variables for all fields
   const [teamName, setTeamName] = useState('');
   const [sessionName, setSessionName] = useState('');
   const [date, setDate] = useState('');
@@ -14,16 +15,19 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
   const [numSplits, setNumSplits] = useState('');
   const [splits, setSplits] = useState([]);
   const [notes, setNotes] = useState('');
-  const [files, setFiles] = useState([]); // File state
+  const [files, setFiles] = useState([]);
+  const [sessionId, setSessionId] = useState(null); // Used for CSV uploads after creation
 
-  // Fetch user info & teams
+  // Get logged-in user info and teams from Redux/store
   const { userInfo } = useSelector((state) => state.auth);
   const { data: teamsData } = useGetTeamsQuery();
+  const [uploadSessionCSV] = useUploadSessionCSVMutation();
 
-  // Filter teams by logged-in user
-  const filteredTeams = teamsData?.teams?.filter(team => team.userId === userInfo?._id) || [];
+  // Filter teams so that only the logged-in user's teams are shown
+  const filteredTeams =
+    teamsData?.teams?.filter((team) => team.userId === userInfo?._id) || [];
 
-  // Reset fields when modal closes
+  // Reset all fields when the modal is closed
   useEffect(() => {
     if (!show) {
       setTeamName('');
@@ -35,10 +39,11 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
       setSplits([]);
       setNotes('');
       setFiles([]);
+      setSessionId(null);
     }
   }, [show]);
 
-  // Handle number of splits input
+  // Adjust splits array when the number of splits changes
   useEffect(() => {
     const num = parseInt(numSplits, 10);
     if (!isNaN(num) && num > 0) {
@@ -48,34 +53,85 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
     }
   }, [numSplits]);
 
-  // Handle split input change
+  // Handle changes to a specific split field
   const handleSplitChange = (index, field, value) => {
     const updatedSplits = [...splits];
     updatedSplits[index][field] = value;
     setSplits(updatedSplits);
   };
 
-  // Handle file selection
+  // Handle multiple file attachments
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     setFiles(selectedFiles);
   };
 
-  // Handle form submission
+  // Validate the date and split times
+  const validateDateTime = () => {
+    const selectedDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate > today) {
+      toast.error("Date cannot be in the future.", { position: 'top-right' });
+      return false;
+    }
+
+    for (let i = 0; i < splits.length; i++) {
+      const { start, end } = splits[i];
+
+      if (!start || !end) {
+        toast.error(
+          `Start time and end time are required for split ${i + 1}.`,
+          { position: 'top-right' }
+        );
+        return false;
+      }
+
+      if (end <= start) {
+        toast.error(
+          `End time cannot be before start time in split ${i + 1}.`,
+          { position: 'top-right' }
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  // Handle form submission to create a new session
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!teamName.trim() || !sessionName.trim() || !date.trim() || !type.trim() || !duration.trim()) {
-      toast.error('All fields are required!', { position: 'top-right' });
+    console.log("🚀 Submit button clicked!");
+
+    // Validate required fields
+    if (
+      !teamName.trim() ||
+      !sessionName.trim() ||
+      !date.trim() ||
+      !type.trim() ||
+      !duration.trim()
+    ) {
+      console.error("❌ Missing required fields!");
+      toast.error("All fields are required!", { position: 'top-right' });
+      return;
+    }
+
+    if (!validateDateTime()) {
+      console.error("❌ Date or split time validation failed.");
       return;
     }
 
     const unixDate = new Date(date).getTime();
     if (isNaN(unixDate)) {
+      console.error("❌ Invalid date format.");
       toast.error("Invalid date format. Please select a valid date.", { position: 'top-right' });
       return;
     }
 
+    // Build session data
     const sessionData = {
       teamName,
       sessionName,
@@ -84,25 +140,79 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
       duration,
       splits,
       notes,
-      files, // Attach files array
+      files, // These files can be processed as needed in onAddSession
     };
 
-    onAddSession(sessionData);
-    toast.success("Session added successfully!", { position: 'top-right' });
-    onHide();
+    console.log("📌 Session Data before submitting:", sessionData);
+
+    // Call the parent function to add a session
+    if (onAddSession) {
+      onAddSession(sessionData)
+        .then((newSession) => {
+          console.log("✅ onAddSession function called!", newSession);
+          setSessionId(newSession._id); // Save session ID for CSV upload
+          toast.success("Session added successfully!", { position: 'top-right' });
+        })
+        .catch((err) => {
+          console.error("❌ Failed to add session!", err);
+          toast.error("Failed to create session.", { position: 'top-right' });
+        });
+    } else {
+      console.error("❌ onAddSession function is missing!");
+    }
   };
 
+  // Handle CSV file upload for the session
+  const handleUploadCSV = async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      toast.error("No file selected!", { position: 'top-right' });
+      return;
+    }
+  
+    console.log("📤 Uploading file:", file.name);
+  
+    if (!sessionId) {
+      toast.error("Please create a session first!", { position: 'top-right' });
+      return;
+    }
+  
+    // Create FormData to send file & sessionId
+    const formData = new FormData();
+    formData.append("file", file);  // Ensure the key matches `upload.single('file')` in backend
+    formData.append("sessionId", sessionId); // Ensure sessionId is included
+  
+    console.log("📦 FormData entries:");
+    for (let pair of formData.entries()) {
+      console.log(pair[0], pair[1]); // Debugging - Check if sessionId and file are included
+    }
+  
+    try {
+      await uploadSessionCSV(formData).unwrap();
+      toast.success("✅ CSV uploaded successfully!");
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+      toast.error(err.data?.message || "Upload failed.");
+    }
+  };
+  
+
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton>
         <Modal.Title>Add New Session</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          {/* Team Name Dropdown */}
+          {/* Team Name */}
           <Form.Group controlId="teamName" className="mb-3">
             <Form.Label>Team Name</Form.Label>
-            <Form.Control as="select" value={teamName} onChange={(e) => setTeamName(e.target.value)} required>
+            <Form.Control
+              as="select"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              required
+            >
               <option value="">Select Team</option>
               {filteredTeams.map((team) => (
                 <option key={team._id} value={team.name}>
@@ -135,10 +245,15 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
             />
           </Form.Group>
 
-          {/* Type Dropdown */}
+          {/* Session Type */}
           <Form.Group controlId="type" className="mb-3">
             <Form.Label>Session Type</Form.Label>
-            <Form.Control as="select" value={type} onChange={(e) => setType(e.target.value)} required>
+            <Form.Control
+              as="select"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              required
+            >
               <option value="">Select Type</option>
               <option value="Training">Training</option>
               <option value="Game">Game</option>
@@ -175,13 +290,12 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
                 <Form.Label>Split {index + 1} Title</Form.Label>
                 <Form.Control
                   type="text"
+                  placeholder="Enter title"
                   value={split.title}
                   onChange={(e) => handleSplitChange(index, 'title', e.target.value)}
-                  placeholder="Enter title"
                   required
                 />
               </Form.Group>
-
               <Form.Group controlId={`splitStart${index}`} className="mb-2">
                 <Form.Label>Start Time</Form.Label>
                 <Form.Control
@@ -191,7 +305,6 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
                   required
                 />
               </Form.Group>
-
               <Form.Group controlId={`splitEnd${index}`} className="mb-2">
                 <Form.Label>End Time</Form.Label>
                 <Form.Control
@@ -210,24 +323,31 @@ const AddSessionModal = ({ show, onHide, onAddSession }) => {
             <Form.Control
               as="textarea"
               rows={3}
+              placeholder="Enter notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Enter notes"
             />
           </Form.Group>
 
-          {/* File Upload */}
-          <Form.Group controlId="fileUpload" className="mb-3">
-            <Form.Label>Attach Files</Form.Label>
-            <Form.Control type="file" multiple onChange={handleFileChange} />
-            <small className="text-muted">You can attach multiple files.</small>
-          </Form.Group>
+          {/* CSV Upload (visible only after a session has been created) */}
+          {sessionId && (
+            <Form.Group controlId="csvUpload" className="mb-3">
+              <Form.Label>Upload CSV</Form.Label>
+              <Form.Control type="file" accept=".csv" onChange={handleUploadCSV} />
+              <small className="text-muted">Only CSV files are allowed.</small>
+            </Form.Group>
+          )}
 
           <Button variant="primary" type="submit">
             Add Session
           </Button>
         </Form>
       </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onHide}>
+          Close
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };

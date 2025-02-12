@@ -2,46 +2,18 @@ import mongoose from "mongoose";
 
 const sessionDataSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
-      required: true,
-    },
-    playerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'players', // References the players table in MongoDB
-      required: true,
-      default: null, // Will be set to an existing player or a default one
-    },
-    startTime: {
-      type: String, 
-      required: true,
-      default: '00:00.0', // Placeholder value
-    },
-    endTime: {
-      type: String, 
-      required: true,
-      default: '10:00.0', // Placeholder value
-    },
-    lats: {
-      type: [Number], // Array of latitude values
-      required: true,
-      default: [],
-    },
-    lons: {
-      type: [Number], // Array of longitude values
-      required: true,
-      default: [],
-    },
-    speeds: {
-      type: [Number], // Array of speed values
-      required: true,
-      default: [],
-    },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: "SessionCollection", required: true },
+    playerId: { type: String, required: true, default: "Unknown Player" },
+    startTime: { type: String, required: true, default: "00:00.0" },
+    endTime: { type: String, required: true, default: "00:00.0" },
+    lats: { type: [Number], required: true, default: [] },
+    lons: { type: [Number], required: true, default: [] },
+    speeds: { type: [Number], required: true, default: [] },
+    heartRates: { type: [Number], required: true, default: [] },
+    accelerationImpulses: { type: [Number], required: true, default: [] }
   },
-  {
-    timestamps: true, 
-  }
+  { timestamps: true }
 );
 
 const SessionData = mongoose.model('SessionData', sessionDataSchema);
