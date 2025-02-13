@@ -3,6 +3,7 @@ import SessionCollection from '../models/sessionCollectionModel.js';
 import SessionData from '../models/sessionDataModel.js';
 import parseCSV from '../calculation/parseCSV.js';
 import Team from '../models/teamModel.js';
+import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 
 // @desc   Register sessionCollection
 // @route  POST /api/sessionCollections
@@ -76,6 +77,7 @@ const uploadSessionCSV = asyncHandler(async (req, res) => {
 
   try {
     await parseCSV(req.file.buffer, sessionId, req.user._id);
+    // const createdPlayers = await createPlayersFromCSV(sessionId, req.user._id);
     const updatedSession = await SessionCollection.findById(sessionId).populate('sessionData');
 
     res.status(201).json(updatedSession);
