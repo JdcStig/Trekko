@@ -9,25 +9,35 @@ import SessionCollection from "../models/sessionCollectionModel.js";
  */
 const calculateAverageDistance = async (sessionId) => {
     try {
-        const objectId = new mongoose.Types.ObjectId(sessionId); // Ensure ObjectId format
-        const sessionData = await SessionData.findOne({ sessionId: objectId });
+        const objectId = new mongoose.Types.ObjectId(sessionId);
 
-        if (!sessionData || sessionData.speeds.length === 0) {
-            console.log("❌ No speed data available for distance calculation.");
+        // Fetch all session data for this session (multiple files)
+        const sessionDataList = await SessionData.find({ sessionId: objectId });
+
+        if (!sessionDataList.length) {
+            console.log(`❌ No session data for session ${sessionId}`);
+            await SessionCollection.findByIdAndUpdate(objectId, { avgDistance: 0 });
             return;
         }
 
-        // Sums all speeds
-        const totalSpeed = sessionData.speeds.reduce((acc, speed) => acc + speed, 0);
- 
-        // Calculates average speed
-        const averageSpeedMeters = totalSpeed / 10;
-        const averageSpeedKm = averageSpeedMeters / 1000;
+        // Sum all speeds from multiple session files
+        let totalSpeed = 0;
 
-        console.log(`✅ Average Distance: ${averageSpeedKm.toFixed(5)} km`);
+        sessionDataList.forEach((data) => {
+            totalSpeed += data.speeds.reduce((acc, speed) => acc + speed, 0);
+        });
 
-        // Update sessionCollection with avgDistance
-        await SessionCollection.findByIdAndUpdate(objectId, { avgDistance: averageSpeedKm });
+        // Number of CSV files (equal to sessionData entries)
+        const numberOfFiles = sessionDataList.length;
+
+        // Calculate average distance per file using provided formula
+        // avgDistance = ((totalSpeed / 10) / 1000) / numberOfFiles
+        const avgDistance = totalSpeed > 0 ? ((totalSpeed / 10) / 1000) / numberOfFiles : 0;
+
+        console.log(`✅ Average Distance per file for session ${sessionId}: ${avgDistance.toFixed(5)} km`);
+
+        // Update avgDistance in sessionCollection
+        await SessionCollection.findByIdAndUpdate(objectId, { avgDistance: avgDistance });
 
     } catch (error) {
         console.error("🚨 Error calculating avgDistance:", error.message);
