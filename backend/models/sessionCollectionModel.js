@@ -1,5 +1,6 @@
 // sessionCollectionModel.js
 import mongoose from 'mongoose';
+import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
 
 const sessionCollectionSchema = new mongoose.Schema(
   {
@@ -36,8 +37,7 @@ const sessionCollectionSchema = new mongoose.Schema(
     },
     avgDistance: {
       type: Number,
-      default: 20.0, // Default value 
-      required: true,
+      default: 0.0, 
     },
     splits: [
       {
@@ -62,5 +62,16 @@ const sessionCollectionSchema = new mongoose.Schema(
   }
 );
 
-// Export as default:
+// Post-save hook: After saving a session, automatically calculate avgDistance.
+sessionCollectionSchema.post('save', async function (doc, next) {
+  try {
+    // Call your calculation function with the saved document's _id.
+    await calculateAverageDistance(doc._id);
+    next();
+  } catch (error) {
+    console.error("Error in post-save hook:", error);
+    next(error);
+  }
+});
+
 export default mongoose.model('SessionCollection', sessionCollectionSchema);

@@ -496,59 +496,64 @@ const SessionManagementScreen = () => {
         <Message variant="danger">{error.data?.message || error.error}</Message>
       ) : filteredSessions.length > 0 ? (
         <Table striped bordered hover responsive className="table-sm">
-          <thead className="table-dark">
-            <tr>
-              <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
-                Team {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
-                Session Name {sortConfig.key === 'sessionName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
-                Date {sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
-                Number {sortConfig.key === 'number' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
-                Type {sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
-                Duration {sortConfig.key === 'duration' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
-                Splits {sortConfig.key === 'splits' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-              </th>
-              <th>Notes</th>
-              <th></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSessions.map((session) => (
-              <tr key={session._id}>
-                <td>{session.teamName}</td>
-                <td>{session.sessionName}</td>
-                <td>{new Date(session.date).toLocaleDateString()}</td>
-                <td>{session.number}</td>
-                <td>{session.type}</td>
-                <td>{session.duration || 'N/A'}</td>
-                <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
-                <td>{session.notes || 'N/A'}</td>
-                <td>
-                  <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(session)}>
-                    <FaEdit />
-                  </Button>
-                </td>
-                <td>
-                  <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(session)}>
-                    <FaTrash />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+  <thead className="table-dark">
+    <tr>
+      <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
+        Team {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
+        Session Name {sortConfig.key === 'sessionName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
+        Date {sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
+        Number {sortConfig.key === 'number' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
+        Type {sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
+        Duration {sortConfig.key === 'duration' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th onClick={() => handleSort('avgDistance')} style={{ cursor: 'pointer' }}>
+        Avg Distance {sortConfig.key === 'avgDistance' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
+        Splits {sortConfig.key === 'splits' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+      </th>
+      <th>Notes</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {filteredSessions.map((session) => (
+      <tr key={session._id}>
+        <td>{session.teamName}</td>
+        <td>{session.sessionName}</td>
+        <td>{new Date(session.date).toLocaleDateString()}</td>
+        <td>{session.number}</td>
+        <td>{session.type}</td>
+        <td>{session.duration || 'N/A'}</td>
+        {/* Display average distance with two decimals if available */}
+        <td>{session.avgDistance ? session.avgDistance.toFixed(2) + " km/s" : 'N/A'}</td>
+        <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
+        <td>{session.notes || 'N/A'}</td>
+        <td>
+          <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(session)}>
+            <FaEdit />
+          </Button>
+        </td>
+        <td>
+          <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(session)}>
+            <FaTrash />
+          </Button>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</Table>
       ) : (
         <Alert variant="info">No sessions found.</Alert>
       )}
