@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { apiSlice } from '../slices/apiSlice'; // Fix import name
+import { apiSlice } from '../slices/apiSlice'; // Ensure this is your configured API slice
 
 const initialState = {
   userInfo: localStorage.getItem('userInfo')
@@ -15,7 +15,6 @@ const authSlice = createSlice({
       state.userInfo = action.payload;
       localStorage.setItem('userInfo', JSON.stringify(action.payload));
     },
-    
     logout: (state) => {
       state.userInfo = null;
       localStorage.removeItem('userInfo');
@@ -28,6 +27,8 @@ export default authSlice.reducer;
 
 // Thunk function to handle logout properly
 export const logoutUser = () => (dispatch) => {
-  dispatch(logout()); // Clear user info from state & localStorage
-  dispatch(apiSlice.util.resetApiState()); // Fix: Use apiSlice instead of api
+  // Clear user info from state and localStorage
+  dispatch(logout());
+  // Reset the RTK Query cache so no stale data is shown to the new user
+  dispatch(apiSlice.util.resetApiState());
 };
