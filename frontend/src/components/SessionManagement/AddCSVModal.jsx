@@ -11,7 +11,7 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    console.log("Files updated:", files.length);
+    //.log("Files updated:", files.length);
   }, [files]);
 
   const handleFileChange = (e) => {
