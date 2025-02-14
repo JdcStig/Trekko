@@ -1,236 +1,10 @@
-// import React, { useState, useEffect } from 'react';
-// import { Modal, Button, Form, Table } from 'react-bootstrap';
-// import EditCSVModal from './EditCSVModal';
-
-// const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session }) => {
-//   // Local state for session edits
-//   const [localSessionData, setLocalSessionData] = useState({
-//     teamName: '',
-//     sessionName: '',
-//     date: '',
-//     type: '',
-//     duration: '',
-//     notes: '',
-//     splits: [],
-//   });
-//   // Store CSV updates (if any)
-//   const [csvUpdates, setCsvUpdates] = useState(null);
-//   // Control CSV modal visibility
-//   const [showCSVModal, setShowCSVModal] = useState(false);
-  
-//   useEffect(() => {
-//     if (session) {
-//       setLocalSessionData({
-//         teamName: session.teamName || '',
-//         sessionName: session.sessionName || '',
-//         date: session.date ? new Date(session.date).toISOString().split('T')[0] : '',
-//         type: session.type || '',
-//         duration: session.duration || '',
-//         notes: session.notes || '',
-//         splits: session.splits || [],
-//       });
-//       setCsvUpdates(null);
-//     }
-//   }, [session]);
-  
-//   const handleChange = (e) => {
-//     const { name, value } = e.target;
-//     setLocalSessionData(prev => ({ ...prev, [name]: value }));
-//   };
-  
-//   const handleSplitChange = (index, field, value) => {
-//     setLocalSessionData(prev => {
-//       const newSplits = prev.splits.map((split, i) =>
-//         i === index ? { ...split, [field]: value } : split
-//       );
-//       return { ...prev, splits: newSplits };
-//     });
-//   };
-  
-//   // Open CSV modal and hide the session modal
-//   const openCSVModal = () => {
-//     setShowCSVModal(true);
-//     onHide(); // Hide the Edit Session modal (controlled by the parent)
-//   };
-  
-//   // Called when CSV modal saves changes
-//   const handleCSVSave = (updates) => {
-//     setCsvUpdates(updates);
-//     setShowCSVModal(false);
-//     // Reopen the session modal after saving CSV changes
-//     if (onCSVCancel) onCSVCancel();
-//   };
-  
-//   // Called when CSV modal is cancelled (via "X" or Cancel button)
-//   const handleCSVCancel = () => {
-//     setShowCSVModal(false);
-//     // Reopen the Edit Session modal
-//     if (onCSVCancel) onCSVCancel();
-//   };
-  
-//   const handleFinalSubmit = (e) => {
-//     e.preventDefault();
-//     // Combine session edits and CSV updates into one payload
-//     const finalData = { ...session, ...localSessionData, csvUpdates };
-//     onEditSession(finalData);
-//     onHide();
-//   };
-  
-//   return (
-//     <>
-//       <Modal show={show} onHide={onHide} centered>
-//         <Modal.Header closeButton>
-//           <Modal.Title>Edit Session</Modal.Title>
-//         </Modal.Header>
-//         <Modal.Body>
-//           <Form onSubmit={handleFinalSubmit}>
-//             <Form.Group controlId="teamName" className="mb-3">
-//               <Form.Label>Team Name</Form.Label>
-//               <Form.Control
-//                 type="text"
-//                 name="teamName"
-//                 value={localSessionData.teamName}
-//                 onChange={handleChange}
-//                 required
-//               />
-//             </Form.Group>
-//             <Form.Group controlId="sessionName" className="mb-3">
-//               <Form.Label>Session Name</Form.Label>
-//               <Form.Control
-//                 type="text"
-//                 name="sessionName"
-//                 value={localSessionData.sessionName}
-//                 onChange={handleChange}
-//                 required
-//               />
-//             </Form.Group>
-//             <Form.Group controlId="date" className="mb-3">
-//               <Form.Label>Date</Form.Label>
-//               <Form.Control
-//                 type="date"
-//                 name="date"
-//                 value={localSessionData.date}
-//                 onChange={handleChange}
-//                 required
-//               />
-//             </Form.Group>
-//             <Form.Group controlId="type" className="mb-3">
-//               <Form.Label>Type</Form.Label>
-//               <Form.Control
-//                 as="select"
-//                 name="type"
-//                 value={localSessionData.type}
-//                 onChange={handleChange}
-//                 required
-//               >
-//                 <option value="">Select Type</option>
-//                 <option value="Training">Training</option>
-//                 <option value="Game">Game</option>
-//               </Form.Control>
-//             </Form.Group>
-//             <Form.Group controlId="duration" className="mb-3">
-//               <Form.Label>Duration (in minutes)</Form.Label>
-//               <Form.Control
-//                 type="text"
-//                 name="duration"
-//                 value={localSessionData.duration}
-//                 onChange={handleChange}
-//                 required
-//               />
-//             </Form.Group>
-//             <h5>Splits</h5>
-//             <Table striped bordered hover>
-//               <thead className="table-dark">
-//                 <tr>
-//                   <th>Title</th>
-//                   <th>Start Time</th>
-//                   <th>End Time</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {localSessionData.splits.map((split, index) => (
-//                   <tr key={index}>
-//                     <td>
-//                       <Form.Control
-//                         type="text"
-//                         value={split.title}
-//                         onChange={(e) =>
-//                           handleSplitChange(index, 'title', e.target.value)
-//                         }
-//                         required
-//                       />
-//                     </td>
-//                     <td>
-//                       <Form.Control
-//                         type="time"
-//                         value={split.start}
-//                         onChange={(e) =>
-//                           handleSplitChange(index, 'start', e.target.value)
-//                         }
-//                         required
-//                       />
-//                     </td>
-//                     <td>
-//                       <Form.Control
-//                         type="time"
-//                         value={split.end}
-//                         onChange={(e) =>
-//                           handleSplitChange(index, 'end', e.target.value)
-//                         }
-//                         required
-//                       />
-//                     </td>
-//                   </tr>
-//                 ))}
-//               </tbody>
-//             </Table>
-//             <Form.Group controlId="notes" className="mt-3">
-//               <Form.Label>Notes</Form.Label>
-//               <Form.Control
-//                 as="textarea"
-//                 rows={3}
-//                 name="notes"
-//                 value={localSessionData.notes}
-//                 onChange={handleChange}
-//                 placeholder="Enter notes"
-//               />
-//             </Form.Group>
-//             <div className="d-flex justify-content-end mt-3">
-//               <Button variant="info" onClick={openCSVModal}>
-//                 Edit CSV Files
-//               </Button>
-//               <Button variant="primary" type="submit" className="ms-2">
-//                 Save All Changes
-//               </Button>
-//             </div>
-//           </Form>
-//         </Modal.Body>
-//       </Modal>
-//       <EditCSVModal
-//         show={showCSVModal}
-//         onSave={handleCSVSave}
-//         onCancel={handleCSVCancel}
-//         sessionId={session?._id}
-//       />
-//     </>
-//   );
-// };
-
-// export default EditSessionModal;
-// EditSessionModal.jsx
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Table } from 'react-bootstrap';
 import EditCSVModal from './EditCSVModal';
 import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
 import { useSelector } from 'react-redux';
 
-const EditSessionModal = ({
-  show,
-  onHide,
-  onCSVCancel,
-  onEditSession,
-  session,
-}) => {
+const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session }) => {
   // Local state for session edits
   const [localSessionData, setLocalSessionData] = useState({
     teamName: '',
@@ -241,20 +15,18 @@ const EditSessionModal = ({
     notes: '',
     splits: [],
   });
-  // State to hold any CSV updates from the CSV modal
+  // State to hold CSV updates (if any)
   const [csvUpdates, setCsvUpdates] = useState(null);
   // Control CSV modal visibility
   const [showCSVModal, setShowCSVModal] = useState(false);
 
-  // Get user info from auth slice and fetch teams
+  // Get user info and teams from the store/API
   const { userInfo } = useSelector((state) => state.auth);
   const { data: teamsData, isLoading: teamsLoading, error: teamsError } = useGetTeamsQuery();
-
-  // Filter teams to only include those created by the logged-in user.
   const filteredTeams =
     teamsData?.teams?.filter((team) => team.userId === userInfo?._id) || [];
 
-  // When the session prop changes, update the local state
+  // Update local state when the session prop changes
   useEffect(() => {
     if (session) {
       setLocalSessionData({
@@ -270,18 +42,19 @@ const EditSessionModal = ({
     }
   }, [session]);
 
-  // Handle generic field changes
+  // Generic change handler for inputs
   const handleChange = (e) => {
     const { name, value } = e.target;
     setLocalSessionData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle team dropdown change
+  // Handler for team dropdown change
   const handleTeamChange = (e) => {
     const selectedTeamName = e.target.value;
     setLocalSessionData((prev) => ({ ...prev, teamName: selectedTeamName }));
   };
 
+  // Handle changes for splits
   const handleSplitChange = (index, field, value) => {
     setLocalSessionData((prev) => {
       const newSplits = prev.splits.map((split, i) =>
@@ -291,7 +64,7 @@ const EditSessionModal = ({
     });
   };
 
-  // Add a new empty split row
+  // Add a new split row
   const handleAddSplit = () => {
     setLocalSessionData((prev) => ({
       ...prev,
@@ -299,7 +72,7 @@ const EditSessionModal = ({
     }));
   };
 
-  // Delete a split row by its index
+  // Delete a split row
   const handleDeleteSplit = (index) => {
     setLocalSessionData((prev) => ({
       ...prev,
@@ -307,10 +80,10 @@ const EditSessionModal = ({
     }));
   };
 
-  // Open CSV modal and hide the Edit Session modal
+  // Open CSV modal and hide this modal
   const openCSVModal = () => {
     setShowCSVModal(true);
-    onHide(); // Hide the Edit Session modal (controlled by the parent)
+    onHide(); // Hide the Edit Session modal (controlled by parent)
   };
 
   // Called when CSV modal saves changes
@@ -326,9 +99,9 @@ const EditSessionModal = ({
     if (onCSVCancel) onCSVCancel();
   };
 
+  // Final submit handler: merge session edits and CSV updates
   const handleFinalSubmit = (e) => {
     e.preventDefault();
-    // Merge session edits and CSV updates into one payload
     const finalData = { ...session, ...localSessionData, csvUpdates };
     onEditSession(finalData);
     onHide();
@@ -366,6 +139,7 @@ const EditSessionModal = ({
                 </Form.Control>
               )}
             </Form.Group>
+            {/* Session Name */}
             <Form.Group controlId="sessionName" className="mb-3">
               <Form.Label>Session Name</Form.Label>
               <Form.Control
@@ -376,6 +150,7 @@ const EditSessionModal = ({
                 required
               />
             </Form.Group>
+            {/* Date */}
             <Form.Group controlId="date" className="mb-3">
               <Form.Label>Date</Form.Label>
               <Form.Control
@@ -386,6 +161,7 @@ const EditSessionModal = ({
                 required
               />
             </Form.Group>
+            {/* Type Dropdown */}
             <Form.Group controlId="type" className="mb-3">
               <Form.Label>Type</Form.Label>
               <Form.Control
@@ -400,6 +176,7 @@ const EditSessionModal = ({
                 <option value="Game">Game</option>
               </Form.Control>
             </Form.Group>
+            {/* Duration */}
             <Form.Group controlId="duration" className="mb-3">
               <Form.Label>Duration (in minutes)</Form.Label>
               <Form.Control
@@ -410,6 +187,7 @@ const EditSessionModal = ({
                 required
               />
             </Form.Group>
+            {/* Splits Table */}
             <h5>Splits</h5>
             <Table striped bordered hover>
               <thead className="table-dark">
@@ -427,9 +205,7 @@ const EditSessionModal = ({
                       <Form.Control
                         type="text"
                         value={split.title}
-                        onChange={(e) =>
-                          handleSplitChange(index, 'title', e.target.value)
-                        }
+                        onChange={(e) => handleSplitChange(index, 'title', e.target.value)}
                         required
                       />
                     </td>
@@ -437,9 +213,7 @@ const EditSessionModal = ({
                       <Form.Control
                         type="time"
                         value={split.start}
-                        onChange={(e) =>
-                          handleSplitChange(index, 'start', e.target.value)
-                        }
+                        onChange={(e) => handleSplitChange(index, 'start', e.target.value)}
                         required
                       />
                     </td>
@@ -447,18 +221,12 @@ const EditSessionModal = ({
                       <Form.Control
                         type="time"
                         value={split.end}
-                        onChange={(e) =>
-                          handleSplitChange(index, 'end', e.target.value)
-                        }
+                        onChange={(e) => handleSplitChange(index, 'end', e.target.value)}
                         required
                       />
                     </td>
                     <td>
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={() => handleDeleteSplit(index)}
-                      >
+                      <Button variant="outline-danger" size="sm" onClick={() => handleDeleteSplit(index)}>
                         Delete
                       </Button>
                     </td>
@@ -471,6 +239,7 @@ const EditSessionModal = ({
                 Add Split
               </Button>
             </div>
+            {/* Notes */}
             <Form.Group controlId="notes" className="mt-3">
               <Form.Label>Notes</Form.Label>
               <Form.Control

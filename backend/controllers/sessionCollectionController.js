@@ -34,6 +34,24 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     throw new Error("Team does not exist. Please create a team first.");
   }
 
+   // Forces splits to unix format if provided (hours, minutes and seconds)
+   if (splits && Array.isArray(splits)) {
+    splits.forEach(split => {
+      if (!split.title) {
+        res.status(400);
+        throw new Error(`Split title is required.`);
+      }
+      if (typeof split.start !== 'number') {
+        split.start = Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+      }
+      if (typeof split.end !== 'number') {
+        split.end = Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+      }
+    });
+  }
+  
+
+
   const sessionCollection = await SessionCollection.create({
     teamName,
     sessionName,
@@ -45,6 +63,8 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     userId,
     number: 0, // This field may be used to reflect CSV count
   });
+
+ 
 
   if (sessionCollection) {
     res.status(200).json(sessionCollection);
@@ -176,6 +196,23 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Session Collection not found");
   }
+
+    // Forces splits to unix format if provided (hours, minutes and seconds)
+    if (splits && Array.isArray(splits)) {
+      splits.forEach(split => {
+        if (!split.title) {
+          res.status(400);
+          throw new Error(`Split title is required.`);
+        }
+        if (typeof split.start !== 'number') {
+          split.start = Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+        }
+        if (typeof split.end !== 'number') {
+          split.end = Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+        }
+      });
+    }
+    
 
   if (teamName) sessionCollection.teamName = teamName;
   if (sessionName) sessionCollection.sessionName = sessionName;

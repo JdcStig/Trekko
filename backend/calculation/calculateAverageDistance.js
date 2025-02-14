@@ -24,7 +24,7 @@ const calculateAverageDistance = async (sessionId) => {
         let totalSpeed = 0;
 
         sessionDataList.forEach((data) => {
-            totalSpeed += data.speeds.reduce((acc, speed) => acc + speed, 0);
+            totalSpeed += data.speeds.reduce((acc, speed) => acc + speed, 0); // add divide by 10 and 1000
         });
 
         // Number of CSV files (equal to sessionData entries)
