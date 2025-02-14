@@ -1,4 +1,3 @@
-
 // import asyncHandler from '../middleware/asyncHandler.js';
 // import SessionCollection from '../models/sessionCollectionModel.js';
 // import SessionData from '../models/sessionDataModel.js';
@@ -34,6 +33,24 @@
 //     throw new Error("Team does not exist. Please create a team first.");
 //   }
 
+//    // Forces splits to unix format if provided (hours, minutes and seconds)
+//    if (splits && Array.isArray(splits)) {
+//     splits.forEach(split => {
+//       if (!split.title) {
+//         res.status(400);
+//         throw new Error(`Split title is required.`);
+//       }
+//       if (typeof split.start !== 'number') {
+//         split.start = Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+//       }
+//       if (typeof split.end !== 'number') {
+//         split.end = Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+//       }
+//     });
+//   }
+  
+
+
 //   const sessionCollection = await SessionCollection.create({
 //     teamName,
 //     sessionName,
@@ -45,6 +62,8 @@
 //     userId,
 //     number: 0, // This field may be used to reflect CSV count
 //   });
+
+ 
 
 //   if (sessionCollection) {
 //     res.status(200).json(sessionCollection);
@@ -77,8 +96,14 @@
 //   console.log(`✅ File received: ${req.file.originalname}`);
 
 //   try {
+//     // First, parse the CSV file
 //     await parseCSV(req.file.buffer, sessionId, req.user._id);
-//     // const createdPlayers = await createPlayersFromCSV(sessionId, req.user._id);
+    
+//     // Then, create players from the CSV data
+//     const createdPlayers = await createPlayersFromCSV(sessionId, req.user._id);
+//     console.log("Created players:", createdPlayers);
+
+//     // Finally, get the updated session with its sessionData
 //     const updatedSession = await SessionCollection.findById(sessionId).populate('sessionData');
 //     res.status(201).json(updatedSession);
 //   } catch (error) {
@@ -168,7 +193,7 @@
 // // @access Protected/Admin
 // const updateSessionCollection = asyncHandler(async (req, res) => {
 //   const { teamName, sessionName, date, type, duration, splits, notes, csvData, ...others } = req.body;
-//   // We remove csvData (or any unknown extra fields) since it isn’t part of our schema.
+//   // Remove csvData or any extra fields not part of our schema.
 
 //   const sessionCollection = await SessionCollection.findById(req.params.id);
 
@@ -176,6 +201,23 @@
 //     res.status(404);
 //     throw new Error("Session Collection not found");
 //   }
+
+//     // Forces splits to unix format if provided (hours, minutes and seconds)
+//     if (splits && Array.isArray(splits)) {
+//       splits.forEach(split => {
+//         if (!split.title) {
+//           res.status(400);
+//           throw new Error(`Split title is required.`);
+//         }
+//         if (typeof split.start !== 'number') {
+//           split.start = Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+//         }
+//         if (typeof split.end !== 'number') {
+//           split.end = Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+//         }
+//       });
+//     }
+    
 
 //   if (teamName) sessionCollection.teamName = teamName;
 //   if (sessionName) sessionCollection.sessionName = sessionName;
@@ -198,8 +240,7 @@
 
 // // =============================
 // // NEW: Delete all CSVs for a session
-// // This function not only deletes the CSV files but also updates the 
-// // session's "number" field to 0 so that the UI reflects that no CSVs remain.
+// // This function deletes the CSV data and updates the session's "number" field to 0.
 // // =============================
 // const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
 //   const sessionId = req.params.id;
@@ -214,7 +255,7 @@
 //   // Clear the sessionData array and update the "number" field in the SessionCollection document
 //   const session = await SessionCollection.findByIdAndUpdate(
 //     sessionId,
-//     { sessionData: [], number: 0 }, // set number to 0 to reflect deletion
+//     { sessionData: [], number: 0 }, // Set number to 0 to reflect deletion
 //     { new: true }
 //   );
   
@@ -237,22 +278,14 @@
 //   updateSessionCollection,
 //   deleteAllSessionCSVs,
 // };
-
-
-
-
-
-
-
-
-
-
+// backend/controllers/sessionCollectionController.js
 import asyncHandler from '../middleware/asyncHandler.js';
 import SessionCollection from '../models/sessionCollectionModel.js';
 import SessionData from '../models/sessionDataModel.js';
 import parseCSV from '../calculation/parseCSV.js';
 import Team from '../models/teamModel.js';
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
+import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
 
 // @desc   Register sessionCollection
 // @route  POST /api/sessionCollections
@@ -282,8 +315,8 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     throw new Error("Team does not exist. Please create a team first.");
   }
 
-   // Forces splits to unix format if provided (hours, minutes and seconds)
-   if (splits && Array.isArray(splits)) {
+  // Forces splits to unix format if provided (hours, minutes and seconds)
+  if (splits && Array.isArray(splits)) {
     splits.forEach(split => {
       if (!split.title) {
         res.status(400);
@@ -297,8 +330,6 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
       }
     });
   }
-  
-
 
   const sessionCollection = await SessionCollection.create({
     teamName,
@@ -311,8 +342,6 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     userId,
     number: 0, // This field may be used to reflect CSV count
   });
-
- 
 
   if (sessionCollection) {
     res.status(200).json(sessionCollection);
@@ -345,14 +374,17 @@ const uploadSessionCSV = asyncHandler(async (req, res) => {
   console.log(`✅ File received: ${req.file.originalname}`);
 
   try {
-    // First, parse the CSV file
+    // Parse the CSV file and store session data
     await parseCSV(req.file.buffer, sessionId, req.user._id);
     
-    // Then, create players from the CSV data
+    // Recalculate the average distance immediately after parsing CSV data
+    await calculateAverageDistance(sessionId);
+
+    // Optionally, create players from the CSV data if required
     const createdPlayers = await createPlayersFromCSV(sessionId, req.user._id);
     console.log("Created players:", createdPlayers);
 
-    // Finally, get the updated session with its sessionData
+    // Get the updated session with its sessionData populated
     const updatedSession = await SessionCollection.findById(sessionId).populate('sessionData');
     res.status(201).json(updatedSession);
   } catch (error) {
@@ -451,27 +483,25 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
     throw new Error("Session Collection not found");
   }
 
-    // Forces splits to unix format if provided (hours, minutes and seconds)
-    if (splits && Array.isArray(splits)) {
-      splits.forEach(split => {
-        if (!split.title) {
-          res.status(400);
-          throw new Error(`Split title is required.`);
-        }
-        if (typeof split.start !== 'number') {
-          split.start = Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-        }
-        if (typeof split.end !== 'number') {
-          split.end = Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
-        }
-      });
-    }
-    
+  // Forces splits to unix format if provided (hours, minutes and seconds)
+  if (splits && Array.isArray(splits)) {
+    splits.forEach(split => {
+      if (!split.title) {
+        res.status(400);
+        throw new Error(`Split title is required.`);
+      }
+      if (typeof split.start !== 'number') {
+        split.start = Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+      }
+      if (typeof split.end !== 'number') {
+        split.end = Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+      }
+    });
+  }
 
   if (teamName) sessionCollection.teamName = teamName;
   if (sessionName) sessionCollection.sessionName = sessionName;
   if (date) {
-    // Convert date string (e.g., "2025-02-14") to a Unix timestamp
     const parsedDate = new Date(date).getTime();
     if (!isNaN(parsedDate)) {
       sessionCollection.date = parsedDate;
@@ -504,7 +534,7 @@ const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
   // Clear the sessionData array and update the "number" field in the SessionCollection document
   const session = await SessionCollection.findByIdAndUpdate(
     sessionId,
-    { sessionData: [], number: 0 }, // Set number to 0 to reflect deletion
+    { sessionData: [], number: 0 },
     { new: true }
   );
   
