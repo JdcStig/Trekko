@@ -2,56 +2,72 @@ import { apiSlice } from './apiSlice';
 
 export const sessionsApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    
-    // GET all session collections
     getSessions: builder.query({
-      query: () => '/sessionCollections', // Ensure this matches backend route
-      providesTags: (result = [], error, arg) =>
-        result
-          ? [
-              ...result.map(({ _id }) => ({ type: 'SessionCollection', id: _id })),
-              { type: 'SessionCollection', id: 'LIST' },
-            ]
-          : [{ type: 'SessionCollection', id: 'LIST' }],
+      query: () => '/sessionCollections',
+      providesTags: ['SessionCollection'],
     }),
 
-    // CREATE a new session collection
     createSession: builder.mutation({
       query: (newSession) => ({
-        url: '/sessionCollections', // Ensure correct API endpoint
+        url: '/sessionCollections',
         method: 'POST',
         body: newSession,
       }),
-      invalidatesTags: [{ type: 'SessionCollection', id: 'LIST' }],
+      invalidatesTags: ['SessionCollection'],
     }),
 
-    // UPDATE an existing session collection
     updateSession: builder.mutation({
       query: (updatedSession) => ({
-        url: `/sessionCollections/${updatedSession._id}`, // Updated endpoint
+        url: `/sessionCollections/${updatedSession._id}`,
         method: 'PUT',
         body: updatedSession,
       }),
-      invalidatesTags: (result, error, arg) => [{ type: 'SessionCollection', id: arg._id }],
+      invalidatesTags: ['SessionCollection'],
     }),
 
-    // DELETE a session collection
     deleteSession: builder.mutation({
       query: (id) => ({
-        url: `/sessionCollections/${id}`, // Updated endpoint
+        url: `/sessionCollections/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (result, error, arg) => [{ type: 'SessionCollection', id: arg }],
+      invalidatesTags: ['SessionCollection'],
     }),
 
-    // UPLOAD CSV file for a session collection
+    // UPDATED: Invalidate the 'SessionCSV' tag for CSV changes
     uploadSessionCSV: builder.mutation({
       query: (formData) => ({
-        url: '/sessionCollections/upload', // Ensure backend route is correct
+        url: '/sessionCollections/upload',
         method: 'POST',
         body: formData,
       }),
-      invalidatesTags: [{ type: 'SessionCollection', id: 'LIST' }],
+      invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
+    }),
+
+    getSessionCSVs: builder.query({
+      query: (sessionId) => `/sessionCollections/${sessionId}/csvs`,
+      providesTags: (result, error, arg) =>
+        result && result.sessionDataArray
+          ? [
+              ...result.sessionDataArray.map(({ _id }) => ({ type: 'SessionCSV', id: _id })),
+              { type: 'SessionCSV', id: 'LIST' },
+            ]
+          : [{ type: 'SessionCSV', id: 'LIST' }],
+    }),
+
+    deleteAllSessionCSVs: builder.mutation({
+      query: (sessionId) => ({
+        url: `/sessionCollections/${sessionId}/csvs/all`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
+    }),
+
+    deleteSessionCSV: builder.mutation({
+      query: ({ sessionId, fileId }) => ({
+        url: `/sessionCollections/${sessionId}/csvs/${fileId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, arg) => [{ type: 'SessionCSV', id: arg.fileId }],
     }),
   }),
 });
@@ -62,4 +78,7 @@ export const {
   useUpdateSessionMutation,
   useDeleteSessionMutation,
   useUploadSessionCSVMutation,
+  useGetSessionCSVsQuery,
+  useDeleteSessionCSVMutation,
+  useDeleteAllSessionCSVsMutation,
 } = sessionsApiSlice;

@@ -1,10 +1,11 @@
 import csvParser from 'csv-parser';
 import SessionData from '../models/sessionDataModel.js';
-
 import SessionCollection from '../models/sessionCollectionModel.js';
+import createPlayersFromCSV from './createPlayersFromCSV.js';
 
 import { Readable } from 'stream';
 import mongoose from 'mongoose';
+
 
 const parseCSV = async (fileBuffer, sessionId, userId) => {
     return new Promise(async (resolve, reject) => {
@@ -89,6 +90,8 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
 
                     await sessionData.save();
                     console.log("✅ SessionData saved:", sessionData._id);
+
+                    await createPlayersFromCSV(sessionId, userId);
 
                     // Update sessionCollection
                     const updatedSession = await SessionCollection.findByIdAndUpdate(

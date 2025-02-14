@@ -1,8 +1,10 @@
+
 import asyncHandler from '../middleware/asyncHandler.js';
 import SessionCollection from '../models/sessionCollectionModel.js';
 import SessionData from '../models/sessionDataModel.js';
 import parseCSV from '../calculation/parseCSV.js';
 import Team from '../models/teamModel.js';
+import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 
 // @desc   Register sessionCollection
 // @route  POST /api/sessionCollections
@@ -59,7 +61,7 @@ const registerSessionCollection = asyncHandler(async (req, res) => {
     splits: Array.isArray(splits) ? splits : [],
     notes,
     userId,
-    number: 0,
+    number: 0, // This field may be used to reflect CSV count
   });
 
  
@@ -96,8 +98,8 @@ const uploadSessionCSV = asyncHandler(async (req, res) => {
 
   try {
     await parseCSV(req.file.buffer, sessionId, req.user._id);
+    // const createdPlayers = await createPlayersFromCSV(sessionId, req.user._id);
     const updatedSession = await SessionCollection.findById(sessionId).populate('sessionData');
-
     res.status(201).json(updatedSession);
   } catch (error) {
     console.error("🚨 Error processing CSV:", error.message);
@@ -185,7 +187,9 @@ const deleteSessionCollection = asyncHandler(async (req, res) => {
 // @route  PUT /api/sessionCollections/:id
 // @access Protected/Admin
 const updateSessionCollection = asyncHandler(async (req, res) => {
-  const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
+  const { teamName, sessionName, date, type, duration, splits, notes, csvData, ...others } = req.body;
+  // We remove csvData (or any unknown extra fields) since it isn’t part of our schema.
+
   const sessionCollection = await SessionCollection.findById(req.params.id);
 
   if (!sessionCollection) {
@@ -212,7 +216,13 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
 
   if (teamName) sessionCollection.teamName = teamName;
   if (sessionName) sessionCollection.sessionName = sessionName;
-  if (date) sessionCollection.date = date;
+  if (date) {
+    // Convert date string (e.g., "2025-02-14") to a Unix timestamp
+    const parsedDate = new Date(date).getTime();
+    if (!isNaN(parsedDate)) {
+      sessionCollection.date = parsedDate;
+    }
+  }
   if (type) sessionCollection.type = type;
   if (duration) sessionCollection.duration = duration;
   if (splits) sessionCollection.splits = splits;
@@ -223,6 +233,36 @@ const updateSessionCollection = asyncHandler(async (req, res) => {
   res.status(200).json(updatedSessionCollection);
 });
 
+// =============================
+// NEW: Delete all CSVs for a session
+// This function not only deletes the CSV files but also updates the 
+// session's "number" field to 0 so that the UI reflects that no CSVs remain.
+// =============================
+const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
+  const sessionId = req.params.id;
+  if (!sessionId) {
+    res.status(400);
+    throw new Error("Session ID is required.");
+  }
+  
+  // Delete all SessionData documents associated with this session
+  await SessionData.deleteMany({ sessionId });
+  
+  // Clear the sessionData array and update the "number" field in the SessionCollection document
+  const session = await SessionCollection.findByIdAndUpdate(
+    sessionId,
+    { sessionData: [], number: 0 }, // set number to 0 to reflect deletion
+    { new: true }
+  );
+  
+  if (!session) {
+    res.status(404);
+    throw new Error("Session not found.");
+  }
+  
+  res.status(200).json({ message: 'All CSV data deleted', session });
+});
+
 export {
   registerSessionCollection,
   uploadSessionCSV,
@@ -231,5 +271,6 @@ export {
   getSessionCollections,
   getSessionCollectionByID,
   deleteSessionCollection,
-  updateSessionCollection
+  updateSessionCollection,
+  deleteAllSessionCSVs,
 };
