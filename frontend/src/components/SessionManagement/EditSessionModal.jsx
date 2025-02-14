@@ -171,16 +171,32 @@ const EditSessionModal = ({ show, onHide, onEditSession, session }) => {
       setType(session.type);
       setDuration(session.duration);
       setNotes(session.notes || '');
-      setSplits(session.splits || []);
+
+      // Converts UNIX to HH:MM:SS
+    const formattedSplits = (session.splits || []).map(split => ({
+      ...split,
+      start: new Date(split.start * 1000).toISOString().substr(11, 8), // UNIX to HH:MM:SS
+      end: new Date(split.end * 1000).toISOString().substr(11, 8),   // UNIX to HH:MM:SS
+    }));
+
+      setSplits(formattedSplits);
     }
   }, [session]);
 
-  // Handle input changes for table cells (Immutable state update)
+
+  
+  // Handles input changes for table cells (Immutable state update)
   const handleSplitChange = (index, field, value) => {
-    setSplits(prevSplits =>
-      prevSplits.map((split, i) => (i === index ? { ...split, [field]: value } : split))
+    const updatedSplits = splits.map((split, i) =>
+      i === index ? {
+        ...split,
+        [`${field}Display`]: value, // Stores display value (HH:MM:SS)
+        [field]: value // Keeps the raw value for input display
+      } : split
     );
+    setSplits(updatedSplits);
   };
+  
 
   // Add a new row
   const handleAddSplit = () => {
@@ -226,6 +242,16 @@ const EditSessionModal = ({ show, onHide, onEditSession, session }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    const updatedSplits = splits.map(split => ({
+      title: split.title || 'Untitled', // Ensures title is included
+      start: split.start
+        ? Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000)
+        : null,
+      end: split.end
+        ? Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000)
+        : null,
+    })); 
+
     if (!teamName.trim() || !sessionName.trim() || !date.trim() || !type.trim() || !duration.trim()) {
       toast.error('All fields are required!', { position: 'top-right' });
       return;
@@ -243,7 +269,7 @@ const EditSessionModal = ({ show, onHide, onEditSession, session }) => {
       type,
       duration,
       notes,
-      splits,
+      splits: updatedSplits,
     };
 
     onEditSession(updatedSession);
@@ -342,7 +368,8 @@ const EditSessionModal = ({ show, onHide, onEditSession, session }) => {
                   <td>
                     <Form.Control
                       type="time"
-                      value={split.start}
+                      step="1"
+                      value={split.startDisplay || split.start || ''}
                       onChange={(e) => handleSplitChange(index, 'start', e.target.value)}
                       required
                     />
@@ -350,7 +377,8 @@ const EditSessionModal = ({ show, onHide, onEditSession, session }) => {
                   <td>
                     <Form.Control
                       type="time"
-                      value={split.end}
+                      step="1"
+                      value={split.endDisplay || split.end || ''}
                       onChange={(e) => handleSplitChange(index, 'end', e.target.value)}
                       required
                     />

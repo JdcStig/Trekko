@@ -42,8 +42,8 @@ const sessionCollectionSchema = new mongoose.Schema(
     splits: [
       {
         title: { type: String, required: true },
-        start: { type: String, required: true },
-        end: { type: String, required: true },
+        start: { type: Number, required: true, default: 0  },
+        end: { type: Number, required: true, default: 0  },
       },
     ],
     notes: {

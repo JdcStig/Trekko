@@ -577,6 +577,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
                 <Form.Label>Start Time</Form.Label>
                 <Form.Control
                   type="time"
+                  step="1"
                   value={split.start}
                   onChange={(e) => handleSplitChange(index, 'start', e.target.value)}
                   required
@@ -586,6 +587,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
                 <Form.Label>End Time</Form.Label>
                 <Form.Control
                   type="time"
+                  step="1"
                   value={split.end}
                   onChange={(e) => handleSplitChange(index, 'end', e.target.value)}
                   required
