@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
@@ -183,11 +182,12 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
           <Form.Group controlId="duration" className="mb-3">
             <Form.Label>Duration (in minutes)</Form.Label>
             <Form.Control
-              type="text"
+              type="number"
               placeholder="Enter duration"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
               required
+              min="0"
             />
           </Form.Group>
 
@@ -199,6 +199,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
               placeholder="Enter number of splits"
               value={numSplits}
               onChange={(e) => setNumSplits(e.target.value)}
+              min="0"
             />
           </Form.Group>
 
