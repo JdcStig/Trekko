@@ -1,387 +1,505 @@
 // import React, { useState, useEffect } from 'react';
-// import { Modal, Button, Form } from 'react-bootstrap';
-// import { useSelector } from 'react-redux';
-// import { toast } from 'react-toastify';
-// import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
+// import { Modal, Button, Form, Table } from 'react-bootstrap';
+// import EditCSVModal from './EditCSVModal';
 
-// const EditSessionModal = ({ show, onHide, onEditSession, session }) => {
-//   const [teamName, setTeamName] = useState('');
-//   const [sessionName, setSessionName] = useState('');
-//   const [date, setDate] = useState('');
-//   const [type, setType] = useState('');
-//   const [duration, setDuration] = useState('');
-//   const [notes, setNotes] = useState('');
-
-//   // Fetch user info & teams
-//   const { userInfo } = useSelector((state) => state.auth);
-//   const { data: teamsData } = useGetTeamsQuery();
-
-//   // Filter teams based on the logged-in user
-//   const filteredTeams = teamsData?.teams?.filter(team => team.userId === userInfo?._id) || [];
-
-//   // Populate the form when editing a session
+// const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session }) => {
+//   // Local state for session edits
+//   const [localSessionData, setLocalSessionData] = useState({
+//     teamName: '',
+//     sessionName: '',
+//     date: '',
+//     type: '',
+//     duration: '',
+//     notes: '',
+//     splits: [],
+//   });
+//   // Store CSV updates (if any)
+//   const [csvUpdates, setCsvUpdates] = useState(null);
+//   // Control CSV modal visibility
+//   const [showCSVModal, setShowCSVModal] = useState(false);
+  
 //   useEffect(() => {
 //     if (session) {
-//       setTeamName(session.teamName || '');
-//       setSessionName(session.sessionName || '');
-//       setDate(session.date ? new Date(session.date).toISOString().split('T')[0] : '');
-//       setType(session.type || '');
-//       setDuration(session.duration || '');
-//       setNotes(session.notes || '');
+//       setLocalSessionData({
+//         teamName: session.teamName || '',
+//         sessionName: session.sessionName || '',
+//         date: session.date ? new Date(session.date).toISOString().split('T')[0] : '',
+//         type: session.type || '',
+//         duration: session.duration || '',
+//         notes: session.notes || '',
+//         splits: session.splits || [],
+//       });
+//       setCsvUpdates(null);
 //     }
 //   }, [session]);
-
-//   // Handle form submission
-//   const handleSubmit = (e) => {
+  
+//   const handleChange = (e) => {
+//     const { name, value } = e.target;
+//     setLocalSessionData(prev => ({ ...prev, [name]: value }));
+//   };
+  
+//   const handleSplitChange = (index, field, value) => {
+//     setLocalSessionData(prev => {
+//       const newSplits = prev.splits.map((split, i) =>
+//         i === index ? { ...split, [field]: value } : split
+//       );
+//       return { ...prev, splits: newSplits };
+//     });
+//   };
+  
+//   // Open CSV modal and hide the session modal
+//   const openCSVModal = () => {
+//     setShowCSVModal(true);
+//     onHide(); // Hide the Edit Session modal (controlled by the parent)
+//   };
+  
+//   // Called when CSV modal saves changes
+//   const handleCSVSave = (updates) => {
+//     setCsvUpdates(updates);
+//     setShowCSVModal(false);
+//     // Reopen the session modal after saving CSV changes
+//     if (onCSVCancel) onCSVCancel();
+//   };
+  
+//   // Called when CSV modal is cancelled (via "X" or Cancel button)
+//   const handleCSVCancel = () => {
+//     setShowCSVModal(false);
+//     // Reopen the Edit Session modal
+//     if (onCSVCancel) onCSVCancel();
+//   };
+  
+//   const handleFinalSubmit = (e) => {
 //     e.preventDefault();
-
-//     if (!teamName.trim() || !sessionName.trim() || !date.trim() || !type.trim() || !duration.trim()) {
-//       toast.error('All fields are required!', { position: 'top-right' });
-//       return;
-//     }
-
-//     const updatedSession = {
-//       ...session,
-//       teamName,
-//       sessionName,
-//       date: new Date(date).getTime(), // Convert to UNIX timestamp
-//       type,
-//       duration,
-//       notes,
-//     };
-
-//     onEditSession(updatedSession);
-//     //toast.success("Session updated successfully!", { position: 'top-right' });
+//     // Combine session edits and CSV updates into one payload
+//     const finalData = { ...session, ...localSessionData, csvUpdates };
+//     onEditSession(finalData);
 //     onHide();
 //   };
-
+  
 //   return (
-//     <Modal show={show} onHide={onHide} centered>
-//       <Modal.Header closeButton>
-//         <Modal.Title>Edit Session</Modal.Title>
-//       </Modal.Header>
-//       <Modal.Body>
-//         <Form onSubmit={handleSubmit}>
-//           {/* Team Name Dropdown */}
-//           <Form.Group controlId="teamName" className="mb-3">
-//             <Form.Label>Team Name</Form.Label>
-//             <Form.Control as="select" value={teamName} onChange={(e) => setTeamName(e.target.value)} required>
-//               <option value="">Select Team</option>
-//               {filteredTeams.map((team) => (
-//                 <option key={team._id} value={team.name}>
-//                   {team.name}
-//                 </option>
-//               ))}
-//             </Form.Control>
-//           </Form.Group>
-
-//           {/* Session Name */}
-//           <Form.Group controlId="sessionName" className="mb-3">
-//             <Form.Label>Session Name</Form.Label>
-//             <Form.Control
-//               type="text"
-//               placeholder="Enter session name"
-//               value={sessionName}
-//               onChange={(e) => setSessionName(e.target.value)}
-//               required
-//             />
-//           </Form.Group>
-
-//           {/* Date */}
-//           <Form.Group controlId="date" className="mb-3">
-//             <Form.Label>Date</Form.Label>
-//             <Form.Control
-//               type="date"
-//               value={date}
-//               onChange={(e) => setDate(e.target.value)}
-//               required
-//             />
-//           </Form.Group>
-
-//           {/* Type Dropdown */}
-//           <Form.Group controlId="type" className="mb-3">
-//             <Form.Label>Session Type</Form.Label>
-//             <Form.Control as="select" value={type} onChange={(e) => setType(e.target.value)} required>
-//               <option value="">Select Type</option>
-//               <option value="Training">Training</option>
-//               <option value="Game">Game</option>
-//             </Form.Control>
-//           </Form.Group>
-
-//           {/* Duration */}
-//           <Form.Group controlId="duration" className="mb-3">
-//             <Form.Label>Duration (in minutes)</Form.Label>
-//             <Form.Control
-//               type="text"
-//               placeholder="Enter duration"
-//               value={duration}
-//               onChange={(e) => setDuration(e.target.value)}
-//               required
-//             />
-//           </Form.Group>
-
-//           {/* Notes */}
-//           <Form.Group controlId="notes" className="mb-3">
-//             <Form.Label>Notes</Form.Label>
-//             <Form.Control
-//               as="textarea"
-//               rows={3}
-//               value={notes}
-//               onChange={(e) => setNotes(e.target.value)}
-//               placeholder="Enter notes"
-//             />
-//           </Form.Group>
-
-//           <Button variant="primary" type="submit">
-//             Save Changes
-//           </Button>
-//         </Form>
-//       </Modal.Body>
-//     </Modal>
+//     <>
+//       <Modal show={show} onHide={onHide} centered>
+//         <Modal.Header closeButton>
+//           <Modal.Title>Edit Session</Modal.Title>
+//         </Modal.Header>
+//         <Modal.Body>
+//           <Form onSubmit={handleFinalSubmit}>
+//             <Form.Group controlId="teamName" className="mb-3">
+//               <Form.Label>Team Name</Form.Label>
+//               <Form.Control
+//                 type="text"
+//                 name="teamName"
+//                 value={localSessionData.teamName}
+//                 onChange={handleChange}
+//                 required
+//               />
+//             </Form.Group>
+//             <Form.Group controlId="sessionName" className="mb-3">
+//               <Form.Label>Session Name</Form.Label>
+//               <Form.Control
+//                 type="text"
+//                 name="sessionName"
+//                 value={localSessionData.sessionName}
+//                 onChange={handleChange}
+//                 required
+//               />
+//             </Form.Group>
+//             <Form.Group controlId="date" className="mb-3">
+//               <Form.Label>Date</Form.Label>
+//               <Form.Control
+//                 type="date"
+//                 name="date"
+//                 value={localSessionData.date}
+//                 onChange={handleChange}
+//                 required
+//               />
+//             </Form.Group>
+//             <Form.Group controlId="type" className="mb-3">
+//               <Form.Label>Type</Form.Label>
+//               <Form.Control
+//                 as="select"
+//                 name="type"
+//                 value={localSessionData.type}
+//                 onChange={handleChange}
+//                 required
+//               >
+//                 <option value="">Select Type</option>
+//                 <option value="Training">Training</option>
+//                 <option value="Game">Game</option>
+//               </Form.Control>
+//             </Form.Group>
+//             <Form.Group controlId="duration" className="mb-3">
+//               <Form.Label>Duration (in minutes)</Form.Label>
+//               <Form.Control
+//                 type="text"
+//                 name="duration"
+//                 value={localSessionData.duration}
+//                 onChange={handleChange}
+//                 required
+//               />
+//             </Form.Group>
+//             <h5>Splits</h5>
+//             <Table striped bordered hover>
+//               <thead className="table-dark">
+//                 <tr>
+//                   <th>Title</th>
+//                   <th>Start Time</th>
+//                   <th>End Time</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {localSessionData.splits.map((split, index) => (
+//                   <tr key={index}>
+//                     <td>
+//                       <Form.Control
+//                         type="text"
+//                         value={split.title}
+//                         onChange={(e) =>
+//                           handleSplitChange(index, 'title', e.target.value)
+//                         }
+//                         required
+//                       />
+//                     </td>
+//                     <td>
+//                       <Form.Control
+//                         type="time"
+//                         value={split.start}
+//                         onChange={(e) =>
+//                           handleSplitChange(index, 'start', e.target.value)
+//                         }
+//                         required
+//                       />
+//                     </td>
+//                     <td>
+//                       <Form.Control
+//                         type="time"
+//                         value={split.end}
+//                         onChange={(e) =>
+//                           handleSplitChange(index, 'end', e.target.value)
+//                         }
+//                         required
+//                       />
+//                     </td>
+//                   </tr>
+//                 ))}
+//               </tbody>
+//             </Table>
+//             <Form.Group controlId="notes" className="mt-3">
+//               <Form.Label>Notes</Form.Label>
+//               <Form.Control
+//                 as="textarea"
+//                 rows={3}
+//                 name="notes"
+//                 value={localSessionData.notes}
+//                 onChange={handleChange}
+//                 placeholder="Enter notes"
+//               />
+//             </Form.Group>
+//             <div className="d-flex justify-content-end mt-3">
+//               <Button variant="info" onClick={openCSVModal}>
+//                 Edit CSV Files
+//               </Button>
+//               <Button variant="primary" type="submit" className="ms-2">
+//                 Save All Changes
+//               </Button>
+//             </div>
+//           </Form>
+//         </Modal.Body>
+//       </Modal>
+//       <EditCSVModal
+//         show={showCSVModal}
+//         onSave={handleCSVSave}
+//         onCancel={handleCSVCancel}
+//         sessionId={session?._id}
+//       />
+//     </>
 //   );
 // };
 
 // export default EditSessionModal;
+// EditSessionModal.jsx
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Table } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { toast } from 'react-toastify';
+import EditCSVModal from './EditCSVModal';
 import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
+import { useSelector } from 'react-redux';
 
-const EditSessionModal = ({ show, onHide, onEditSession, session }) => {
-  const [teamName, setTeamName] = useState('');
-  const [sessionName, setSessionName] = useState('');
-  const [date, setDate] = useState('');
-  const [type, setType] = useState('');
-  const [duration, setDuration] = useState('');
-  const [notes, setNotes] = useState('');
-  const [splits, setSplits] = useState([]);
+const EditSessionModal = ({
+  show,
+  onHide,
+  onCSVCancel,
+  onEditSession,
+  session,
+}) => {
+  // Local state for session edits
+  const [localSessionData, setLocalSessionData] = useState({
+    teamName: '',
+    sessionName: '',
+    date: '',
+    type: '',
+    duration: '',
+    notes: '',
+    splits: [],
+  });
+  // State to hold any CSV updates from the CSV modal
+  const [csvUpdates, setCsvUpdates] = useState(null);
+  // Control CSV modal visibility
+  const [showCSVModal, setShowCSVModal] = useState(false);
 
-  // Fetch user info & teams
+  // Get user info from auth slice and fetch teams
   const { userInfo } = useSelector((state) => state.auth);
-  const { data: teamsData } = useGetTeamsQuery();
-  const filteredTeams = teamsData?.teams?.filter(team => team.userId === userInfo?._id) || [];
+  const { data: teamsData, isLoading: teamsLoading, error: teamsError } = useGetTeamsQuery();
 
-  // Populate fields when opening the modal
+  // Filter teams to only include those created by the logged-in user.
+  const filteredTeams =
+    teamsData?.teams?.filter((team) => team.userId === userInfo?._id) || [];
+
+  // When the session prop changes, update the local state
   useEffect(() => {
     if (session) {
-      setTeamName(session.teamName);
-      setSessionName(session.sessionName);
-      setDate(session.date ? new Date(session.date).toISOString().split('T')[0] : '');
-      setType(session.type);
-      setDuration(session.duration);
-      setNotes(session.notes || '');
-      setSplits(session.splits || []);
+      setLocalSessionData({
+        teamName: session.teamName || '',
+        sessionName: session.sessionName || '',
+        date: session.date ? new Date(session.date).toISOString().split('T')[0] : '',
+        type: session.type || '',
+        duration: session.duration || '',
+        notes: session.notes || '',
+        splits: session.splits || [],
+      });
+      setCsvUpdates(null);
     }
   }, [session]);
 
-  // Handle input changes for table cells (Immutable state update)
+  // Handle generic field changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setLocalSessionData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle team dropdown change
+  const handleTeamChange = (e) => {
+    const selectedTeamName = e.target.value;
+    setLocalSessionData((prev) => ({ ...prev, teamName: selectedTeamName }));
+  };
+
   const handleSplitChange = (index, field, value) => {
-    setSplits(prevSplits =>
-      prevSplits.map((split, i) => (i === index ? { ...split, [field]: value } : split))
-    );
+    setLocalSessionData((prev) => {
+      const newSplits = prev.splits.map((split, i) =>
+        i === index ? { ...split, [field]: value } : split
+      );
+      return { ...prev, splits: newSplits };
+    });
   };
 
-  // Add a new row
+  // Add a new empty split row
   const handleAddSplit = () => {
-    setSplits([...splits, { title: '', start: '', end: '' }]);
+    setLocalSessionData((prev) => ({
+      ...prev,
+      splits: [...prev.splits, { title: '', start: '', end: '' }],
+    }));
   };
 
-  // Delete a row
+  // Delete a split row by its index
   const handleDeleteSplit = (index) => {
-    setSplits(splits.filter((_, i) => i !== index));
+    setLocalSessionData((prev) => ({
+      ...prev,
+      splits: prev.splits.filter((_, i) => i !== index),
+    }));
   };
 
-  // ** Validation function for date & time **
-  const validateDateTime = () => {
-    const selectedDate = new Date(date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to beginning of the day for comparison
-
-    // **Date must not be in the future**
-    if (selectedDate > today) {
-      toast.error("Date cannot be in the future.", { position: 'top-right' });
-      return false;
-    }
-
-    // **Validate each split time**
-    for (let i = 0; i < splits.length; i++) {
-      const { start, end } = splits[i];
-
-      if (!start || !end) {
-        toast.error(`Start time and end time are required for split ${i + 1}.`, { position: 'top-right' });
-        return false;
-      }
-
-      if (end <= start) {
-        toast.error(`End time cannot be before start time in split ${i + 1}.`, { position: 'top-right' });
-        return false;
-      }
-    }
-
-    return true;
+  // Open CSV modal and hide the Edit Session modal
+  const openCSVModal = () => {
+    setShowCSVModal(true);
+    onHide(); // Hide the Edit Session modal (controlled by the parent)
   };
 
-  // Handle form submission
-  const handleSubmit = (e) => {
+  // Called when CSV modal saves changes
+  const handleCSVSave = (updates) => {
+    setCsvUpdates(updates);
+    setShowCSVModal(false);
+    if (onCSVCancel) onCSVCancel();
+  };
+
+  // Called when CSV modal is cancelled
+  const handleCSVCancel = () => {
+    setShowCSVModal(false);
+    if (onCSVCancel) onCSVCancel();
+  };
+
+  const handleFinalSubmit = (e) => {
     e.preventDefault();
-
-    if (!teamName.trim() || !sessionName.trim() || !date.trim() || !type.trim() || !duration.trim()) {
-      toast.error('All fields are required!', { position: 'top-right' });
-      return;
-    }
-
-    if (!validateDateTime()) {
-      return; // Stop submission if validation fails
-    }
-
-    const updatedSession = {
-      ...session,
-      teamName,
-      sessionName,
-      date: new Date(date).getTime(),
-      type,
-      duration,
-      notes,
-      splits,
-    };
-
-    onEditSession(updatedSession);
-    //toast.success("Session updated successfully!");
+    // Merge session edits and CSV updates into one payload
+    const finalData = { ...session, ...localSessionData, csvUpdates };
+    onEditSession(finalData);
     onHide();
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Edit Session</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form onSubmit={handleSubmit}>
-          {/* Team Name Dropdown */}
-          <Form.Group controlId="teamName" className="mb-3">
-            <Form.Label>Team Name</Form.Label>
-            <Form.Control as="select" value={teamName} onChange={(e) => setTeamName(e.target.value)} required>
-              <option value="">Select Team</option>
-              {filteredTeams.map((team) => (
-                <option key={team._id} value={team.name}>
-                  {team.name}
-                </option>
-              ))}
-            </Form.Control>
-          </Form.Group>
-
-          {/* Session Name */}
-          <Form.Group controlId="sessionName" className="mb-3">
-            <Form.Label>Session Name</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter session name"
-              value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          {/* Date */}
-          <Form.Group controlId="date" className="mb-3">
-            <Form.Label>Date</Form.Label>
-            <Form.Control
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          {/* Type Dropdown */}
-          <Form.Group controlId="type" className="mb-3">
-            <Form.Label>Session Type</Form.Label>
-            <Form.Control as="select" value={type} onChange={(e) => setType(e.target.value)} required>
-              <option value="">Select Type</option>
-              <option value="Training">Training</option>
-              <option value="Game">Game</option>
-            </Form.Control>
-          </Form.Group>
-
-          {/* Duration */}
-          <Form.Group controlId="duration" className="mb-3">
-            <Form.Label>Duration (in minutes)</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          {/* Splits Table */}
-          <h5>Splits</h5>
-          <Table striped bordered hover>
-            <thead className="table-dark">
-              <tr>
-                <th>Title</th>
-                <th>Start Time</th>
-                <th>End Time</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {splits.map((split, index) => (
-                <tr key={index}>
-                  <td>
-                    <Form.Control
-                      type="text"
-                      value={split.title}
-                      onChange={(e) => handleSplitChange(index, 'title', e.target.value)}
-                      placeholder="Enter title"
-                      required
-                    />
-                  </td>
-                  <td>
-                    <Form.Control
-                      type="time"
-                      value={split.start}
-                      onChange={(e) => handleSplitChange(index, 'start', e.target.value)}
-                      required
-                    />
-                  </td>
-                  <td>
-                    <Form.Control
-                      type="time"
-                      value={split.end}
-                      onChange={(e) => handleSplitChange(index, 'end', e.target.value)}
-                      required
-                    />
-                  </td>
-                  <td>
-                    <Button variant="danger" size="sm" onClick={() => handleDeleteSplit(index)}>Delete</Button>
-                  </td>
+    <>
+      <Modal show={show} onHide={onHide} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Session</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleFinalSubmit}>
+            {/* Team Name Dropdown */}
+            <Form.Group controlId="teamName" className="mb-3">
+              <Form.Label>Team Name</Form.Label>
+              {teamsLoading ? (
+                <p>Loading teams...</p>
+              ) : teamsError ? (
+                <p>Error loading teams.</p>
+              ) : (
+                <Form.Control
+                  as="select"
+                  name="teamName"
+                  value={localSessionData.teamName}
+                  onChange={handleTeamChange}
+                  required
+                >
+                  <option value="">Select Team</option>
+                  {filteredTeams.map((team) => (
+                    <option key={team._id} value={team.name}>
+                      {team.name} ({team.sport})
+                    </option>
+                  ))}
+                </Form.Control>
+              )}
+            </Form.Group>
+            <Form.Group controlId="sessionName" className="mb-3">
+              <Form.Label>Session Name</Form.Label>
+              <Form.Control
+                type="text"
+                name="sessionName"
+                value={localSessionData.sessionName}
+                onChange={handleChange}
+                required
+              />
+            </Form.Group>
+            <Form.Group controlId="date" className="mb-3">
+              <Form.Label>Date</Form.Label>
+              <Form.Control
+                type="date"
+                name="date"
+                value={localSessionData.date}
+                onChange={handleChange}
+                required
+              />
+            </Form.Group>
+            <Form.Group controlId="type" className="mb-3">
+              <Form.Label>Type</Form.Label>
+              <Form.Control
+                as="select"
+                name="type"
+                value={localSessionData.type}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Type</option>
+                <option value="Training">Training</option>
+                <option value="Game">Game</option>
+              </Form.Control>
+            </Form.Group>
+            <Form.Group controlId="duration" className="mb-3">
+              <Form.Label>Duration (in minutes)</Form.Label>
+              <Form.Control
+                type="text"
+                name="duration"
+                value={localSessionData.duration}
+                onChange={handleChange}
+                required
+              />
+            </Form.Group>
+            <h5>Splits</h5>
+            <Table striped bordered hover>
+              <thead className="table-dark">
+                <tr>
+                  <th>Title</th>
+                  <th>Start Time</th>
+                  <th>End Time</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-          <Button variant="success" onClick={handleAddSplit}>+ Add Split</Button>
-
-          {/* Notes */}
-          <Form.Group controlId="notes" className="mt-3">
-            <Form.Label>Notes</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Enter notes"
-            />
-          </Form.Group>
-
-          <Button variant="primary" type="submit" className="mt-3">
-            Save Changes
-          </Button>
-        </Form>
-      </Modal.Body>
-    </Modal>
+              </thead>
+              <tbody>
+                {localSessionData.splits.map((split, index) => (
+                  <tr key={index}>
+                    <td>
+                      <Form.Control
+                        type="text"
+                        value={split.title}
+                        onChange={(e) =>
+                          handleSplitChange(index, 'title', e.target.value)
+                        }
+                        required
+                      />
+                    </td>
+                    <td>
+                      <Form.Control
+                        type="time"
+                        value={split.start}
+                        onChange={(e) =>
+                          handleSplitChange(index, 'start', e.target.value)
+                        }
+                        required
+                      />
+                    </td>
+                    <td>
+                      <Form.Control
+                        type="time"
+                        value={split.end}
+                        onChange={(e) =>
+                          handleSplitChange(index, 'end', e.target.value)
+                        }
+                        required
+                      />
+                    </td>
+                    <td>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteSplit(index)}
+                      >
+                        Delete
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <div className="d-flex justify-content-end mb-3">
+              <Button variant="secondary" onClick={handleAddSplit}>
+                Add Split
+              </Button>
+            </div>
+            <Form.Group controlId="notes" className="mt-3">
+              <Form.Label>Notes</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="notes"
+                value={localSessionData.notes}
+                onChange={handleChange}
+                placeholder="Enter notes"
+              />
+            </Form.Group>
+            <div className="d-flex justify-content-end mt-3">
+              <Button variant="info" onClick={openCSVModal}>
+                Edit CSV Files
+              </Button>
+              <Button variant="primary" type="submit" className="ms-2">
+                Save All Changes
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+      <EditCSVModal
+        show={showCSVModal}
+        onSave={handleCSVSave}
+        onCancel={handleCSVCancel}
+        sessionId={session?._id}
+      />
+    </>
   );
 };
 
