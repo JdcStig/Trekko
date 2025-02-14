@@ -56,8 +56,9 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     console.log("✅ Session found. Processing data...");
 
                     const playerId = results[0]['Player Display Name'] || "Unknown Player";
-                    const startTimeUnix = Math.floor(new Date(row['Start Time']).getTime() / 1000);
-                    const endTimeUnix = Math.floor(new Date(row['End Time']).getTime() / 1000);
+                    const startTime = results[0]['Time'] || "00:00:0";
+                    const endTime = results[results.length - 1]['Time'] || "00:00:0";
+
 
 
 
@@ -79,8 +80,8 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                         sessionId,
                         userId,
                         playerId,
-                        startTime: startTimeUnix,
-                        endTime: endTimeUnix,
+                        startTime,
+                        endTime,
                         lats,
                         lons,
                         speeds,
