@@ -203,7 +203,7 @@ const SessionManagementScreen = () => {
       {isLoading || loadingDelete ? (
         <Loader />
       ) : error ? (
-        <Message variant="danger">{error.data?.message || error.error}</Message>
+       <Alert variant="info" className="text-center">No session found.</Alert>
       ) : filteredSessions.length > 0 ? (
         <Table striped bordered hover responsive className="table-sm">
   <thead className="table-dark">
@@ -294,11 +294,14 @@ const SessionManagementScreen = () => {
       />
 
       {/* CSV Upload Modal */}
-      <AddCSVModal 
-        show={showCSVModal} 
-        onHide={() => setShowCSVModal(false)} 
-        sessionId={newSessionId}
-      />
+        <AddCSVModal 
+          show={showCSVModal} 
+          onHide={() => {
+            setShowCSVModal(false);
+            refetch();
+          }} 
+          sessionId={newSessionId}
+        />
     </Container>
   );
 };
