@@ -2,6 +2,7 @@ import { response } from 'express';
 import asyncHandler from '../middleware/asyncHandler.js';
 import Team from '../models/teamModel.js';
 import Player from '../models/playerModel.js'; // Import the Player model
+import Session from '../models/sessionModel.js';
 import generateToken from '../utils/generateToken.js';
 
 // @desc   Register team
@@ -130,10 +131,18 @@ const updateTeam = asyncHandler(async (req, res) => {
   const team = await Team.findById(req.params.id);
 
   if (team) {
+    const oldName = team.name; // Stores old team name
+
     team.name = req.body.name || team.name;
     team.sport = req.body.sport || team.sport;
 
     const updatedTeam = await team.save();
+
+    // Updates Players and Sessions with the new team name
+    if (req.body.name && req.body.name !== oldName) {
+      await Player.updateMany({ teamName: oldName }, { $set: { teamName: req.body.name } }); // Updates Players
+      await Session.updateMany({ teamName: oldName }, { $set: { teamName: req.body.name } }); // Updates Sessions
+    }
 
     res.status(200).json({
       _id: updatedTeam._id,
