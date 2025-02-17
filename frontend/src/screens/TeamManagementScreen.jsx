@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Table, Button, Container, Alert, Row, Col, Form } from 'react-bootstrap';
 import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
-import { useGetTeamsQuery, 
-         useDeleteTeamMutation, 
-         useCreateTeamMutation,
-         useUpdateTeamMutation } from '../slices/teamsApiSlice';
+import { 
+  useGetTeamsQuery, 
+  useDeleteTeamMutation, 
+  useCreateTeamMutation,
+  useUpdateTeamMutation 
+} from '../slices/teamsApiSlice';
 import AddTeamModal from '../components/TeamManagement/AddTeamModal';
 import EditTeamModal from '../components/TeamManagement/EditTeamModal';
 
@@ -27,22 +30,19 @@ const TeamManagementScreen = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
  
-  // Creates a sortedTeams copy of the data
+  // Create a sortedTeams copy of the data
   const sortedTeams = [...(data?.teams || [])].sort((a, b) => {
     if (!sortConfig.key) return 0;
     const valueA = a[sortConfig.key].toLowerCase();
     const valueB = b[sortConfig.key].toLowerCase();
-
-    if (sortConfig.direction === 'asc') {
-      return valueA.localeCompare(valueB);
-    } else {
-      return valueB.localeCompare(valueA);
-    }
+    return sortConfig.direction === 'asc'
+      ? valueA.localeCompare(valueB)
+      : valueB.localeCompare(valueA);
   });
 
   const [filterSport, setFilterSport] = useState('All');
 
-  // Toggles sorting direction when a column header is clicked
+  // Toggle sorting direction when a column header is clicked
   const handleSort = (key) => {
     setSortConfig((prev) => ({
       key,
@@ -50,13 +50,13 @@ const TeamManagementScreen = () => {
     }));
   };
     
-  // When trash icon is clicked, opens the confirm deletion modal
+  // Open deletion confirmation modal when trash icon is clicked
   const handleDeleteClick = (team) => {
     setSelectedTeam(team);
     setShowConfirm(true);
   };
 
-  // When the edit icon is clicked, opens the edit modal
+  // Open edit modal when edit icon is clicked
   const handleEditClick = (team) => {
     setSelectedTeam(team);
     setShowEditModal(true);
@@ -64,25 +64,36 @@ const TeamManagementScreen = () => {
 
   // Updates the team and closes the modal
   const handleEditTeam = async (updatedTeam) => {
-    console.log("Updating team:", updatedTeam); // Debugging output
     try {
       await updateTeam(updatedTeam).unwrap();
       refetch();
       setShowEditModal(false);
+      toast.success('Team updated successfully');
     } catch (err) {
-      console.error("Failed to update team:", err);
+      console.error('Failed to update team:', err);
+      toast.error('Failed to update team');
     }
   };
   
-
   // Called when the user confirms deletion
   const handleConfirmDeletion = async () => {
     if (!selectedTeam) return;
     try {
       await deleteTeam(selectedTeam._id).unwrap();
       refetch();
+      toast.success('Team deleted successfully');
     } catch (err) {
       console.error(err);
+      const errorMessage = err?.data?.message || err.message || 'Failed to delete team';
+      // Display a specific toast if the error indicates players are assigned
+      if (
+        errorMessage.toLowerCase().includes('attached') ||
+        errorMessage.toLowerCase().includes('assigned')
+      ) {
+        toast.error('Cannot delete team as it has players assigned');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setShowConfirm(false);
       setSelectedTeam(null);
@@ -101,12 +112,14 @@ const TeamManagementScreen = () => {
       await createTeam(teamData).unwrap();
       refetch();
       setShowAddModal(false);
+      toast.success('Team created successfully');
     } catch (err) {
       console.error(err);
+      toast.error('Failed to create team');
     }
   };
 
-  // Creates an array of unique team sports and populates it into the teams sort dropdown
+  // Create an array of unique team sports for the filter dropdown
   const uniqueSports = sortedTeams.reduce((acc, team) => {
     if (!acc.includes(team.sport)) {
       acc.push(team.sport);
@@ -128,10 +141,9 @@ const TeamManagementScreen = () => {
         </Col>
       </Row>
 
-      {/* Filter and Search Controls */}
+      {/* Filter Controls */}
       <Row className="mb-3">
         <Col md={4}>
-          {/* Filter by Sport */}
           <Form.Group controlId="filterSport">
             <Form.Label>Filter by Sport</Form.Label>
             <Form.Control
@@ -150,7 +162,7 @@ const TeamManagementScreen = () => {
         </Col>         
       </Row>
 
-      {/* Show loader if fetching or deleting */}
+      {/* Display Loader, Error Message, or Table */}
       {isLoading || loadingDelete || loadingCreate || loadingUpdate ? (
         <Loader />
       ) : error ? (
@@ -161,11 +173,9 @@ const TeamManagementScreen = () => {
         <Table striped bordered hover responsive className="table-sm">
           <thead className="table-dark">
             <tr>
-              {/* Sorting Feature */}
               <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
                 Team Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
               </th>
-             
               <th onClick={() => handleSort('sport')} style={{ cursor: 'pointer' }}>
                 Sport {sortConfig.key === 'sport' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
               </th>
@@ -175,11 +185,10 @@ const TeamManagementScreen = () => {
           </thead>
           <tbody>
             {sortedTeams
-              .filter((team) => filterSport === 'All' || team.sport === filterSport) // Filtering logic
+              .filter((team) => filterSport === 'All' || team.sport === filterSport)
               .map((team) => (
                 <tr key={team._id}>
                   <td>{team.name}</td>
-                  
                   <td>{team.sport}</td>
                   <td>
                     <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(team)}>
@@ -187,16 +196,12 @@ const TeamManagementScreen = () => {
                     </Button>
                   </td>
                   <td>
-                    <Button
-                      variant="light"
-                      className="btn-sm mx-2"
-                      onClick={() => handleDeleteClick(team)}
-                    >
+                    <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(team)}>
                       <FaTrash />
                     </Button>
                   </td>
                 </tr>
-            ))}
+              ))}
           </tbody>
         </Table>
       ) : (
@@ -215,9 +220,19 @@ const TeamManagementScreen = () => {
       />
 
       {/* Add Team Modal */}
-      <AddTeamModal show={showAddModal} onHide={() => setShowAddModal(false)} onAddTeam={handleAddTeam} />
+      <AddTeamModal 
+        show={showAddModal} 
+        onHide={() => setShowAddModal(false)} 
+        onAddTeam={handleAddTeam} 
+      />
 
-      <EditTeamModal show={showEditModal} onHide={() => setShowEditModal(false)} onEditTeam={handleEditTeam} team={selectedTeam} />
+      {/* Edit Team Modal */}
+      <EditTeamModal 
+        show={showEditModal} 
+        onHide={() => setShowEditModal(false)} 
+        onEditTeam={handleEditTeam} 
+        team={selectedTeam} 
+      />
     </Container>
   );
 };
