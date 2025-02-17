@@ -16,9 +16,9 @@ const updateSessionCount = async (userId) => {
 
         await calculateAverageDistance(userId);
 
-        console.log(`Updated sessionCollections for user ${userId} with ${sessionCount} session entries.`);
+       // console.log(`Updated sessionCollections for user ${userId} with ${sessionCount} session entries.`);
     } catch (error) {
-        console.error("Error updating session collection count:", error);
+       // console.error("Error updating session collection count:", error);
     }
 };
 

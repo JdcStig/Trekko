@@ -127,7 +127,7 @@ const SessionManagementScreen = () => {
       // Return the created session object (adjust if your API returns a different structure)
       return response.session || response;
     } catch (error) {
-      console.error("Error creating session:", error);
+      //console.error("Error creating session:", error);
       throw error;
     }
   };
