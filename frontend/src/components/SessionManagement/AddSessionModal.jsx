@@ -91,7 +91,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
     }
 
     // Build session data (without CSV info)
-    const sessionData = {
+    const sessionPlayerData = {
       teamName,
       sessionName,
       date: unixDate,
@@ -102,7 +102,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
     };
 
     // Call the passed in onAddSession function (which should return a promise)
-    onAddSession(sessionData)
+    onAddSession(sessionPlayerData)
       .then((newSession) => {
         toast.success("Session added successfully!", { position: 'top-right' });
         if (onAddSessionSuccess) {

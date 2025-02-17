@@ -1,6 +1,6 @@
 import Player from '../models/playerModel.js';
-import SessionData from '../models/sessionDataModel.js';
-import SessionCollection from '../models/sessionCollectionModel.js';
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Session from '../models/sessionModel.js';
 import { getIO } from '../socket.js';
 
 const sportPositions = {
@@ -14,8 +14,8 @@ const sportPositions = {
 const createPlayersFromCSV = async (sessionId, userId) => {
   try {
    // console.log("Processing CSV for session id:", sessionId);
-    // Retrieve the session using the SessionCollection model
-    const session = await SessionCollection.findById(sessionId);
+    // Retrieve the session using the Session model
+    const session = await Session.findById(sessionId);
     // console.log("Found session:", session);
     if (!session) {
       // console.error(`❌ Session ${sessionId} not found.`);
@@ -27,10 +27,10 @@ const createPlayersFromCSV = async (sessionId, userId) => {
       return { createdPlayers: [] };
     }
 
-    // Retrieve all sessionData associated with the session
-    const sessionDataList = await SessionData.find({ sessionId });
-    // console.log("SessionData count:", sessionDataList.length);
-    if (!sessionDataList.length) {
+    // Retrieve all sessionPlayerData associated with the session
+    const sessionPlayerDataList = await SessionPlayerData.find({ sessionId });
+    // console.log("SessionPlayerData count:", sessionPlayerDataList.length);
+    if (!sessionPlayerDataList.length) {
       // console.log(`❌ No session data found for session ${sessionId}`);
       return { createdPlayers: [] };
     }
@@ -40,8 +40,8 @@ const createPlayersFromCSV = async (sessionId, userId) => {
     const positions = sportPositions[session.type] || sportPositions["Other"];
     const createdPlayersSet = new Set();
 
-    // Process each sessionData row one by one
-    for (const data of sessionDataList) {
+    // Process each sessionPlayerData row one by one
+    for (const data of sessionPlayerDataList) {
       const playerIdentifier = data.playerId;
       const randomPosition = positions[Math.floor(Math.random() * positions.length)];
 

@@ -4,8 +4,8 @@ import connectDB from './config/db.js';
 import User from './models/userModel.js';
 import Player from './models/playerModel.js';
 import Team from './models/teamModel.js';
-import SessionCollection from './models/sessionCollectionModel.js';
-import SessionData from './models/sessionDataModel.js';
+import Session from './models/sessionModel.js';
+import SessionPlayerData from './models/sessionPlayerDataModel.js';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -49,7 +49,7 @@ const teams = [
 },
 ];
 
-const sessionCollections = [
+const sessions = [
   {     
     teamName: "XPX1",
     sessionName: "Session1",
@@ -66,7 +66,7 @@ const sessionCollections = [
         }
     ],
     notes: '',
-    sessionData: []
+    sessionPlayerData: []
 },
 {
     teamName: "XPX2",
@@ -84,11 +84,11 @@ const sessionCollections = [
         }
     ],
     notes: '',
-    sessionData: []
+    sessionPlayerData: []
 },
 ];
 
-const sessionDatas = [
+const sessionPlayerDatas = [
   {      
     playerId: 'player1',  
     startTime: '00:00.0',  
@@ -115,10 +115,10 @@ const importData = async () => {
     await Player.insertMany(players); // Reinserts whats above
     await Team.deleteMany(); // Clears previous teams
     await Team.insertMany(teams); // Reinserts whats above
-    await SessionCollection.deleteMany(); // Clears previous teams
-    await SessionCollection.insertMany(sessionCollections); // Reinserts whats above
-    await SessionData.deleteMany(); // Clears previous teams
-    await SessionData.insertMany(sessionDatas); // Reinserts whats above
+    await Session.deleteMany(); // Clears previous teams
+    await Session.insertMany(sessions); // Reinserts whats above
+    await SessionPlayerData.deleteMany(); // Clears previous teams
+    await SessionPlayerData.insertMany(sessionPlayerDatas); // Reinserts whats above
     //console.log("Seeded successfully");
     process.exit();
   } catch (error) {

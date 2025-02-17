@@ -1,22 +1,22 @@
-import SessionData from '../models/sessionDataModel.js';
-import SessionCollection from '../models/sessionCollectionModel.js';
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Session from '../models/sessionModel.js';
 import calculateAverageDistance from "./calculateAverageDistance.js";
 
 /**
- * Updates the "number" field in sessionCollections for a given user.
+ * Updates the "number" field in sessions for a given user.
  * @param {String} userId - The user ID.
  */
 const updateSessionCount = async (userId) => {
     try {
-        // Counts the number of sessionDatas entries for this user
-        const sessionCount = await SessionData.countDocuments({ userId });
+        // Counts the number of sessionPlayerDatas entries for this user
+        const sessionCount = await SessionPlayerData.countDocuments({ userId });
 
-        // Updates all sessionCollections for this user with the new count
-        await SessionCollection.updateMany({ userId }, { $set: { number: sessionCount } });
+        // Updates all sessions for this user with the new count
+        await Session.updateMany({ userId }, { $set: { number: sessionCount } });
 
         await calculateAverageDistance(userId);
 
-       // console.log(`Updated sessionCollections for user ${userId} with ${sessionCount} session entries.`);
+       // console.log(`Updated sessions for user ${userId} with ${sessionCount} session entries.`);
     } catch (error) {
        // console.error("Error updating session collection count:", error);
     }

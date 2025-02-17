@@ -3,40 +3,40 @@ import { apiSlice } from './apiSlice';
 export const sessionsApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getSessions: builder.query({
-      query: () => '/sessionCollections',
-      providesTags: ['SessionCollection'],
+      query: () => '/Sessions',
+      providesTags: ['Session'],
     }),
 
     createSession: builder.mutation({
       query: (newSession) => ({
-        url: '/sessionCollections',
+        url: '/Sessions',
         method: 'POST',
         body: newSession,
       }),
-      invalidatesTags: ['SessionCollection'],
+      invalidatesTags: ['Session'],
     }),
 
     updateSession: builder.mutation({
       query: (updatedSession) => ({
-        url: `/sessionCollections/${updatedSession._id}`,
+        url: `/Sessions/${updatedSession._id}`,
         method: 'PUT',
         body: updatedSession,
       }),
-      invalidatesTags: ['SessionCollection'],
+      invalidatesTags: ['Session'],
     }),
 
     deleteSession: builder.mutation({
       query: (id) => ({
-        url: `/sessionCollections/${id}`,
+        url: `/Sessions/${id}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['SessionCollection'],
+      invalidatesTags: ['Session'],
     }),
 
     // UPDATED: Invalidate the 'SessionCSV' tag for CSV changes
     uploadSessionCSV: builder.mutation({
       query: (formData) => ({
-        url: '/sessionCollections/upload',
+        url: '/Sessions/upload',
         method: 'POST',
         body: formData,
       }),
@@ -44,7 +44,7 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
     }),
 
     getSessionCSVs: builder.query({
-      query: (sessionId) => `/sessionCollections/${sessionId}/csvs`,
+      query: (sessionId) => `/Sessions/${sessionId}/csvs`,
       providesTags: (result, error, arg) =>
         result && result.sessionDataArray
           ? [
@@ -56,7 +56,7 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
 
     deleteAllSessionCSVs: builder.mutation({
       query: (sessionId) => ({
-        url: `/sessionCollections/${sessionId}/csvs/all`,
+        url: `/Sessions/${sessionId}/csvs/all`,
         method: 'DELETE',
       }),
       invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
@@ -64,7 +64,7 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
 
     deleteSessionCSV: builder.mutation({
       query: ({ sessionId, fileId }) => ({
-        url: `/sessionCollections/${sessionId}/csvs/${fileId}`,
+        url: `/Sessions/${sessionId}/csvs/${fileId}`,
         method: 'DELETE',
       }),
       invalidatesTags: (result, error, arg) => [{ type: 'SessionCSV', id: arg.fileId }],

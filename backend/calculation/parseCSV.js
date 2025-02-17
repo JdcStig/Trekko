@@ -1,6 +1,6 @@
 import csvParser from 'csv-parser';
-import SessionData from '../models/sessionDataModel.js';
-import SessionCollection from '../models/sessionCollectionModel.js';
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Session from '../models/sessionModel.js';
 import createPlayersFromCSV from './createPlayersFromCSV.js';
 
 import { Readable } from 'stream';
@@ -48,7 +48,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     }
 
                     // Check if session exists
-                    const session = await SessionCollection.findById(sessionId);
+                    const session = await Session.findById(sessionId);
                     if (!session) {
                         return reject(new Error(`Session not found: ${sessionId}`));
                     }
@@ -68,7 +68,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     const speeds = results.map(row => parseFloat(row['Speed (m/s)']) || 0);
                     const heartRates = results.map(row => parseInt(row['Heart Rate (bpm)']) || 0);
                     const accelerationImpulses = results.map(row => parseFloat(row['Instantaneous Acceleration Impulse']) || 0);
-
+                    const averageSpeed = speeds.reduce((acc, speed) => acc + speed, 0) / speeds.length;  
                     //console.log("✅ Extracted data:", { playerId, startTime, endTime });
 
                     if (lats.includes(NaN) || lons.includes(NaN) || speeds.includes(NaN)) {
@@ -76,7 +76,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     }
 
                     // Save session data
-                    const sessionData = new SessionData({
+                    const sessionPlayerData = new SessionPlayerData({
                         sessionId,
                         userId,
                         playerId,
@@ -85,19 +85,23 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                         lats,
                         lons,
                         speeds,
+                        avgSpeed: averageSpeed,
                         heartRates,
                         accelerationImpulses
                     });
 
-                    await sessionData.save();
-                    //console.log("✅ SessionData saved:", sessionData._id);
-
+                    await sessionPlayerData.save();
+                    const playerName = sessionPlayerData.playerId;
+                    const avgSpeed = sessionPlayerData.avgSpeed;
+                    //console.log("✅ SessionPlayerData saved:", sessionPlayerData._id);
+                     
                     await createPlayersFromCSV(sessionId, userId);
 
-                    // Update sessionCollection
-                    const updatedSession = await SessionCollection.findByIdAndUpdate(
+                    // Update session
+                    const updatedSession = await Session.findByIdAndUpdate(
                         sessionId,
-                        { $inc: { number: 1 }, $push: { sessionData: sessionData._id } },
+                        { $inc: { number: 1 }, $push: { sessionPlayerData: {_id: sessionPlayerData._id, playerName, avgSpeed} }
+                    },
                         { new: true }
                     );
 

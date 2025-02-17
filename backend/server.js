@@ -12,7 +12,7 @@ import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 import teamRoutes from './routes/teamRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
-import sessionCollectionRoutes from './routes/sessionCollectionRoutes.js';
+import sessionRoutes from './routes/sessionRoutes.js';
 import { initSocket } from './socket.js';
 
 const app = express();
@@ -39,7 +39,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
-app.use('/api/sessionCollections', sessionCollectionRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   const __dirname = path.resolve();
@@ -87,7 +87,7 @@ server.listen(port, () => {
 
 // import connectDB from './config/db.js';
 // import { notFound, errorHandler } from './middleware/errorMiddleware.js';
-// import sessionCollectionsRoutes from './routes/sessionCollectionsRoutes.js';
+// import sessionsRoutes from './routes/sessionsRoutes.js';
 // // import other routers as needed
 
 // const app = express();
@@ -107,7 +107,7 @@ server.listen(port, () => {
 // }
 
 // // Register routes
-// app.use('/api/sessionCollections', sessionCollectionsRoutes);
+// app.use('/api/sessions', sessionsRoutes);
 // // Register other routes as needed
 
 // // Serve static React files in production

@@ -1,5 +1,5 @@
-import SessionData from '../models/sessionDataModel.js';
-import SessionCollection from '../models/sessionCollectionModel.js';
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Session from '../models/sessionModel.js';
 
 /**
  * Calculates the average distance for a session.
@@ -9,20 +9,20 @@ import SessionCollection from '../models/sessionCollectionModel.js';
 const calculateAverageDistance = async (sessionId) => {
   try {
     // Fetch all session data for this session
-    const sessionDataList = await SessionData.find({ sessionId });
-    if (!sessionDataList.length) {
-      await SessionCollection.findByIdAndUpdate(sessionId, { avgDistance: 0 });
+    const sessionPlayerDataList = await SessionPlayerData.find({ sessionId });
+    if (!sessionPlayerDataList.length) {
+      await Session.findByIdAndUpdate(sessionId, { avgDistance: 0 });
       return 0;
     }
     let totalSpeed = 0;
-    sessionDataList.forEach((data) => {
+    sessionPlayerDataList.forEach((data) => {
       // Adjust the calculation formula as needed.
       totalSpeed += data.speeds.reduce((acc, speed) => acc + speed, 0);
     });
-    const numberOfFiles = sessionDataList.length;
+    const numberOfFiles = sessionPlayerDataList.length;
     const avgDistance = totalSpeed > 0 ? ((totalSpeed / 10) / 1000) / numberOfFiles : 0;
     // Update the session with the new average distance
-    await SessionCollection.findByIdAndUpdate(sessionId, { avgDistance });
+    await Session.findByIdAndUpdate(sessionId, { avgDistance });
     //console.log(`✅ Updated average distance for session ${sessionId}: ${avgDistance.toFixed(5)} km`);
     return avgDistance;
   } catch (error) {

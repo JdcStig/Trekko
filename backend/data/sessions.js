@@ -1,4 +1,6 @@
-const sessionCollections = [
+import { createSessionStorage } from "react-router-dom";
+
+const sessions = [
     {     
         userId: '',
         teamName: "XPX1",
@@ -16,7 +18,7 @@ const sessionCollections = [
             }
         ],
         notes: '',
-        sessionData: []
+        sessionPlayerData: []
     },
     {
         userId: '',
@@ -35,8 +37,8 @@ const sessionCollections = [
             }
         ],
         notes: '',
-        sessionData: []
+        sessionPlayerData: []
     }
 ];
 
-export default sessionCollections;
+export default sessions;
