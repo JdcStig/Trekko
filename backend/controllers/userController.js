@@ -11,7 +11,7 @@ const authUser = asyncHandler(async (req, res) => {
     // Takes out the email and password
     const { email, password } = req.body;
 
-    //console.log('------- Backend received:', email, password);
+   
 
     const user = await User.findOne({ email });
 

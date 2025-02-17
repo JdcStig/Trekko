@@ -13,7 +13,7 @@ router.post('/upload', protect, upload.single('file'), async (req, res, next) =>
         }
         next();
     } catch (error) {
-        console.error("Error in CSV upload route:", error);
+        //console.error("Error in CSV upload route:", error);
         res.status(500).json({ message: "An error occurred while processing your request." });
     }
 }, uploadSessionCSV);

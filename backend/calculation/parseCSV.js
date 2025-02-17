@@ -9,19 +9,19 @@ import mongoose from 'mongoose';
 
 const parseCSV = async (fileBuffer, sessionId, userId) => {
     return new Promise(async (resolve, reject) => {
-        console.log("📌 `parseCSV` function called! ✅");
+        //console.log("📌 `parseCSV` function called! ✅");
 
         try {
             if (!fileBuffer || fileBuffer.length === 0) {
-                console.error("🚨 File buffer is empty!");
+               // console.error("🚨 File buffer is empty!");
                 return reject(new Error("Uploaded file is empty."));
             }
 
-            console.log(`✅ File buffer received, size: ${fileBuffer.length} bytes`);
+            //console.log(`✅ File buffer received, size: ${fileBuffer.length} bytes`);
 
             // Validate sessionId is a valid MongoDB ObjectId
             if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-                console.error("🚨 Invalid sessionId:", sessionId);
+                //console.error("🚨 Invalid sessionId:", sessionId);
                 return reject(new Error("Invalid session ID."));
             }
 
@@ -32,7 +32,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
             else if (fileString.includes(';')) delimiter = ';';
             else if (fileString.includes('  ')) delimiter = ' ';
 
-            console.log(`✅ Using detected delimiter: "${delimiter}"`);
+           // console.log(`✅ Using detected delimiter: "${delimiter}"`);
 
             const stream = Readable.from(fileString);
             const results = [];
@@ -41,7 +41,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                 .pipe(csvParser({ separator: delimiter, trim: true }))
                 .on('data', (row) => results.push(row))
                 .on('end', async () => {
-                    console.log(`✅ CSV parsed successfully. Rows: ${results.length}`);
+                    //console.log(`✅ CSV parsed successfully. Rows: ${results.length}`);
 
                     if (results.length === 0) {
                         return reject(new Error("CSV file is empty or not parsed correctly."));
@@ -53,7 +53,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                         return reject(new Error(`Session not found: ${sessionId}`));
                     }
 
-                    console.log("✅ Session found. Processing data...");
+                    //console.log("✅ Session found. Processing data...");
 
                     const playerId = results[0]['Player Display Name'] || "Unknown Player";
                     const startTime = results[0]['Time'] || "00:00:0";
@@ -69,7 +69,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     const heartRates = results.map(row => parseInt(row['Heart Rate (bpm)']) || 0);
                     const accelerationImpulses = results.map(row => parseFloat(row['Instantaneous Acceleration Impulse']) || 0);
 
-                    console.log("✅ Extracted data:", { playerId, startTime, endTime });
+                    //console.log("✅ Extracted data:", { playerId, startTime, endTime });
 
                     if (lats.includes(NaN) || lons.includes(NaN) || speeds.includes(NaN)) {
                         return reject(new Error("❌ Invalid numeric data found."));
@@ -90,7 +90,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     });
 
                     await sessionData.save();
-                    console.log("✅ SessionData saved:", sessionData._id);
+                    //console.log("✅ SessionData saved:", sessionData._id);
 
                     await createPlayersFromCSV(sessionId, userId);
 
@@ -101,16 +101,16 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                         { new: true }
                     );
 
-                    console.log(`✅ Session updated: ${updatedSession.number} CSV files processed.`);
+                    //console.log(`✅ Session updated: ${updatedSession.number} CSV files processed.`);
                     resolve();
                 })
                 .on('error', (error) => {
-                    console.error("🚨 CSV read error:", error.message);
+                    //console.error("🚨 CSV read error:", error.message);
                     reject(new Error(`CSV read error: ${error.message}`));
                 });
 
         } catch (error) {
-            console.error("🚨 Unexpected CSV processing error:", error.message);
+           // console.error("🚨 Unexpected CSV processing error:", error.message);
             reject(new Error(`CSV processing error: ${error.message}`));
         }
     });

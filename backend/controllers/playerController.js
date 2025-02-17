@@ -2,6 +2,7 @@ import { response } from 'express';
 import asyncHandler from '../middleware/asyncHandler.js';
 import Player from '../models/playerModel.js';
 import Team from '../models/teamModel.js';
+import SessionData from '../models/sessionDataModel.js';
 import generateToken from '../utils/generateToken.js';
 
 
@@ -32,7 +33,7 @@ const registerPlayer = asyncHandler(async (req, res) => {
             name: player.name,
             position: player.position,
             userId: player.userId,
-           });
+        });
     } else {
         res.status(400);
         throw new Error('Invalid player data');
@@ -71,7 +72,7 @@ const updatePlayerProfile = asyncHandler(async (req, res) => {
 
        res.status(200).json({
         _id: updatedPlayer._id,
-        name: updatePlayer.name,
+        name: updatedPlayer.name,
         position: updatedPlayer.position,
        });
     } else {
@@ -102,22 +103,25 @@ const getPlayerByID = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc   Delete players
+// @desc   Delete player and related session data
 // @route  DELETE /api/players/:id
 // @access Private/Admin
 const deletePlayer = asyncHandler(async (req, res) => {
    const player = await Player.findById(req.params.id);
 
    if (player) {
-    await Player.deleteOne({_id: player._id})
-    res.status(200).json({ message: 'Player deleted successfully'})
+    // Delete the player document
+    await Player.deleteOne({ _id: player._id });
+    // Delete all SessionData documents with playerId equal to the player's name
+    await SessionData.deleteMany({ playerId: player.name });
+    res.status(200).json({ message: 'Player and related session data deleted successfully' });
    } else {
     res.status(404);
     throw new Error('Player not found');
    }
 });
 
-// @desc   Update players
+// @desc   Update player
 // @route  PUT /api/players/:id
 // @access Private/Admin
 const updatePlayer = asyncHandler(async (req, res) => {
@@ -144,11 +148,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
     });
 });
 
-
-
-
-
-export{
+export {
     registerPlayer,
     getPlayerProfile,
     updatePlayerProfile,
@@ -156,4 +156,4 @@ export{
     getPlayerByID,
     deletePlayer,
     updatePlayer,
-}
+};

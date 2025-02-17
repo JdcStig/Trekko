@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Button, ListGroup, Spinner, Form } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import { 
   useGetSessionCSVsQuery, 
   useDeleteAllSessionCSVsMutation,
@@ -62,18 +63,19 @@ const EditCSVModal = ({
       // Refresh the CSV list
       await refetch();
     } catch (error) {
-      console.error("Error deleting all CSVs", error);
+      //console.error("Error deleting all CSVs", error);
     } finally {
       setProcessing(false);
       setPendingDeleteAll(false);
     }
   };
   
-  // When the user clicks Save CSV Changes, perform uploads (if any)
+  // When the user clicks Save CSV Changes, perform uploads (if any) and check for new players.
   const handleSave = async () => {
     setProcessing(true);
+    let allCreatedPlayers = [];
     try {
-      // If there are pending files, upload each one (using Promise.all)
+      // If there are pending files, upload each one
       if (pendingFiles.length > 0) {
         const uploadPromises = pendingFiles.map(file => {
           const formData = new FormData();
@@ -81,14 +83,20 @@ const EditCSVModal = ({
           formData.append('sessionId', sessionId);
           return uploadSessionCSV(formData).unwrap();
         });
-        await Promise.all(uploadPromises);
+        const responses = await Promise.all(uploadPromises);
+        responses.forEach(response => {
+          if (response.createdPlayers && response.createdPlayers.length > 0) {
+            allCreatedPlayers = allCreatedPlayers.concat(response.createdPlayers);
+          }
+        });
       }
       // Refresh CSV list after uploads
       await refetch();
-      // Optionally pass updated CSV data back to the parent
+      
+      // Pass updated CSV data back to the parent
       onSave(data?.sessionDataArray || null);
     } catch (error) {
-      console.error("Error saving CSV changes", error);
+      //console.error("Error saving CSV changes", error);
     } finally {
       setProcessing(false);
       // Clear pending files and delete flag after processing

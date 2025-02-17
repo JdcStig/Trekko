@@ -119,10 +119,10 @@ const importData = async () => {
     await SessionCollection.insertMany(sessionCollections); // Reinserts whats above
     await SessionData.deleteMany(); // Clears previous teams
     await SessionData.insertMany(sessionDatas); // Reinserts whats above
-    console.log("Seeded successfully");
+    //console.log("Seeded successfully");
     process.exit();
   } catch (error) {
-    console.error(`Error: ${error}`);
+    //console.error(`Error: ${error}`);
     process.exit(1);
   }
 };

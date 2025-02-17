@@ -5,11 +5,13 @@ import Footer from './components/Footer';
 import { Outlet } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import SocketListener from './SocketListener';
 
 const App = () => {
   return (
     <>
       <Header />
+      <SocketListener />
       <main className="py-3">
         <Container>
           <Outlet />
