@@ -249,10 +249,11 @@ const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
   // Delete all SessionPlayerData documents associated with this session
   await SessionPlayerData.deleteMany({ sessionId });
   
-  // Clear the sessionPlayerData array and update the "number" field in the Session document
+  // Clear the sessionPlayerData array, update the "number" field to 0, 
+  // and reset the avgDistance field to 0 in the Session document
   const session = await Session.findByIdAndUpdate(
     sessionId,
-    { sessionPlayerData: [], number: 0 },
+    { sessionPlayerData: [], number: 0, avgDistance: 0 },
     { new: true }
   );
   

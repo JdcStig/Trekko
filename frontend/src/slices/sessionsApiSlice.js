@@ -2,72 +2,84 @@ import { apiSlice } from './apiSlice';
 
 export const sessionsApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
+    // GET /api/sessions
     getSessions: builder.query({
-      query: () => '/Sessions',
+      query: () => '/sessions', // all lowercase
       providesTags: ['Session'],
     }),
 
+    // POST /api/sessions
     createSession: builder.mutation({
       query: (newSession) => ({
-        url: '/Sessions',
+        url: '/sessions',
         method: 'POST',
         body: newSession,
       }),
       invalidatesTags: ['Session'],
     }),
 
+    // PUT /api/sessions/:id
     updateSession: builder.mutation({
       query: (updatedSession) => ({
-        url: `/Sessions/${updatedSession._id}`,
+        url: `/sessions/${updatedSession._id}`, // use backticks
         method: 'PUT',
         body: updatedSession,
       }),
       invalidatesTags: ['Session'],
     }),
 
+    // DELETE /api/sessions/:id
     deleteSession: builder.mutation({
       query: (id) => ({
-        url: `/Sessions/${id}`,
+        url: `/sessions/${id}`, // use backticks
         method: 'DELETE',
       }),
       invalidatesTags: ['Session'],
     }),
 
-    // UPDATED: Invalidate the 'SessionCSV' tag for CSV changes
+    // POST /api/sessions/upload
     uploadSessionCSV: builder.mutation({
       query: (formData) => ({
-        url: '/Sessions/upload',
+        url: '/sessions/upload',
         method: 'POST',
         body: formData,
       }),
       invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
     }),
 
+    // GET /api/sessions/:id/csvs
     getSessionCSVs: builder.query({
-      query: (sessionId) => `/Sessions/${sessionId}/csvs`,
+      query: (sessionId) => `/sessions/${sessionId}/csvs`, // use backticks or quotes
       providesTags: (result, error, arg) =>
-        result && result.sessionDataArray
+        result && result.sessionPlayerDataArray
           ? [
-              ...result.sessionDataArray.map(({ _id }) => ({ type: 'SessionCSV', id: _id })),
+              ...result.sessionPlayerDataArray.map(({ _id }) => ({
+                type: 'SessionCSV',
+                id: _id,
+              })),
               { type: 'SessionCSV', id: 'LIST' },
             ]
           : [{ type: 'SessionCSV', id: 'LIST' }],
     }),
 
+    // DELETE /api/sessions/:id/csvs/all
     deleteAllSessionCSVs: builder.mutation({
       query: (sessionId) => ({
-        url: `/Sessions/${sessionId}/csvs/all`,
+        url: `/sessions/${sessionId}/csvs/all`,
         method: 'DELETE',
       }),
       invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
     }),
 
+    // DELETE /api/sessions/:id/csvs/:fileId
     deleteSessionCSV: builder.mutation({
       query: ({ sessionId, fileId }) => ({
-        url: `/Sessions/${sessionId}/csvs/${fileId}`,
+        url: `/sessions/${sessionId}/csvs/${fileId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (result, error, arg) => [{ type: 'SessionCSV', id: arg.fileId }],
+      invalidatesTags: (result, error, arg) => [
+        { type: 'SessionCSV', id: arg.fileId },
+      ],
     }),
   }),
 });
