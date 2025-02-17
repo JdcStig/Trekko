@@ -119,16 +119,18 @@ const EditCSVModal = ({
           <>
             <h5>Existing Player Data</h5>
             {data?.sessionPlayerDataArray && data.sessionPlayerDataArray.length > 0 ? (
-              <ListGroup className="mb-3">
-                {data.sessionPlayerDataArray.map((playerData) => (
-                  <ListGroup.Item key={playerData._id}>
-                    <strong>{playerData.playerId}</strong> - Start: {playerData.startTime}, End: {playerData.endTime}
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
-            ) : (
-              <p>No Player Data available.</p>
-            )}
+               
+               <ListGroup className="mb-3">
+                  {data.sessionPlayerDataArray.map((playerData) => (
+                    <ListGroup.Item key={playerData._id}>
+                      <strong>{playerData.playerName}</strong> - Speed: {playerData.avgSpeed?.toFixed(2)}
+                    </ListGroup.Item>
+                  ))}
+                </ListGroup>
+              ) : (
+                <p>No Player Data available.</p>
+              )}
+
             <div className="d-flex justify-content-around mb-3">
               <Button variant="danger" onClick={handleDeleteAll}>
                 Delete All CSVs
