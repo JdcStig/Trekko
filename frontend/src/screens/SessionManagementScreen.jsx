@@ -121,9 +121,9 @@ const SessionManagementScreen = () => {
   };
 
   // Handle add session via the modal
-  const handleAddSession = async (sessionData) => {
+  const handleAddSession = async (sessionPlayerData) => {
     try {
-      const response = await createSession(sessionData).unwrap();
+      const response = await createSession(sessionPlayerData).unwrap();
       // Return the created session object (adjust if your API returns a different structure)
       return response.session || response;
     } catch (error) {
@@ -138,9 +138,9 @@ const SessionManagementScreen = () => {
     setShowEditModal(true);
   };
 
-  const handleEditSession = async (sessionData) => {
+  const handleEditSession = async (sessionPlayerData) => {
     try {
-      await updateSession(sessionData).unwrap();
+      await updateSession(sessionPlayerData).unwrap();
       toast.success('Session updated successfully!', { position: 'top-right' });
       refetch();
       setShowEditModal(false);

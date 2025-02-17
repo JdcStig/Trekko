@@ -1,4 +1,4 @@
-const sessionDatas = [
+const sessionPlayerDatas = [
     {      
         playerId: 'player1',  // Default value, links to a player in MongoDB
         startTime: '00:00.0',  // Default value, will be taken from CSV later
@@ -17,5 +17,5 @@ const sessionDatas = [
     }
  ];
  
- export default sessionDatas;
+ export default sessionPlayerDatas;
  

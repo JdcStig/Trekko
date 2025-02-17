@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { protect } from '../middleware/authMiddleware.js';
-import { uploadSessionCSV } from '../controllers/sessionCollectionController.js';
+import { uploadSessionCSV } from '../controllers/sessionController.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });

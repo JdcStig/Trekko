@@ -2,7 +2,7 @@ import { response } from 'express';
 import asyncHandler from '../middleware/asyncHandler.js';
 import Player from '../models/playerModel.js';
 import Team from '../models/teamModel.js';
-import SessionData from '../models/sessionDataModel.js';
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
 import generateToken from '../utils/generateToken.js';
 
 
@@ -112,8 +112,8 @@ const deletePlayer = asyncHandler(async (req, res) => {
    if (player) {
     // Delete the player document
     await Player.deleteOne({ _id: player._id });
-    // Delete all SessionData documents with playerId equal to the player's name
-    await SessionData.deleteMany({ playerId: player.name });
+    // Delete all SessionPlayerData documents with playerId equal to the player's name
+    await SessionPlayerData.deleteMany({ playerId: player.name });
     res.status(200).json({ message: 'Player and related session data deleted successfully' });
    } else {
     res.status(404);

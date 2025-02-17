@@ -94,7 +94,7 @@ const EditCSVModal = ({
       await refetch();
       
       // Pass updated CSV data back to the parent
-      onSave(data?.sessionDataArray || null);
+      onSave(data?.sessionPlayerDataArray || null);
     } catch (error) {
       //console.error("Error saving CSV changes", error);
     } finally {
@@ -118,9 +118,9 @@ const EditCSVModal = ({
         ) : (
           <>
             <h5>Existing Player Data</h5>
-            {data?.sessionDataArray && data.sessionDataArray.length > 0 ? (
+            {data?.sessionPlayerDataArray && data.sessionPlayerDataArray.length > 0 ? (
               <ListGroup className="mb-3">
-                {data.sessionDataArray.map((playerData) => (
+                {data.sessionPlayerDataArray.map((playerData) => (
                   <ListGroup.Item key={playerData._id}>
                     <strong>{playerData.playerId}</strong> - Start: {playerData.startTime}, End: {playerData.endTime}
                   </ListGroup.Item>
