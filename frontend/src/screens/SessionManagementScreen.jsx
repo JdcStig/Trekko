@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Table, Button, Container, Alert, Row, Col, Form } from 'react-bootstrap';
+import { Table, Button, Container, Alert, Row, Col, Form, Pagination } from 'react-bootstrap';
 import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { FaMagnifyingGlass } from "react-icons/fa6";
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
@@ -34,6 +35,10 @@ const SessionManagementScreen = () => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [filterType, setFilterType] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Handle sorting when a header is clicked
   const handleSort = (key) => {
@@ -95,6 +100,14 @@ const SessionManagementScreen = () => {
     );
   }
 
+  // Calculate pagination details
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredSessions.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredSessions.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
   // Handle deletion modal
   const handleDeleteClick = (session) => {
     setSelectedSession(session);
@@ -127,7 +140,6 @@ const SessionManagementScreen = () => {
       // Return the created session object (adjust if your API returns a different structure)
       return response.session || response;
     } catch (error) {
-      //console.error("Error creating session:", error);
       throw error;
     }
   };
@@ -151,7 +163,7 @@ const SessionManagementScreen = () => {
   };
 
   // Build a list of unique session types for filtering
-  const uniqueTypes = [...new Set(sortedSessions.map(session => session.type))];
+  const uniqueTypes = [...new Set(sortedSessions.map((session) => session.type))];
 
   // When a session is successfully created, open the CSV upload modal
   const handleSessionCreated = (newSession) => {
@@ -177,7 +189,7 @@ const SessionManagementScreen = () => {
         <Col md={4}>
           <Form.Group controlId="filterType">
             <Form.Label>Filter by Type</Form.Label>
-            <Form.Control as="select" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+            <Form.Control as="select" value={filterType} onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}>
               <option value="All">All</option>
               {uniqueTypes.map((type) => (
                 <option key={type} value={type}>
@@ -194,7 +206,7 @@ const SessionManagementScreen = () => {
               type="text"
               placeholder="Search..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </Form.Group>
         </Col>
@@ -203,67 +215,95 @@ const SessionManagementScreen = () => {
       {isLoading || loadingDelete ? (
         <Loader />
       ) : error ? (
-       <Alert variant="info" className="text-center">No session found.</Alert>
+        <Alert variant="info" className="text-center">
+          No session found.
+        </Alert>
       ) : filteredSessions.length > 0 ? (
-        <Table striped bordered hover responsive className="table-sm">
-  <thead className="table-dark">
-    <tr>
-      <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
-        Team {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
-        Session Name {sortConfig.key === 'sessionName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
-        Date {sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
-        Number {sortConfig.key === 'number' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
-        Type {sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
-        Duration {sortConfig.key === 'duration' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th onClick={() => handleSort('avgDistance')} style={{ cursor: 'pointer' }}>
-        Avg Distance {sortConfig.key === 'avgDistance' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
-        Splits {sortConfig.key === 'splits' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-      </th>
-      <th>Notes</th>
-      <th></th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {filteredSessions.map((session) => (
-      <tr key={session._id}>
-        <td>{session.teamName}</td>
-        <td>{session.sessionName}</td>
-        <td>{new Date(session.date).toLocaleDateString()}</td>
-        <td>{session.number}</td>
-        <td>{session.type}</td>
-        <td>{session.duration || 'N/A'}</td>
-        {/* Display average distance with two decimals if available */}
-        <td>{session.avgDistance ? session.avgDistance.toFixed(2) + " km/s" : 'N/A'}</td>
-        <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
-        <td>{session.notes || 'N/A'}</td>
-        <td>
-          <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(session)}>
-            <FaEdit />
-          </Button>
-        </td>
-        <td>
-          <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(session)}>
-            <FaTrash />
-          </Button>
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</Table>
+        <>
+          <Table striped bordered hover responsive className="table-sm">
+            <thead className="table-dark">
+              <tr>
+                <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
+                  Team {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
+                  Session Name {sortConfig.key === 'sessionName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
+                  Date {sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
+                  Number {sortConfig.key === 'number' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
+                  Type {sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
+                  Duration {sortConfig.key === 'duration' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th onClick={() => handleSort('avgDistance')} style={{ cursor: 'pointer' }}>
+                  Avg Distance {sortConfig.key === 'avgDistance' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
+                  Splits {sortConfig.key === 'splits' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                </th>
+                <th>Notes</th>
+                <th></th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentItems.map((session) => (
+                <tr key={session._id}>
+                  <td>{session.teamName}</td>
+                  <td>{session.sessionName}</td>
+                  <td>{new Date(session.date).toLocaleDateString()}</td>
+                  <td>{session.number}</td>
+                  <td>{session.type}</td>
+                  <td>{session.duration || 'N/A'}</td>
+                  <td>{session.avgDistance ? session.avgDistance.toFixed(2) + ' km/s' : 'N/A'}</td>
+                  <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
+                  <td>{session.notes || 'N/A'}</td>
+                  <td>
+                    <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(session)}>
+                      <FaEdit />
+                    </Button>
+                  </td>
+                  <td>
+                    <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(session)}>
+                      <FaTrash />
+                    </Button>
+                  </td>
+                  <td>
+                    <Button variant="light" className="btn-sm mx-2">
+                    <FaMagnifyingGlass />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <Pagination className="justify-content-center">
+              {/* <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} /> */}
+              <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
+              {[...Array(totalPages).keys()].map((num) => (
+                <Pagination.Item
+                  key={num + 1}
+                  active={num + 1 === currentPage}
+                  onClick={() => paginate(num + 1)}
+                >
+                  {num + 1}
+                </Pagination.Item>
+              ))}
+              <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
+              {/* <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} /> */}
+            </Pagination>
+          )}
+        </>
       ) : (
         <Alert variant="info">No sessions found.</Alert>
       )}
@@ -284,7 +324,7 @@ const SessionManagementScreen = () => {
         onAddSessionSuccess={handleSessionCreated}
       />
 
-      {/* Edit Session Modal using the same edit handlers as before */}
+      {/* Edit Session Modal */}
       <EditSessionModal 
         show={showEditModal} 
         onHide={() => setShowEditModal(false)} 
@@ -294,14 +334,14 @@ const SessionManagementScreen = () => {
       />
 
       {/* CSV Upload Modal */}
-        <AddCSVModal 
-          show={showCSVModal} 
-          onHide={() => {
-            setShowCSVModal(false);
-            refetch();
-          }} 
-          sessionId={newSessionId}
-        />
+      <AddCSVModal 
+        show={showCSVModal} 
+        onHide={() => {
+          setShowCSVModal(false);
+          refetch();
+        }} 
+        sessionId={newSessionId}
+      />
     </Container>
   );
 };
