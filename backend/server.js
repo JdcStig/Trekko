@@ -73,10 +73,6 @@
 
 
 
-
-
-
-
 import express from 'express';
 import http from 'http';
 import path from 'path';
@@ -105,11 +101,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Setup CORS: allow requests from the client URL in production or localhost in development
+// Setup CORS: allow production CLIENT_URL, otherwise localhost
 if (process.env.NODE_ENV === 'production') {
   app.use(
     cors({
-      origin: process.env.CLIENT_URL, // e.g., https://your-production-domain.com
+      origin: process.env.CLIENT_URL, // e.g., https://trakko.onrender.com
       credentials: true,
     })
   );
@@ -128,7 +124,7 @@ app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/sessions', sessionRoutes);
 
-// Serve static files from the React frontend in production
+// Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
   const __dirname = path.resolve();
   app.use(express.static(path.join(__dirname, 'frontend/build')));
@@ -141,7 +137,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Error handling middlewares
+// Error handling middleware
 app.use(notFound);
 app.use(errorHandler);
 
@@ -153,6 +149,10 @@ initSocket(server);
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+
+
+
+
 
 
 
