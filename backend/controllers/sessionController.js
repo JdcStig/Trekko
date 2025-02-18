@@ -230,34 +230,37 @@ const deleteSession = asyncHandler(async (req, res) => {
 // @access Protected/Admin
 const updateSession = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes, csvData, ...others } = req.body;
-  // Remove csvData or any extra fields not part of our schema.
 
   const session = await Session.findById(req.params.id);
-
   if (!session) {
     res.status(404);
     throw new Error("Session not found");
   }
 
-  session.splits = splits.map((split, index) => ({
-    ...split,
-    splitNumber: index + 1
-  }));
-
-  // Forces splits to unix format if provided (hours, minutes and seconds)
+  // If splits are provided and are an array, convert each split properly.
   if (splits && Array.isArray(splits)) {
-    splits.forEach(split => {
+    const convertedSplits = splits.map((split, index) => {
+      // Ensure the split has a title.
       if (!split.title) {
         res.status(400);
-        throw new Error(`Split title is required.`);
+        throw new Error("Split title is required.");
       }
-      if (typeof split.start !== 'number') {
-        split.start = Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-      }
-      if (typeof split.end !== 'number') {
-        split.end = Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
-      }
+      // Convert start and end to numbers (unix seconds) if they aren't already.
+      const start = typeof split.start === "number" 
+        ? split.start 
+        : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+      const end = typeof split.end === "number" 
+        ? split.end 
+        : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+
+      return {
+        title: split.title,
+        splitNumber: index + 1,
+        start,
+        end,
+      };
     });
+    session.splits = convertedSplits;
   }
 
   if (teamName) session.teamName = teamName;
@@ -269,12 +272,10 @@ const updateSession = asyncHandler(async (req, res) => {
     }
   }
   if (type) session.type = type;
-  if (duration) session.duration = duration;
-  if (splits) session.splits = splits;
+  if (duration) session.duration = Number(duration);
   if (notes) session.notes = notes;
 
   const updatedSession = await session.save();
-
   res.status(200).json(updatedSession);
 });
 
