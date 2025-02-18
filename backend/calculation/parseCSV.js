@@ -1,10 +1,18 @@
+import fs from 'fs';
 import csvParser from 'csv-parser';
 import SessionPlayerData from '../models/sessionPlayerDataModel.js';
 import Session from '../models/sessionModel.js';
 import createPlayersFromCSV from './createPlayersFromCSV.js';
-
 import { Readable } from 'stream';
 import mongoose from 'mongoose';
+
+// Calculates the distance, topspeed, highspeedRunning and Sprinting
+const metricsCalculations = {
+    Distance: (values) => values.reduce((acc, val) => acc + val, 0) / 1000, // in km
+    TopSpeed: (values) => Math.max(...values), // max speed (top speed)
+    HighSpeedRunning: (values) => values.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0) / 1000, // in km
+    Sprinting: (values) => values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 1000 // in km
+  };
 
 
 const parseCSV = async (fileBuffer, sessionId, userId) => {
@@ -68,7 +76,6 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     const speeds = results.map(row => parseFloat(row['Speed (m/s)']) || 0);
                     const heartRates = results.map(row => parseInt(row['Heart Rate (bpm)']) || 0);
                     const accelerationImpulses = results.map(row => parseFloat(row['Instantaneous Acceleration Impulse']) || 0);
-                    const averageSpeed = speeds.reduce((acc, speed) => acc + speed, 0) / speeds.length;  
                     //console.log("✅ Extracted data:", { playerId, startTime, endTime });
 
                     if (lats.includes(NaN) || lons.includes(NaN) || speeds.includes(NaN)) {
@@ -85,7 +92,6 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                         lats,
                         lons,
                         speeds,
-                        avgSpeed: averageSpeed,
                         heartRates,
                         accelerationImpulses
                     });
@@ -97,10 +103,29 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                      
                     await createPlayersFromCSV(sessionId, userId);
 
+
+                    // Creates session-level metrics
+                    const sessionPlayerMetrics = Object.keys(metricsCalculations).map(metric => ({
+                        MetricName: metric,
+                        Value: metricsCalculations[metric](speeds), // Calculate session metrics
+                        Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
+                    })); // 🆕 Added sessionPlayerMetrics calculation
+
+                    // Creates split-level metrics
+                    const splitPlayerMetrics = session.splits.map((split, index) => {
+                        const splitSpeeds = speeds.slice(split.start, split.end);
+                        const splitMetrics = Object.keys(metricsCalculations).map(metric => ({
+                            MetricName: metric,
+                            Value: metricsCalculations[metric](splitSpeeds), // Calculate split metrics
+                            Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
+                        }));
+                        return { SplitNumber: index + 1, SplitMetrics: splitMetrics }; // 🆕 Added splitPlayerMetrics calculation
+                    });
+
                     // Update session
                     const updatedSession = await Session.findByIdAndUpdate(
                         sessionId,
-                        { $inc: { number: 1 }, $push: { sessionPlayerData: {_id: sessionPlayerData._id, playerName, avgSpeed} }
+                        { $inc: { number: 1 }, $addToSet: { sessionPlayerData: {_id: sessionPlayerData._id, playerName, sessionPlayerMetrics, splitPlayerMetrics } }
                     },
                         { new: true }
                     );

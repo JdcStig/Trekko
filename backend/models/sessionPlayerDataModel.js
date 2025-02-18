@@ -10,7 +10,6 @@ const sessionPlayerDataSchema = new mongoose.Schema(
     lats: { type: [Number], required: true, default: [] },
     lons: { type: [Number], required: true, default: [] },
     speeds: { type: [Number], required: true, default: [] },
-    avgSpeed: { type: Number },
     heartRates: { type: [Number], required: true, default: [] },
     accelerationImpulses: { type: [Number], required: true, default: [] }
   },

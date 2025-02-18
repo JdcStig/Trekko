@@ -39,7 +39,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
   useEffect(() => {
     const num = parseInt(numSplits, 10);
     if (!isNaN(num) && num > 0) {
-      setSplits(Array.from({ length: num }, () => ({ title: '', start: '', end: '' })));
+      setSplits(Array.from({ length: num }, (_, index) => ({ title: '', start: '', end: '', splitNumber: index + 1 })));
     } else {
       setSplits([]);
     }
@@ -91,7 +91,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
     }
 
     // Build session data (without CSV info)
-    const sessionPlayerData = {
+    const sessionFormData = {
       teamName,
       sessionName,
       date: unixDate,
@@ -102,7 +102,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
     };
 
     // Call the passed in onAddSession function (which should return a promise)
-    onAddSession(sessionPlayerData)
+    onAddSession(sessionFormData)
       .then((newSession) => {
         toast.success("Session added successfully!", { position: 'top-right' });
         if (onAddSessionSuccess) {
@@ -185,7 +185,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
               type="number"
               placeholder="Enter duration"
               value={duration}
-              onChange={(e) => setDuration(e.target.value)}
+              onChange={(e) => setDuration(e.target.value.toString())}
               required
               min="0"
             />
