@@ -72,7 +72,7 @@ const registerSession = asyncHandler(async (req, res) => {
 
 // Metrics Calculation Object
 const metricsCalculations = {
-  Distance: (values) => values.reduce((acc, val) => acc + val, 0) / 1000, // Sum in km
+  Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000, // Sum in km
   TopSpeed: (values) => Math.max(...values), // Max speed
   HighSpeedRunning: (values) => values.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0) / 1000, // Sum >5.5 m/s
   Sprinting: (values) => values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 1000 // Sum >7 m/s
