@@ -32,7 +32,7 @@ const sessionSchema = new mongoose.Schema(
       required: true,
     },
     duration: {
-      type: String, 
+      type: Number, 
       required: true,
     },
     avgDistance: {
@@ -42,6 +42,7 @@ const sessionSchema = new mongoose.Schema(
     splits: [
       {
         title: { type: String, required: true },
+        splitNumber: { type: Number, required: true },
         start: { type: Number, required: true, default: 0  },
         end: { type: Number, required: true, default: 0  },
       },
@@ -52,9 +53,21 @@ const sessionSchema = new mongoose.Schema(
     },
     sessionPlayerData: [
       {
-        csvId: { type: mongoose.Schema.Types.ObjectId, ref: 'SessionPlayerData' }, // Reference to the SessionPlayerData collection
-        playerName: { type: String }, // Added player name
-        avgSpeed: { type: Number },   // Added average speed
+        csvId: { type: mongoose.Schema.Types.ObjectId, ref: 'SessionPlayerData' },
+        playerName: { type: String }, 
+        sessionPlayerMetrics: [{  
+          MetricName: { type: String, required: true },
+          Value: { type: Number, required: true },
+          Unit: { type: String, required: true }
+        }],
+        splitPlayerMetrics: [{ 
+          SplitNumber: { type: Number, required: true },
+          SplitMetrics: [{
+            MetricName: { type: String, required: true },
+            Value: { type: Number, required: true },
+            Unit: { type: String, required: true }
+          }]
+        }]
       },
     ],
   },

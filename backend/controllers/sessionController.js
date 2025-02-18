@@ -70,6 +70,14 @@ const registerSession = asyncHandler(async (req, res) => {
   }
 });
 
+// Metrics Calculation Object
+const metricsCalculations = {
+  Distance: (values) => values.reduce((acc, val) => acc + val, 0) / 1000, // Sum in km
+  TopSpeed: (values) => Math.max(...values), // Max speed
+  HighSpeedRunning: (values) => values.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0) / 1000, // Sum >5.5 m/s
+  Sprinting: (values) => values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 1000 // Sum >7 m/s
+};
+
 // @desc   Upload and process session CSV
 // @route  POST /api/sessions/upload
 // @access Protected
@@ -94,6 +102,36 @@ const uploadSessionCSV = asyncHandler(async (req, res) => {
   try {
     // Parse the CSV file and store session data
     await parseCSV(req.file.buffer, sessionId, req.user._id);
+
+    const session = await Session.findById(sessionId);
+    if (session) {
+      for (let data of session.sessionPlayerData) {
+        const playerData = await SessionPlayerData.findById(data._id);
+        const speeds = playerData.speeds;
+
+    // Creates sessionPlayerMetrics and splitPlayerMetrics
+    const sessionPlayerMetrics = Object.keys(metricsCalculations).map(metric => ({
+      MetricName: metric,
+      Value: metricsCalculations[metric](speeds),
+      Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
+    }));
+
+    const splitPlayerMetrics = session.splits.map((split, index) => {
+      const splitSpeeds = speeds.slice(split.start, split.end);
+      const splitMetrics = Object.keys(metricsCalculations).map(metric => ({
+        MetricName: metric,
+        Value: metricsCalculations[metric](splitSpeeds),
+        Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
+      }));
+      return { SplitNumber: index + 1, SplitMetrics: splitMetrics };
+    });
+
+    // Updates sessionPlayerData array
+    data.sessionPlayerMetrics = sessionPlayerMetrics; // 🆕 Added sessionPlayerMetrics
+    data.splitPlayerMetrics = splitPlayerMetrics;     // 🆕 Added splitPlayerMetrics
+  }
+  await session.save();
+}
     
     // Recalculate the average distance immediately after parsing CSV data
     await calculateAverageDistance(sessionId);
@@ -198,8 +236,13 @@ const updateSession = asyncHandler(async (req, res) => {
 
   if (!session) {
     res.status(404);
-    throw new Error("Session Collection not found");
+    throw new Error("Session not found");
   }
+
+  session.splits = splits.map((split, index) => ({
+    ...split,
+    splitNumber: index + 1
+  }));
 
   // Forces splits to unix format if provided (hours, minutes and seconds)
   if (splits && Array.isArray(splits)) {
