@@ -491,7 +491,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
             </Form.Group>
             {/* Duration in Seconds */}
             <Form.Group controlId="duration" className="mb-3">
-              <Form.Label>Duration (in seconds)</Form.Label>
+              <Form.Label>Duration (in minutes)</Form.Label>
               <Form.Control
                 type="number"
                 name="duration"

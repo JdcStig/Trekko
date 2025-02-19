@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
-import { Table, Button, Container, Alert, Row, Col, Form, Pagination } from 'react-bootstrap';
-import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
+import {
+  Table,
+  Button,
+  Container,
+  Alert,
+  Row,
+  Col,
+  Form,
+  Pagination
+} from 'react-bootstrap';
+import {
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaSortUp,
+  FaSortDown
+} from 'react-icons/fa';
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
@@ -15,6 +30,8 @@ import {
 import AddSessionModal from '../components/SessionManagement/AddSessionModal';
 import EditSessionModal from '../components/SessionManagement/EditSessionModal';
 import AddCSVModal from '../components/SessionManagement/AddCSVModal';
+import SessionDistanceChart from '../components/SessionDistanceChart';
+
 
 const SessionManagementScreen = () => {
   // Fetch sessions and define mutations
@@ -39,6 +56,9 @@ const SessionManagementScreen = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // New state for chart display (session id for which the chart is shown)
+  const [chartSessionId, setChartSessionId] = useState(null);
 
   // Handle sorting when a header is clicked
   const handleSort = (key) => {
@@ -171,6 +191,17 @@ const SessionManagementScreen = () => {
     setShowCSVModal(true);
   };
 
+  // Toggle the chart display when clicking the magnifying glass button
+  const handleShowChart = (sessionId) => {
+    if (chartSessionId === sessionId) {
+      // If already open, close it
+      setChartSessionId(null);
+    } else {
+      // Open chart for the clicked session
+      setChartSessionId(sessionId);
+    }
+  };
+
   return (
     <Container>
       <Row className="align-items-center my-4">
@@ -276,8 +307,12 @@ const SessionManagementScreen = () => {
                     </Button>
                   </td>
                   <td>
-                    <Button variant="light" className="btn-sm mx-2">
-                    <FaMagnifyingGlass />
+                    <Button
+                      variant="light"
+                      className="btn-sm mx-2"
+                      onClick={() => handleShowChart(session._id)}
+                    >
+                      <FaMagnifyingGlass />
                     </Button>
                   </td>
                 </tr>
@@ -288,7 +323,6 @@ const SessionManagementScreen = () => {
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <Pagination className="justify-content-center">
-              {/* <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} /> */}
               <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
               {[...Array(totalPages).keys()].map((num) => (
                 <Pagination.Item
@@ -300,8 +334,14 @@ const SessionManagementScreen = () => {
                 </Pagination.Item>
               ))}
               <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
-              {/* <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} /> */}
             </Pagination>
+          )}
+
+          {/* Render the chart if a session is selected */}
+          {chartSessionId && (
+           
+           <SessionDistanceChart sessionId={chartSessionId} />
+         
           )}
         </>
       ) : (
@@ -309,7 +349,7 @@ const SessionManagementScreen = () => {
       )}
 
       {/* Confirm deletion modal */}
-      <ConfirmDeletion 
+      <ConfirmDeletion
         show={showConfirm}
         onConfirm={handleConfirmDeletion}
         onCancel={handleCancelDeletion}
@@ -317,29 +357,29 @@ const SessionManagementScreen = () => {
       />
 
       {/* Add Session Modal */}
-      <AddSessionModal 
-        show={showAddModal} 
-        onHide={() => setShowAddModal(false)} 
+      <AddSessionModal
+        show={showAddModal}
+        onHide={() => setShowAddModal(false)}
         onAddSession={handleAddSession}
         onAddSessionSuccess={handleSessionCreated}
       />
 
       {/* Edit Session Modal */}
-      <EditSessionModal 
-        show={showEditModal} 
-        onHide={() => setShowEditModal(false)} 
+      <EditSessionModal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
         onEditSession={handleEditSession}
         onRefreshSessions={refetch}
-        session={selectedSession} 
+        session={selectedSession}
       />
 
       {/* CSV Upload Modal */}
-      <AddCSVModal 
-        show={showCSVModal} 
+      <AddCSVModal
+        show={showCSVModal}
         onHide={() => {
           setShowCSVModal(false);
           refetch();
-        }} 
+        }}
         sessionId={newSessionId}
       />
     </Container>
