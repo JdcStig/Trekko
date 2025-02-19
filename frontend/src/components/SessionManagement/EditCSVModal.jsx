@@ -92,7 +92,7 @@ const EditCSVModal = ({
       }
       // Refresh CSV list after uploads
       await refetch();
-      
+      window.location.reload();
       // Pass updated CSV data back to the parent
       onSave(data?.sessionPlayerDataArray || null);
     } catch (error) {
@@ -123,7 +123,7 @@ const EditCSVModal = ({
                <ListGroup className="mb-3">
                   {data.sessionPlayerDataArray.map((playerData) => (
                     <ListGroup.Item key={playerData._id}>
-                      <strong>{playerData.playerName}</strong> - Speed: {playerData.avgSpeed?.toFixed(2)}
+                      <strong>{playerData.playerName}</strong> 
                     </ListGroup.Item>
                   ))}
                 </ListGroup>
