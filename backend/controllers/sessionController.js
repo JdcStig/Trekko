@@ -217,6 +217,7 @@ const getSessionByID = asyncHandler(async (req, res) => {
 const deleteSession = asyncHandler(async (req, res) => {
   const session = await Session.findById(req.params.id);
   if (session) {
+    await SessionPlayerData.deleteMany({ sessionId: session._id });
     await Session.deleteOne({ _id: session._id });
     res.status(200).json({ message: 'Session Collection deleted successfully' });
   } else {
