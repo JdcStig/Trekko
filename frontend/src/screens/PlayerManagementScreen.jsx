@@ -1,51 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Button, Container, Alert, Row, Col, Form, Pagination } from 'react-bootstrap';
-import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
+import React, { useState } from 'react';
+import {
+  Table,
+  Button,
+  Container,
+  Alert,
+  Row,
+  Col,
+  Form,
+  Pagination
+} from 'react-bootstrap';
+import {
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaSortUp,
+  FaSortDown
+} from 'react-icons/fa';
+import { FaMagnifyingGlass } from "react-icons/fa6";
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
-import { useSelector } from 'react-redux';
-import { 
-  useGetPlayersQuery, 
-  useDeletePlayerMutation, 
-  useCreatePlayerMutation,
-  useUpdatePlayerMutation,
-} from '../slices/playersApiSlice';
-import AddPlayerModal from '../components/Player/AddPlayerModal';
-import EditPlayerModal from '../components/Player/EditPlayerModal';
+import { toast } from 'react-toastify';
+import {
+  useGetSessionsQuery,
+  useCreateSessionMutation,
+  useUpdateSessionMutation,
+  useDeleteSessionMutation,
+} from '../slices/sessionsApiSlice';
+import AddSessionModal from '../components/SessionManagement/AddSessionModal';
+import EditSessionModal from '../components/SessionManagement/EditSessionModal';
+import AddCSVModal from '../components/SessionManagement/AddCSVModal';
+import SessionCharts from '../components/SessionCharts'; // Import the two-charts component
 
-const PlayerManagementScreen = () => {
-  const { userInfo } = useSelector((state) => state.auth);
+const SessionManagementScreen = () => {
+  // Fetch sessions and define mutations
+  const { data, isLoading, error, refetch } = useGetSessionsQuery();
+  const [createSession, { isLoading: loadingCreate }] = useCreateSessionMutation();
+  const [deleteSession, { isLoading: loadingDelete }] = useDeleteSessionMutation();
+  const [updateSession, { isLoading: loadingUpdate }] = useUpdateSessionMutation();
 
-  // RTK Query hook with refetch option
-  const { data, isLoading, error, refetch } = useGetPlayersQuery(undefined, {
-    refetchOnMountOrArgChange: true,
-  });
-
-  const [deletePlayer, { isLoading: loadingDelete }] = useDeletePlayerMutation();
-  const [createPlayer, { isLoading: loadingCreate }] = useCreatePlayerMutation();
-  const [updatePlayer, { isLoading: loadingUpdate }] = useUpdatePlayerMutation();
-
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  // Modal state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCSVModal, setShowCSVModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedEditPlayer, setSelectedEditPlayer] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [newSessionId, setNewSessionId] = useState(null);
 
+  // Sorting, filtering, and search state
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [filterPosition, setFilterPosition] = useState('All');
+  const [filterType, setFilterType] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Refetch players when userInfo changes (e.g., on login/logout)
-  useEffect(() => {
-    refetch();
-  }, [userInfo, refetch]);
+  // New state for chart display (session id for which the chart is shown)
+  const [chartSessionId, setChartSessionId] = useState(null);
 
-  // Function to handle sorting when a header is clicked
+  // Handle sorting when a header is clicked
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -54,113 +68,144 @@ const PlayerManagementScreen = () => {
     setSortConfig({ key, direction });
   };
 
-  // When trash icon is clicked, open the confirm deletion modal
-  const handleDeleteClick = (player) => {
-    setSelectedPlayer(player);
-    setShowConfirm(true);
-  };
+  let sortedSessions = data ? [...data] : [];
+  if (sortConfig.key) {
+    sortedSessions.sort((a, b) => {
+      const valueA = a[sortConfig.key];
+      const valueB = b[sortConfig.key];
 
-  // Called when the user confirms deletion
-  const handleConfirmDeletion = async () => {
-    if (!selectedPlayer) return;
-    try {
-      await deletePlayer(selectedPlayer._id).unwrap();
-      refetch();
-    } catch (err) {
-      // Handle error
-    } finally {
-      setShowConfirm(false);
-      setSelectedPlayer(null);
-    }
-  };
-
-  // Called when the user cancels deletion
-  const handleCancelDeletion = () => {
-    setShowConfirm(false);
-    setSelectedPlayer(null);
-  };
-
-  // Called when a new player is submitted via the Add modal
-  const handleAddPlayer = async (playerData) => {
-    try {
-      await createPlayer(playerData).unwrap();
-      refetch();
-      setShowAddModal(false);
-    } catch (err) {
-      // Handle error
-    }
-  };
-
-  // When edit icon is clicked open the edit modal
-  const handleEditClick = (player) => {
-    setSelectedEditPlayer(player);
-    setShowEditModal(true);
-  };
-
-  // Called when the user submits the edit form in the edit modal
-  const handleEditPlayer = async (playerData) => {
-    try {
-      console.log('Sending update:', playerData); // Debugging
-      await updatePlayer({ id: playerData.id, name: playerData.name, position: playerData.position, teamName: playerData.teamName }).unwrap();
-      refetch();
-      setShowEditModal(false);
-      setSelectedEditPlayer(null);
-    } catch (err) {
-      console.error("Error updating player:", err);
-    }
-  };
-
-  // Sort players if data is available
-  let sortedPlayers = [];
-  if (data && data.players) {
-    sortedPlayers = [...data.players];
-    if (sortConfig.key) {
-      sortedPlayers.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
+      // Compare durations as numbers
+      if (sortConfig.key === 'duration') {
+        return sortConfig.direction === 'asc'
+          ? Number(valueA) - Number(valueB)
+          : Number(valueB) - Number(valueA);
+      }
+      // Compare dates
+      if (sortConfig.key === 'date') {
+        return sortConfig.direction === 'asc'
+          ? new Date(a.date) - new Date(b.date)
+          : new Date(b.date) - new Date(a.date);
+      }
+      // Compare splits based on array length
+      if (sortConfig.key === 'splits' && Array.isArray(valueA) && Array.isArray(valueB)) {
+        return sortConfig.direction === 'asc'
+          ? valueA.length - valueB.length
+          : valueB.length - valueA.length;
+      }
+      // If values are numbers
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return sortConfig.direction === 'asc' ? valueA - valueB : valueB - valueA;
+      }
+      // If values are strings
+      if (typeof valueA === 'string' && typeof valueB === 'string') {
+        return sortConfig.direction === 'asc'
+          ? valueA.localeCompare(valueB)
+          : valueB.localeCompare(valueA);
+      }
+      return 0;
+    });
   }
 
-  // Create an array of unique player positions for filtering
-  const uniquePositions = sortedPlayers.reduce((acc, player) => {
-    if (!acc.includes(player.position)) {
-      acc.push(player.position);
-    }
-    return acc;
-  }, []);
-
-  // Filter the sorted players by the selected filter and search term
-  let filteredPlayers = sortedPlayers;
-  if (filterPosition !== 'All') {
-    filteredPlayers = filteredPlayers.filter(
-      (player) => player.position.toLowerCase() === filterPosition.toLowerCase()
+  // Apply filter and search
+  let filteredSessions = [...sortedSessions];
+  if (filterType !== 'All' && filterType.trim() !== '') {
+    filteredSessions = filteredSessions.filter(
+      (session) => session.type?.toLowerCase() === filterType.toLowerCase()
     );
   }
   if (searchTerm.trim() !== '') {
-    filteredPlayers = filteredPlayers.filter((player) =>
-      player.name.toLowerCase().includes(searchTerm.toLowerCase())
+    filteredSessions = filteredSessions.filter((session) =>
+      session.sessionName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }
 
-  // Pagination logic
+  // Calculate pagination details
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentPlayers = filteredPlayers.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage);
+  const currentItems = filteredSessions.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredSessions.length / itemsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Handle deletion modal
+  const handleDeleteClick = (session) => {
+    setSelectedSession(session);
+    setShowConfirm(true);
+  };
+
+  const handleConfirmDeletion = async () => {
+    if (!selectedSession) return;
+    try {
+      await deleteSession(selectedSession._id).unwrap();
+      refetch();
+      toast.success('Session deleted successfully!', { position: 'top-right' });
+    } catch (err) {
+      toast.error('Failed to delete session.', { position: 'top-right' });
+    } finally {
+      setShowConfirm(false);
+      setSelectedSession(null);
+    }
+  };
+
+  const handleCancelDeletion = () => {
+    setShowConfirm(false);
+    setSelectedSession(null);
+  };
+
+  // Handle add session via the modal
+  const handleAddSession = async (sessionPlayerData) => {
+    try {
+      const response = await createSession(sessionPlayerData).unwrap();
+      // Return the created session object (adjust if your API returns a different structure)
+      return response.session || response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  // Use the same edit handler from your original code
+  const handleEditClick = (session) => {
+    setSelectedSession(session);
+    setShowEditModal(true);
+  };
+
+  const handleEditSession = async (sessionPlayerData) => {
+    try {
+      await updateSession(sessionPlayerData).unwrap();
+      toast.success('Session updated successfully!', { position: 'top-right' });
+      refetch();
+      setShowEditModal(false);
+      setSelectedSession(null);
+    } catch (err) {
+      toast.error('Failed to update session.', { position: 'top-right' });
+    }
+  };
+
+  // Build a list of unique session types for filtering
+  const uniqueTypes = [...new Set(sortedSessions.map((session) => session.type))];
+
+  // When a session is successfully created, open the CSV upload modal
+  const handleSessionCreated = (newSession) => {
+    setNewSessionId(newSession._id);
+    setShowCSVModal(true);
+  };
+
+  // Toggle the chart display when clicking the magnifying glass button
+  const handleShowChart = (sessionId) => {
+    if (chartSessionId === sessionId) {
+      // If already open, close it
+      setChartSessionId(null);
+    } else {
+      // Open chart for the clicked session
+      setChartSessionId(sessionId);
+    }
+  };
 
   return (
     <Container>
       <Row className="align-items-center my-4">
         <Col>
-          <h2>Player Management</h2>
+          <h2>Session Management</h2>
         </Col>
         <Col className="text-end">
           <Button variant="primary" className="btn-sm" onClick={() => setShowAddModal(true)}>
@@ -169,19 +214,23 @@ const PlayerManagementScreen = () => {
         </Col>
       </Row>
 
+      {/* Filter and Search */}
       <Row className="mb-3">
         <Col md={4}>
-          <Form.Group controlId="filterPosition">
-            <Form.Label>Filter by Position</Form.Label>
+          <Form.Group controlId="filterType">
+            <Form.Label>Filter by Type</Form.Label>
             <Form.Control
               as="select"
-              value={filterPosition}
-              onChange={(e) => setFilterPosition(e.target.value)}
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                setCurrentPage(1);
+              }}
             >
               <option value="All">All</option>
-              {uniquePositions.map((position) => (
-                <option key={position} value={position}>
-                  {position}
+              {uniqueTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
                 </option>
               ))}
             </Form.Control>
@@ -189,55 +238,142 @@ const PlayerManagementScreen = () => {
         </Col>
         <Col md={4}>
           <Form.Group controlId="searchTerm">
-            <Form.Label>Search by Name</Form.Label>
+            <Form.Label>Search by Session Name</Form.Label>
             <Form.Control
               type="text"
               placeholder="Search..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </Form.Group>
         </Col>
       </Row>
 
-      {isLoading || loadingDelete || loadingCreate || loadingUpdate ? (
+      {isLoading || loadingDelete ? (
         <Loader />
       ) : error ? (
-        <Message variant="danger">
-          {error.data?.message || error.error}
-        </Message>
-      ) : filteredPlayers && filteredPlayers.length > 0 ? (
+        <Alert variant="info" className="text-center">
+          No session found.
+        </Alert>
+      ) : filteredSessions.length > 0 ? (
         <>
           <Table striped bordered hover responsive className="table-sm">
             <thead className="table-dark">
               <tr>
-                <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
-                  Name {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
-                </th>
                 <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
-                  Team Name {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Team{' '}
+                  {sortConfig.key === 'teamName'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
-                <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
-                  Position {sortConfig.key === 'position' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
+                  Session Name{' '}
+                  {sortConfig.key === 'sessionName'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
+                <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
+                  Date{' '}
+                  {sortConfig.key === 'date'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
+                </th>
+                <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
+                  Number{' '}
+                  {sortConfig.key === 'number'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
+                </th>
+                <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
+                  Type{' '}
+                  {sortConfig.key === 'type'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
+                </th>
+                <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
+                  Duration{' '}
+                  {sortConfig.key === 'duration'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
+                </th>
+                <th onClick={() => handleSort('avgDistance')} style={{ cursor: 'pointer' }}>
+                  Avg Distance{' '}
+                  {sortConfig.key === 'avgDistance'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
+                </th>
+                <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
+                  Splits{' '}
+                  {sortConfig.key === 'splits'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
+                </th>
+                <th>Notes</th>
+                <th></th>
                 <th></th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {currentPlayers.map((player) => (
-                <tr key={player._id}>
-                  <td>{player.name}</td>
-                  <td>{player.teamName}</td>
-                  <td>{player.position}</td>
+              {currentItems.map((session) => (
+                <tr key={session._id}>
+                  <td>{session.teamName}</td>
+                  <td>{session.sessionName}</td>
+                  <td>{new Date(session.date).toLocaleDateString()}</td>
+                  <td>{session.number}</td>
+                  <td>{session.type}</td>
+                  <td>{session.duration || 'N/A'}</td>
                   <td>
-                    <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(player)}>
+                    {session.avgDistance
+                      ? session.avgDistance.toFixed(2) + ' km/s'
+                      : 'N/A'}
+                  </td>
+                  <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
+                  <td>{session.notes || 'N/A'}</td>
+                  <td>
+                    <Button
+                      variant="light"
+                      className="btn-sm mx-2"
+                      onClick={() => handleEditClick(session)}
+                    >
                       <FaEdit />
                     </Button>
                   </td>
                   <td>
-                    <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(player)}>
+                    <Button
+                      variant="light"
+                      className="btn-sm mx-2"
+                      onClick={() => handleDeleteClick(session)}
+                    >
                       <FaTrash />
+                    </Button>
+                  </td>
+                  <td>
+                    <Button
+                      variant="light"
+                      className="btn-sm mx-2"
+                      onClick={() => handleShowChart(session._id)}
+                    >
+                      <FaMagnifyingGlass />
                     </Button>
                   </td>
                 </tr>
@@ -248,8 +384,10 @@ const PlayerManagementScreen = () => {
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <Pagination className="justify-content-center">
-              {/* <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} /> */}
-              <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
+              <Pagination.Prev
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+              />
               {[...Array(totalPages).keys()].map((num) => (
                 <Pagination.Item
                   key={num + 1}
@@ -259,39 +397,58 @@ const PlayerManagementScreen = () => {
                   {num + 1}
                 </Pagination.Item>
               ))}
-              <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
-              {/* <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} /> */}
+              <Pagination.Next
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              />
             </Pagination>
+          )}
+
+          {/* Render the TWO charts if a session is selected */}
+          {chartSessionId && (
+            <SessionCharts sessionId={chartSessionId} />
           )}
         </>
       ) : (
-        <Alert variant="info" className="text-center">
-          No players found.
-        </Alert>
+        <Alert variant="info">No sessions found.</Alert>
       )}
 
+      {/* Confirm deletion modal */}
       <ConfirmDeletion
         show={showConfirm}
         onConfirm={handleConfirmDeletion}
         onCancel={handleCancelDeletion}
-        title="Confirm Deletion"
-        message={`Are you sure you want to delete ${selectedPlayer ? selectedPlayer.name : 'this player'}?`}
+        message={`Are you sure you want to delete the session "${selectedSession?.sessionName}"?`}
       />
 
-      <AddPlayerModal
+      {/* Add Session Modal */}
+      <AddSessionModal
         show={showAddModal}
         onHide={() => setShowAddModal(false)}
-        onAddPlayer={handleAddPlayer}
+        onAddSession={handleAddSession}
+        onAddSessionSuccess={handleSessionCreated}
       />
 
-      <EditPlayerModal
+      {/* Edit Session Modal */}
+      <EditSessionModal
         show={showEditModal}
         onHide={() => setShowEditModal(false)}
-        onEditPlayer={handleEditPlayer}
-        initialData={selectedEditPlayer}
+        onEditSession={handleEditSession}
+        onRefreshSessions={refetch}
+        session={selectedSession}
+      />
+
+      {/* CSV Upload Modal */}
+      <AddCSVModal
+        show={showCSVModal}
+        onHide={() => {
+          setShowCSVModal(false);
+          refetch();
+        }}
+        sessionId={newSessionId}
       />
     </Container>
   );
 };
 
-export default PlayerManagementScreen;
+export default SessionManagementScreen;
