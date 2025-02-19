@@ -83,3 +83,17 @@ main {
     height: 50px;
   }
   
+
+
+  .no-data {
+    text-align: center;
+    font-size: 20px;
+    color: red;
+    font-weight: bold;
+    padding: 20px;
+  }
+  
+  .chart-container {
+    margin-top: 20px;
+  }
+  
