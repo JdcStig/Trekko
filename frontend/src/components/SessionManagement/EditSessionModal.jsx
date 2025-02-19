@@ -4,17 +4,36 @@ import EditCSVModal from './EditCSVModal';
 import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
 import { useSelector } from 'react-redux';
 
-const formatTime = (value) => { /* unchanged */ };
-const timeStringToSeconds = (timeStr) => { /* unchanged */ };
+// Convert numeric seconds into "HH:mm:ss" (or "HH:mm" if you prefer)
+const formatTime = (value) => {
+  if (!value) return '';
+  const totalSeconds = Number(value);
+  if (isNaN(totalSeconds)) return '';
+
+  const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+  const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const secs = String(totalSeconds % 60).padStart(2, '0');
+  return `${hrs}:${mins}:${secs}`; // For step="1", we include seconds
+};
+
+// Convert "HH:mm" or "HH:mm:ss" back into numeric seconds
+const timeStringToSeconds = (timeStr) => {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':');
+  const hrs = parseInt(parts[0] || '0', 10);
+  const mins = parseInt(parts[1] || '0', 10);
+  const secs = parseInt(parts[2] || '0', 10);
+  return hrs * 3600 + mins * 60 + secs;
+};
 
 const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session }) => {
   const [localSessionData, setLocalSessionData] = useState({
-    teamName: "",
-    sessionName: "",
-    date: "",
-    type: "",
-    duration: "",
-    notes: "",
+    teamName: '',
+    sessionName: '',
+    date: '',
+    type: '',
+    duration: '',
+    notes: '',
     splits: [],
   });
   const [csvUpdates, setCsvUpdates] = useState(null);
@@ -23,25 +42,22 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
   // Pull user info & teams
   const { userInfo } = useSelector((state) => state.auth);
   const { data: teamsData, isLoading: teamsLoading, error: teamsError } = useGetTeamsQuery();
-  const filteredTeams =
-    teamsData?.teams?.filter((team) => team.userId === userInfo?._id) || [];
+  const filteredTeams = teamsData?.teams?.filter((team) => team.userId === userInfo?._id) || [];
 
   /**
-   * Only initialize local session data when the modal is shown (show === true).
-   * That way, if the user closes/cancels, the local changes are discarded.
+   * Re-initialize local session data each time the modal opens
    */
   useEffect(() => {
     if (show && session) {
       setLocalSessionData({
-        teamName: session.teamName || "",
-        sessionName: session.sessionName || "",
+        teamName: session.teamName || '',
+        sessionName: session.sessionName || '',
         date: session.date
-          ? new Date(session.date).toISOString().split("T")[0]
-          : "",
-        type: session.type || "",
-        duration:
-          session.duration !== undefined ? session.duration.toString() : "",
-        notes: session.notes || "",
+          ? new Date(session.date).toISOString().split('T')[0]
+          : '',
+        type: session.type || '',
+        duration: session.duration !== undefined ? session.duration.toString() : '',
+        notes: session.notes || '',
         splits: session.splits || [],
       });
       setCsvUpdates(null);
@@ -69,13 +85,15 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
     });
   };
 
+  // Add a new split row
   const handleAddSplit = () => {
     setLocalSessionData((prev) => ({
       ...prev,
-      splits: [...prev.splits, { title: "", start: "", end: "" }],
+      splits: [...prev.splits, { title: '', start: '', end: '' }],
     }));
   };
 
+  // Delete a split row
   const handleDeleteSplit = (index) => {
     setLocalSessionData((prev) => ({
       ...prev,
@@ -179,7 +197,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
               </Form.Control>
             </Form.Group>
 
-            {/* Duration */}
+            {/* Duration (in minutes) */}
             <Form.Group controlId="duration" className="mb-3">
               <Form.Label>Duration (in minutes)</Form.Label>
               <Form.Control
@@ -212,7 +230,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
                         type="text"
                         value={split.title}
                         onChange={(e) =>
-                          handleSplitChange(index, "title", e.target.value)
+                          handleSplitChange(index, 'title', e.target.value)
                         }
                         required
                       />
@@ -225,7 +243,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
                         onChange={(e) =>
                           handleSplitChange(
                             index,
-                            "start",
+                            'start',
                             timeStringToSeconds(e.target.value)
                           )
                         }
@@ -240,7 +258,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
                         onChange={(e) =>
                           handleSplitChange(
                             index,
-                            "end",
+                            'end',
                             timeStringToSeconds(e.target.value)
                           )
                         }

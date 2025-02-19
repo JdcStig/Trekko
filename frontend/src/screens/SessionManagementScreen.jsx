@@ -30,8 +30,7 @@ import {
 import AddSessionModal from '../components/SessionManagement/AddSessionModal';
 import EditSessionModal from '../components/SessionManagement/EditSessionModal';
 import AddCSVModal from '../components/SessionManagement/AddCSVModal';
-import SessionDistanceChart from '../components/SessionDistanceChart';
-
+import SessionCharts from '../components/SessionCharts'; // Import the two-charts component
 
 const SessionManagementScreen = () => {
   // Fetch sessions and define mutations
@@ -220,7 +219,14 @@ const SessionManagementScreen = () => {
         <Col md={4}>
           <Form.Group controlId="filterType">
             <Form.Label>Filter by Type</Form.Label>
-            <Form.Control as="select" value={filterType} onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}>
+            <Form.Control
+              as="select"
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
               <option value="All">All</option>
               {uniqueTypes.map((type) => (
                 <option key={type} value={type}>
@@ -237,7 +243,10 @@ const SessionManagementScreen = () => {
               type="text"
               placeholder="Search..."
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </Form.Group>
         </Col>
@@ -255,28 +264,68 @@ const SessionManagementScreen = () => {
             <thead className="table-dark">
               <tr>
                 <th onClick={() => handleSort('teamName')} style={{ cursor: 'pointer' }}>
-                  Team {sortConfig.key === 'teamName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Team{' '}
+                  {sortConfig.key === 'teamName'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th onClick={() => handleSort('sessionName')} style={{ cursor: 'pointer' }}>
-                  Session Name {sortConfig.key === 'sessionName' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Session Name{' '}
+                  {sortConfig.key === 'sessionName'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
-                  Date {sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Date{' '}
+                  {sortConfig.key === 'date'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th onClick={() => handleSort('number')} style={{ cursor: 'pointer' }}>
-                  Number {sortConfig.key === 'number' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Number{' '}
+                  {sortConfig.key === 'number'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
-                  Type {sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Type{' '}
+                  {sortConfig.key === 'type'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th onClick={() => handleSort('duration')} style={{ cursor: 'pointer' }}>
-                  Duration {sortConfig.key === 'duration' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Duration{' '}
+                  {sortConfig.key === 'duration'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th onClick={() => handleSort('avgDistance')} style={{ cursor: 'pointer' }}>
-                  Avg Distance {sortConfig.key === 'avgDistance' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Avg Distance{' '}
+                  {sortConfig.key === 'avgDistance'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th onClick={() => handleSort('splits')} style={{ cursor: 'pointer' }}>
-                  Splits {sortConfig.key === 'splits' ? (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />) : null}
+                  Splits{' '}
+                  {sortConfig.key === 'splits'
+                    ? sortConfig.direction === 'asc'
+                      ? <FaSortUp />
+                      : <FaSortDown />
+                    : null}
                 </th>
                 <th>Notes</th>
                 <th></th>
@@ -293,16 +342,28 @@ const SessionManagementScreen = () => {
                   <td>{session.number}</td>
                   <td>{session.type}</td>
                   <td>{session.duration || 'N/A'}</td>
-                  <td>{session.avgDistance ? session.avgDistance.toFixed(2) + ' km/s' : 'N/A'}</td>
+                  <td>
+                    {session.avgDistance
+                      ? session.avgDistance.toFixed(2) + ' km/s'
+                      : 'N/A'}
+                  </td>
                   <td>{Array.isArray(session.splits) ? session.splits.length : 0}</td>
                   <td>{session.notes || 'N/A'}</td>
                   <td>
-                    <Button variant="light" className="btn-sm mx-2" onClick={() => handleEditClick(session)}>
+                    <Button
+                      variant="light"
+                      className="btn-sm mx-2"
+                      onClick={() => handleEditClick(session)}
+                    >
                       <FaEdit />
                     </Button>
                   </td>
                   <td>
-                    <Button variant="light" className="btn-sm mx-2" onClick={() => handleDeleteClick(session)}>
+                    <Button
+                      variant="light"
+                      className="btn-sm mx-2"
+                      onClick={() => handleDeleteClick(session)}
+                    >
                       <FaTrash />
                     </Button>
                   </td>
@@ -323,7 +384,10 @@ const SessionManagementScreen = () => {
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <Pagination className="justify-content-center">
-              <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
+              <Pagination.Prev
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+              />
               {[...Array(totalPages).keys()].map((num) => (
                 <Pagination.Item
                   key={num + 1}
@@ -333,15 +397,16 @@ const SessionManagementScreen = () => {
                   {num + 1}
                 </Pagination.Item>
               ))}
-              <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
+              <Pagination.Next
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              />
             </Pagination>
           )}
 
-          {/* Render the chart if a session is selected */}
+          {/* Render the TWO charts if a session is selected */}
           {chartSessionId && (
-           
-           <SessionDistanceChart sessionId={chartSessionId} />
-         
+            <SessionCharts sessionId={chartSessionId} />
           )}
         </>
       ) : (
