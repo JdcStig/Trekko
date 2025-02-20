@@ -105,6 +105,37 @@ const SessionCharts = ({ sessionId }) => {
     legend: { position: 'none' },
   };
 
+  // ------------------ SPRINTING CHART ------------------
+  const sprintData = [['Player', 'Sprinting (km)']];
+  playerDataArray.forEach((item) => {
+    const sprintMetric = item.sessionPlayerMetrics?.find(
+      (metric) => metric.MetricName === 'Sprinting'
+    );
+    const sprintValue = sprintMetric ? Number(sprintMetric.Value) : NaN;
+    sprintData.push([item.playerName, sprintValue]);
+  });
+
+  const validSprintRows = sprintData.slice(1).filter(
+    (row) => typeof row[1] === 'number' && !isNaN(row[1])
+  );
+
+  const sprintOptions = {
+    title: 'Sprinting',
+    hAxis: {
+      title: 'Player',
+      slantedText: true,
+      slantedTextAngle: 45,
+    },
+    vAxis: { title: 'Distance (km)' },
+    chartArea: {
+      left: 50,
+      top: 50,
+      bottom: 100,
+      right: 20,
+    },
+    legend: { position: 'none' },
+  };
+
   return (
     <div>
       {/* ---- DISTANCE CHART ---- */}
@@ -150,6 +181,23 @@ const SessionCharts = ({ sessionId }) => {
         </div>
       ) : (
         <div className="no-data">No High Speed Running data found</div>
+      )}
+
+      {/* ---- SPRINTING CHART ---- */}
+      {validSprintRows.length > 0 ? (
+        <div className="chart-container" style={{ marginTop: '20px' }}>
+          <Chart
+            chartType="ColumnChart"
+            width="100%"
+            height="400px"
+            data={sprintData}
+            options={sprintOptions}
+          />
+        </div>
+      ) : (
+        <div className="no-data" style={{ marginTop: '20px' }}>
+          No Sprinting data found
+        </div>
       )}
     </div>
   );

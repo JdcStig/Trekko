@@ -77,14 +77,14 @@ const EditCSVModal = ({
     try {
       // If there are pending files, upload each one
       if (pendingFiles.length > 0) {
-        const uploadPromises = pendingFiles.map(file => {
+        const uploadPromises = pendingFiles.map((file) => {
           const formData = new FormData();
           formData.append('file', file);
           formData.append('sessionId', sessionId);
           return uploadSessionCSV(formData).unwrap();
         });
         const responses = await Promise.all(uploadPromises);
-        responses.forEach(response => {
+        responses.forEach((response) => {
           if (response.createdPlayers && response.createdPlayers.length > 0) {
             allCreatedPlayers = allCreatedPlayers.concat(response.createdPlayers);
           }
@@ -92,18 +92,22 @@ const EditCSVModal = ({
       }
       // Refresh CSV list after uploads
       await refetch();
-      window.location.reload();
+  
       // Pass updated CSV data back to the parent
       onSave(data?.sessionPlayerDataArray || null);
+  
+      // Automatically close the CSV modal when done
+      onCancel();
     } catch (error) {
-      //console.error("Error saving CSV changes", error);
+      // Optionally, handle errors here (e.g. show a toast notification)
     } finally {
       setProcessing(false);
-      // Clear pending files and delete flag after processing
+      // Clear pending files and reset delete flag
       setPendingFiles([]);
       setPendingDeleteAll(false);
     }
   };
+  
   
   return (
     <Modal show={show} onHide={onCancel} centered>
