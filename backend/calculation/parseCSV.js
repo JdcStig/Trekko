@@ -10,8 +10,8 @@ import mongoose from 'mongoose';
 const metricsCalculations = {
     Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000, // in km
     TopSpeed: (values) => Math.max(...values), // max speed (top speed)
-    HighSpeedRunning: (values) => values.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0) / 1000, // in km
-    Sprinting: (values) => values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 1000 // in km
+    HighSpeedRunning: (values) => (values.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0) / 10) / 1000, // in km
+    Sprinting: (values) => (values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 10) / 1000 // in km
   };
 
 
