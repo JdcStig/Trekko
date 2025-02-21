@@ -98,7 +98,6 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
 
                     await sessionPlayerData.save();
                     const playerName = sessionPlayerData.playerId;
-                    const avgSpeed = sessionPlayerData.avgSpeed;
                     //console.log("✅ SessionPlayerData saved:", sessionPlayerData._id);
                      
                     await createPlayersFromCSV(sessionId, userId);
