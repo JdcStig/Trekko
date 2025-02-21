@@ -47,7 +47,7 @@ const createPlayersFromCSV = async (sessionId, userId) => {
 
       const existingPlayer = await Player.findOne({
         userId,
-        name: playerIdentifier,
+        playerId: playerIdentifier,
         teamName: session.teamName,
       });
 
@@ -55,6 +55,7 @@ const createPlayersFromCSV = async (sessionId, userId) => {
         const newPlayer = new Player({
           userId,
           name: playerIdentifier,
+          playerId: playerIdentifier,
           position: randomPosition,
           teamName: session.teamName,
         });
