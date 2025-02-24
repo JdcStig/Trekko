@@ -8,11 +8,16 @@ import calculateAverageDistance from "./calculateAverageDistance.js";
  */
 const updateSessionCount = async (userId) => {
     try {
-        // Counts the number of sessionPlayerDatas entries for this user
-        const sessionCount = await SessionPlayerData.countDocuments({ userId });
+        // Finds all sessions for the user
+        const sessions = await Session.find({ userId });
 
-        // Updates all sessions for this user with the new count
-        await Session.updateMany({ userId }, { $set: { number: sessionCount } });
+        // Iterates over each session and update the 'number' field
+        for (const session of sessions) {
+            const sessionCount = await SessionPlayerData.countDocuments({ sessionId: session._id });
+            
+            // Updates the session with the new count
+            await Session.findByIdAndUpdate(session._id, { $set: { number: sessionCount } });
+        }
 
         await calculateAverageDistance(userId);
 

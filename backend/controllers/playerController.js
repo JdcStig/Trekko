@@ -3,6 +3,7 @@ import asyncHandler from '../middleware/asyncHandler.js';
 import Player from '../models/playerModel.js';
 import Team from '../models/teamModel.js';
 import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Session from '../models/sessionModel.js';
 import generateToken from '../utils/generateToken.js';
 
 
@@ -107,19 +108,41 @@ const getPlayerByID = asyncHandler(async (req, res) => {
 // @route  DELETE /api/players/:id
 // @access Private/Admin
 const deletePlayer = asyncHandler(async (req, res) => {
-   const player = await Player.findById(req.params.id);
+    const player = await Player.findById(req.params.id);
+  
+    if (!player) {
+      res.status(404);
+      throw new Error('Player not found');
+    }
+  
+    try {
+      // 1. Deletes the player document from players collection
+      await Player.deleteOne({ _id: player._id });
+  
+      // 2. Deletes all related SessionPlayerData documents with matching playerId
+      await SessionPlayerData.deleteMany({ playerId: player.playerId });
+  
+      // 3. Removes references from Session's sessionPlayerData array
+      await Session.updateMany(
+        {},
+        { $pull: { sessionPlayerData: { playerName: player.name } } }
+      );
 
-   if (player) {
-    // Delete the player document
-    await Player.deleteOne({ _id: player._id });
-    // Delete all SessionPlayerData documents with playerId equal to the player's name
-    await SessionPlayerData.deleteMany({ playerId: player.name });
-    res.status(200).json({ message: 'Player and related session data deleted successfully' });
-   } else {
-    res.status(404);
-    throw new Error('Player not found');
-   }
-});
+      // 4. Updates player count in related sessions
+      await Session.updateMany(
+        { "sessionPlayerData.playerName": player.name },
+        {
+          $pull: { sessionPlayerData: { playerName: player.name } },
+          $inc: { number: -1 }
+        }
+      );
+  
+      res.status(200).json({ message: 'Player and related session data deleted successfully' });
+    } catch (error) {
+      console.error("Error deleting player and related data:", error);
+      res.status(500).json({ message: "Failed to delete player and related data" });
+    }
+  });
 
 // @desc   Update player
 // @route  PUT /api/players/:id
