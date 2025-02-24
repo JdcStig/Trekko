@@ -7,28 +7,34 @@ import Session from '../models/sessionModel.js';
  * @returns {Promise<Number>} The calculated average distance.
  */
 const calculateAverageDistance = async (sessionId) => {
-  try {
-    // Fetch all session data for this session
-    const sessionPlayerDataList = await SessionPlayerData.find({ sessionId });
-    if (!sessionPlayerDataList.length) {
-      await Session.findByIdAndUpdate(sessionId, { avgDistance: 0 });
-      return 0;
+    try {
+        console.time('Average Distance Calculation');
+        console.log("📌 Calculating average distance for session:", sessionId);
+
+        const sessionPlayerDataList = await SessionPlayerData.find({ sessionId });
+        if (!sessionPlayerDataList.length) {
+            console.log(`❌ No player data found for session ${sessionId}`);
+            await Session.findByIdAndUpdate(sessionId, { avgDistance: 0 });
+            return 0;
+        }
+
+        let totalSpeed = 0;
+        sessionPlayerDataList.forEach((data) => {
+            totalSpeed += data.speeds.reduce((acc, speed) => acc + speed, 0);
+        });
+
+        const numberOfFiles = sessionPlayerDataList.length;
+        const avgDistance = totalSpeed > 0 ? ((totalSpeed / 10) / 1000) / numberOfFiles : 0;
+
+        await Session.findByIdAndUpdate(sessionId, { avgDistance });
+
+        console.log(`✅ Average distance calculated: ${avgDistance.toFixed(5)} km for session ${sessionId}`);
+        console.timeEnd('Average Distance Calculation');
+        return avgDistance;
+    } catch (error) {
+        console.error("🚨 Error calculating average distance:", error.message);
+        throw error;
     }
-    let totalSpeed = 0;
-    sessionPlayerDataList.forEach((data) => {
-      // Adjust the calculation formula as needed.
-      totalSpeed += data.speeds.reduce((acc, speed) => acc + speed, 0);
-    });
-    const numberOfFiles = sessionPlayerDataList.length;
-    const avgDistance = totalSpeed > 0 ? ((totalSpeed / 10) / 1000) / numberOfFiles : 0;
-    // Update the session with the new average distance
-    await Session.findByIdAndUpdate(sessionId, { avgDistance });
-    //console.log(`✅ Updated average distance for session ${sessionId}: ${avgDistance.toFixed(5)} km`);
-    return avgDistance;
-  } catch (error) {
-    //console.error("🚨 Error calculating average distance:", error.message);
-    throw error;
-  }
 };
 
 export default calculateAverageDistance;

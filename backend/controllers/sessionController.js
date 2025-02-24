@@ -78,76 +78,103 @@ const metricsCalculations = {
   Sprinting: (values) => (values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 10) / 1000 // Sum >7 m/s
 };
 
-// @desc   Upload and process session CSV
+// // @desc   Upload and process session CSV
+// // @route  POST /api/sessions/upload
+// // @access Protected
+// const uploadSessionCSV = asyncHandler(async (req, res) => {
+//   //.log("📌 Received file upload request");
+
+//   const { sessionId } = req.body;
+
+
+//   if (!sessionId) {
+//     //console.error("🚨 No session ID provided!");
+//     return res.status(400).json({ message: "Session ID is required." });
+//   }
+
+//   if (!req.file) {
+//     //console.error("🚨 No file uploaded!");
+//     return res.status(400).json({ message: "No file uploaded." });
+//   }
+
+//   //console.log(`✅ File received: ${req.file.originalname}`);
+
+//   try {
+//     // Parse the CSV file and store session data
+//     await parseCSV(req.file.buffer, sessionId, req.user._id);
+
+//     const session = await Session.findById(sessionId);
+//     if (session) {
+//       for (let data of session.sessionPlayerData) {
+//         const playerData = await SessionPlayerData.findById(data._id);
+//         const speeds = playerData.speeds;
+
+//     // Creates sessionPlayerMetrics and splitPlayerMetrics
+//     const sessionPlayerMetrics = Object.keys(metricsCalculations).map(metric => ({
+//       MetricName: metric,
+//       Value: metricsCalculations[metric](speeds),
+//       Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
+//     }));
+
+//     const splitPlayerMetrics = session.splits.map((split, index) => {
+//       const splitSpeeds = speeds.slice(split.start, split.end);
+//       const splitMetrics = Object.keys(metricsCalculations).map(metric => ({
+//         MetricName: metric,
+//         Value: metricsCalculations[metric](splitSpeeds),
+//         Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
+//       }));
+//       return { SplitNumber: index + 1, SplitMetrics: splitMetrics };
+//     });
+
+//     // Updates sessionPlayerData array
+//     data.sessionPlayerMetrics = sessionPlayerMetrics; // 🆕 Added sessionPlayerMetrics
+//     data.splitPlayerMetrics = splitPlayerMetrics;     // 🆕 Added splitPlayerMetrics
+//   }
+//   await session.save();
+// }
+    
+//     // Recalculate the average distance immediately after parsing CSV data
+//     await calculateAverageDistance(sessionId);
+
+//     // Optionally, create players from the CSV data if required
+//     const createdPlayers = await createPlayersFromCSV(sessionId, req.user._id);
+//     //console.log("Created players:", createdPlayers);
+
+//     // Get the updated session with its sessionPlayerData populated
+//     const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
+//     res.status(201).json(updatedSession);
+//   } catch (error) {
+//     //console.error("🚨 Error processing CSV:", error.message);
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
 // @route  POST /api/sessions/upload
 // @access Protected
 const uploadSessionCSV = asyncHandler(async (req, res) => {
-  //.log("📌 Received file upload request");
-
   const { sessionId } = req.body;
 
-
   if (!sessionId) {
-    //console.error("🚨 No session ID provided!");
     return res.status(400).json({ message: "Session ID is required." });
   }
 
   if (!req.file) {
-    //console.error("🚨 No file uploaded!");
     return res.status(400).json({ message: "No file uploaded." });
   }
 
-  //console.log(`✅ File received: ${req.file.originalname}`);
-
   try {
-    // Parse the CSV file and store session data
+    // This will handle CSV parsing, player creation, and average distance calculation
     await parseCSV(req.file.buffer, sessionId, req.user._id);
 
-    const session = await Session.findById(sessionId);
-    if (session) {
-      for (let data of session.sessionPlayerData) {
-        const playerData = await SessionPlayerData.findById(data._id);
-        const speeds = playerData.speeds;
-
-    // Creates sessionPlayerMetrics and splitPlayerMetrics
-    const sessionPlayerMetrics = Object.keys(metricsCalculations).map(metric => ({
-      MetricName: metric,
-      Value: metricsCalculations[metric](speeds),
-      Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
-    }));
-
-    const splitPlayerMetrics = session.splits.map((split, index) => {
-      const splitSpeeds = speeds.slice(split.start, split.end);
-      const splitMetrics = Object.keys(metricsCalculations).map(metric => ({
-        MetricName: metric,
-        Value: metricsCalculations[metric](splitSpeeds),
-        Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
-      }));
-      return { SplitNumber: index + 1, SplitMetrics: splitMetrics };
-    });
-
-    // Updates sessionPlayerData array
-    data.sessionPlayerMetrics = sessionPlayerMetrics; // 🆕 Added sessionPlayerMetrics
-    data.splitPlayerMetrics = splitPlayerMetrics;     // 🆕 Added splitPlayerMetrics
-  }
-  await session.save();
-}
-    
-    // Recalculate the average distance immediately after parsing CSV data
-    await calculateAverageDistance(sessionId);
-
-    // Optionally, create players from the CSV data if required
-    const createdPlayers = await createPlayersFromCSV(sessionId, req.user._id);
-    //console.log("Created players:", createdPlayers);
-
-    // Get the updated session with its sessionPlayerData populated
+    // Fetch the updated session with its player data populated
     const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
+
     res.status(201).json(updatedSession);
   } catch (error) {
-    //console.error("🚨 Error processing CSV:", error.message);
     res.status(500).json({ message: error.message });
   }
 });
+
 
 // @desc   Get session profile
 // @route  GET /api/sessions/profile
