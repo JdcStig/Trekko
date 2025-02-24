@@ -238,20 +238,20 @@ const updateSession = asyncHandler(async (req, res) => {
     throw new Error("Session not found");
   }
 
-  // If splits are provided and are an array, convert each split properly.
+  // Handle splits: If provided, process them
+  let convertedSplits = session.splits; // Default to existing splits
   if (splits && Array.isArray(splits)) {
-    const convertedSplits = splits.map((split, index) => {
-      // Ensure the split has a title.
+    convertedSplits = splits.map((split, index) => {
       if (!split.title) {
         res.status(400);
         throw new Error("Split title is required.");
       }
-      // Convert start and end to numbers (unix seconds) if they aren't already.
-      const start = typeof split.start === "number" 
-        ? split.start 
+
+      const start = typeof split.start === "number"
+        ? split.start
         : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-      const end = typeof split.end === "number" 
-        ? split.end 
+      const end = typeof split.end === "number"
+        ? split.end
         : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
 
       return {
@@ -261,9 +261,36 @@ const updateSession = asyncHandler(async (req, res) => {
         end,
       };
     });
+
+    // Update session splits
     session.splits = convertedSplits;
+
+    // Handle splitPlayerMetrics in sessionPlayerData
+    const updatedSplitNumbers = convertedSplits.map(split => split.splitNumber);
+
+    // Update splitPlayerMetrics in each sessionPlayerData entry
+    session.sessionPlayerData.forEach(playerData => {
+      // Filter out splitPlayerMetrics that no longer have corresponding splits
+      playerData.splitPlayerMetrics = playerData.splitPlayerMetrics.filter(
+        metric => updatedSplitNumbers.includes(metric.SplitNumber)
+      );
+
+      // Add new splitPlayerMetrics for any new splits
+      updatedSplitNumbers.forEach(splitNumber => {
+        const exists = playerData.splitPlayerMetrics.some(
+          metric => metric.SplitNumber === splitNumber
+        );
+        if (!exists) {
+          playerData.splitPlayerMetrics.push({
+            SplitNumber: splitNumber,
+            SplitMetrics: [] // Initialize empty metrics
+          });
+        }
+      });
+    });
   }
 
+  // Update other session fields
   if (teamName) session.teamName = teamName;
   if (sessionName) session.sessionName = sessionName;
   if (date) {
@@ -276,9 +303,12 @@ const updateSession = asyncHandler(async (req, res) => {
   if (duration) session.duration = Number(duration);
   if (notes) session.notes = notes;
 
+  // Save the updated session
   const updatedSession = await session.save();
   res.status(200).json(updatedSession);
 });
+
+
 
 // =============================
 // NEW: Delete all CSVs for a session
