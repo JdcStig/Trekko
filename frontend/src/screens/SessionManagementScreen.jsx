@@ -339,7 +339,7 @@ const SessionManagementScreen = () => {
                   <td>{session.teamName}</td>
                   <td>{session.sessionName}</td>
                   <td>{new Date(session.date).toLocaleDateString()}</td>
-                  <td>{session.number}</td>
+                  <td>{session.sessionPlayerData?.length || 0}</td>
                   <td>{session.type}</td>
                   <td>{session.duration || 'N/A'}</td>
                   <td>
