@@ -5,7 +5,6 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 const SessionCharts = ({ sessionId }) => {
-  // All hooks are called at the top:
   const chartRef = useRef(null);
   const { data, isLoading, error } = useGetSessionCSVsQuery(sessionId);
 
@@ -58,7 +57,6 @@ const SessionCharts = ({ sessionId }) => {
     }));
   };
 
-  // Conditional returns (after all hooks have been declared)
   if (isLoading) return <p>Loading chart data...</p>;
   if (error) return <p>Error loading chart data.</p>;
 
@@ -67,7 +65,6 @@ const SessionCharts = ({ sessionId }) => {
       ? null
       : Number(selectedSplitTitle.replace('Split ', ''));
 
-  // Build raw data arrays for each chart
   const distanceData = [['Player', 'Distance (km)']];
   const topSpeedData = [['Player', 'Top Speed (m/s)']];
   const hsrData = [['Player', 'High Speed Running (km)']];
@@ -114,16 +111,16 @@ const SessionCharts = ({ sessionId }) => {
   const filteredSprintData = filterChartData(sprintData);
 
   const baseOptions = {
-    hAxis: { title: '', slantedText: true, slantedTextAngle: 45 },
+    hAxis: { title: 'Player', slantedText: true, slantedTextAngle: 45 },
+    vAxis: { title: '', minValue: 0 },
     chartArea: { left: 50, top: 50, bottom: 100, right: 20 },
     legend: { position: 'none' },
   };
-  const distanceOptions = { ...baseOptions, title: `Distance`, vAxis: { title: 'Distance (km)' } };
-  const topSpeedOptions = { ...baseOptions, title: `Top Speed`, vAxis: { title: 'Speed (m/s)' } };
-  const hsrOptions = { ...baseOptions, title: `High Speed Running`, vAxis: { title: 'Distance (km)' } };
-  const sprintOptions = { ...baseOptions, title: `Sprinting`, vAxis: { title: 'Distance (km)' } };
+  const distanceOptions = { ...baseOptions, title: `Distance`, vAxis: { title: 'Distance (km)', minValue: 0 } };
+  const topSpeedOptions = { ...baseOptions, title: `Top Speed`, vAxis: { title: 'Speed (m/s)', minValue: 0 } };
+  const hsrOptions = { ...baseOptions, title: `High Speed Running`, vAxis: { title: 'Distance (km)', minValue: 0 } };
+  const sprintOptions = { ...baseOptions, title: `Sprinting`, vAxis: { title: 'Distance (km)', minValue: 0 } };
 
-  // PDF Export Logic
   const handleExportPDF = async () => {
     if (!chartRef.current) return;
     try {
@@ -182,11 +179,20 @@ const SessionCharts = ({ sessionId }) => {
         ))}
       </div>
 
+      {/* Export PDF Button */}
+      {hasAnyData && (
+        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+          <button className="btn btn-success" onClick={handleExportPDF}>
+            Export Charts to PDF
+          </button>
+        </div>
+      )}
+
       {/* Chart Container for PDF Export */}
-      <div ref={chartRef}>
+      <div ref={chartRef} style={{ marginTop: '20px' }}>
         {/* Distance Chart */}
         {filteredDistanceData.length > 1 ? (
-          <div className="chart-container">
+          <div className="chart-container" style={{ marginBottom: '40px' }}>
             <Chart
               chartType="ColumnChart"
               width="100%"
@@ -201,7 +207,7 @@ const SessionCharts = ({ sessionId }) => {
 
         {/* Top Speed Chart */}
         {filteredTopSpeedData.length > 1 ? (
-          <div className="chart-container">
+          <div className="chart-container" style={{ marginBottom: '40px' }}>
             <Chart
               chartType="ColumnChart"
               width="100%"
@@ -216,7 +222,7 @@ const SessionCharts = ({ sessionId }) => {
 
         {/* High Speed Running Chart */}
         {filteredHSRData.length > 1 ? (
-          <div className="chart-container">
+          <div className="chart-container" style={{ marginBottom: '40px' }}>
             <Chart
               chartType="ColumnChart"
               width="100%"
@@ -231,7 +237,7 @@ const SessionCharts = ({ sessionId }) => {
 
         {/* Sprinting Chart */}
         {filteredSprintData.length > 1 ? (
-          <div className="chart-container">
+          <div className="chart-container" style={{ marginBottom: '40px' }}>
             <Chart
               chartType="ColumnChart"
               width="100%"
@@ -244,15 +250,6 @@ const SessionCharts = ({ sessionId }) => {
           <div className="no-data">No sprinting data available</div>
         )}
       </div>
-
-      {/* Export PDF Button */}
-      {hasAnyData && (
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <button className="btn btn-success" onClick={handleExportPDF}>
-            Export Charts to PDF
-          </button>
-        </div>
-      )}
     </div>
   );
 };
