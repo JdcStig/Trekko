@@ -76,16 +76,5 @@ const sessionSchema = new mongoose.Schema(
   }
 );
 
-// Post-save hook: After saving a session, automatically calculate avgDistance.
-sessionSchema.post('save', async function (doc, next) {
-  try {
-    // Call your calculation function with the saved document's _id.
-    await calculateAverageDistance(doc._id);
-    next();
-  } catch (error) {
-    console.error("Error in post-save hook:", error);
-    next(error);
-  }
-});
 
 export default mongoose.model('Session', sessionSchema);

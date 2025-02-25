@@ -1,147 +1,205 @@
-import fs from 'fs';
-import csvParser from 'csv-parser';
-import SessionPlayerData from '../models/sessionPlayerDataModel.js';
-import Session from '../models/sessionModel.js';
-import createPlayersFromCSV from './createPlayersFromCSV.js';
 import { Readable } from 'stream';
+import csvParser from 'csv-parser';
 import mongoose from 'mongoose';
 
-// Calculates the distance, topspeed, highspeedRunning and Sprinting
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Session from '../models/sessionModel.js';
+import Player from '../models/playerModel.js';
+
+import createPlayersFromCSV from './createPlayersFromCSV.js';
+import calculateAverageDistance from './calculateAverageDistance.js';
+
+// --------------------- Metrics Calculation Helpers ---------------------
 const metricsCalculations = {
-    Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000, // in km
-    TopSpeed: (values) => Math.max(...values), // max speed (top speed)
-    HighSpeedRunning: (values) => (values.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0) / 10) / 1000, // in km
-    Sprinting: (values) => (values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 10) / 1000 // in km
-  };
+  Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000, // in km
+  TopSpeed: (values) => Math.max(...values), // in m/s
+  HighSpeedRunning: (values) =>
+    (values.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0) / 10) / 1000, // in km
+  Sprinting: (values) =>
+    (values.filter(v => v > 7).reduce((acc, val) => acc + val, 0) / 10) / 1000, // in km
+};
 
-
+/**
+ * Single-pass CSV parser that:
+ *  1) Groups rows by player.
+ *  2) Inserts one SessionPlayerData document per player.
+ *  3) Computes per-player metrics.
+ *  4) Updates the Session with session-level data.
+ *  5) Creates missing players.
+ *  6) Recalculates average distance.
+ *  7) Returns the updated Session.
+ *
+ * @param {Buffer} fileBuffer - The CSV file buffer.
+ * @param {String} sessionId   - The ID of the session.
+ * @param {String} userId      - The ID of the user.
+ * @returns {Promise<Session>} - The updated session.
+ */
 const parseCSV = async (fileBuffer, sessionId, userId) => {
-    return new Promise(async (resolve, reject) => {
-        //console.log("📌 `parseCSV` function called! ✅");
+  console.log(`📌 [parseCSV] Start for session=${sessionId} | user=${userId}`);
 
-        try {
-            if (!fileBuffer || fileBuffer.length === 0) {
-               // console.error("🚨 File buffer is empty!");
-                return reject(new Error("Uploaded file is empty."));
-            }
+  if (!fileBuffer || fileBuffer.length === 0) {
+    throw new Error("Uploaded file is empty.");
+  }
+  if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+    throw new Error("Invalid session ID.");
+  }
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid user ID.");
+  }
 
-            //console.log(`✅ File buffer received, size: ${fileBuffer.length} bytes`);
+  // 1) Convert buffer to string and detect delimiter.
+  const fileString = fileBuffer.toString('utf-8');
+  let delimiter = ',';
+  if (fileString.includes('\t')) delimiter = '\t';
+  else if (fileString.includes(';')) delimiter = ';';
+  else if (fileString.includes('  ')) delimiter = ' ';
+  console.log(`🔍 [parseCSV] Detected delimiter: "${delimiter}"`);
 
-            // Validate sessionId is a valid MongoDB ObjectId
-            if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-                //console.error("🚨 Invalid sessionId:", sessionId);
-                return reject(new Error("Invalid session ID."));
-            }
+  // 2) Parse CSV into an array of row objects.
+  const rows = [];
+  await new Promise((resolve, reject) => {
+    Readable.from(fileString)
+      .pipe(csvParser({ separator: delimiter, trim: true }))
+      .on('data', (row) => rows.push(row))
+      .on('end', resolve)
+      .on('error', reject);
+  });
+  console.log(`✅ [parseCSV] CSV parsed. Total rows: ${rows.length}`);
+  if (!rows.length) {
+    throw new Error("CSV is empty or could not be parsed.");
+  }
 
-            // Detect delimiter
-            const fileString = fileBuffer.toString('utf-8');
-            let delimiter = ',';
-            if (fileString.includes('\t')) delimiter = '\t';
-            else if (fileString.includes(';')) delimiter = ';';
-            else if (fileString.includes('  ')) delimiter = ' ';
+  // 3) Fetch the session from the DB.
+  const session = await Session.findById(sessionId);
+  if (!session) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
 
-           // console.log(`✅ Using detected delimiter: "${delimiter}"`);
+  // 4) Build in-memory data for each player.
+  // Adjust the header names as needed.
+  console.log("🔄 [parseCSV] Building in-memory data for each player...");
+  const playersData = {};
+  for (const row of rows) {
+    const playerId = row['Player Display Name'] || 'Unknown Player';
 
-            const stream = Readable.from(fileString);
-            const results = [];
+    // Build a UTC datetime from "UTC Date" and "UTC Time" (if provided).
+    const dateStr = row['UTC Date'];
+    const timeStr = row['UTC Time'];
+    const combinedDateTime = (dateStr && timeStr)
+      ? new Date(`${dateStr}T${timeStr}Z`)
+      : new Date();
 
-            stream
-                .pipe(csvParser({ separator: delimiter, trim: true }))
-                .on('data', (row) => results.push(row))
-                .on('end', async () => {
-                    //console.log(`✅ CSV parsed successfully. Rows: ${results.length}`);
+    // Convert numeric columns.
+    const lat = parseFloat(row['Latitude']) || 0;
+    const lon = parseFloat(row['Longitude']) || 0;
+    const speed = parseFloat(row['Speed (m/s)']) || 0;
+    const hr = parseFloat(row['Heart Rate']) || 0;
+    const accel = parseFloat(row['Acceleration (m/s^2)']) || 0;
 
-                    if (results.length === 0) {
-                        return reject(new Error("CSV file is empty or not parsed correctly."));
-                    }
+    if (!playersData[playerId]) {
+      playersData[playerId] = {
+        userId,
+        sessionId,
+        playerId,
+        times: [],
+        lats: [],
+        lons: [],
+        speeds: [],
+        heartRates: [],
+        accelerations: [],
+      };
+    }
+    playersData[playerId].times.push(combinedDateTime);
+    playersData[playerId].lats.push(lat);
+    playersData[playerId].lons.push(lon);
+    playersData[playerId].speeds.push(speed);
+    playersData[playerId].heartRates.push(hr);
+    playersData[playerId].accelerations.push(accel);
+  }
 
-                    // Check if session exists
-                    const session = await Session.findById(sessionId);
-                    if (!session) {
-                        return reject(new Error(`Session not found: ${sessionId}`));
-                    }
-
-                    //console.log("✅ Session found. Processing data...");
-
-                    const playerId = results[0]['Player Display Name'] || "Unknown Player";
-                    const startTime = results[0]['Time'] || "00:00:0";
-                    const endTime = results[results.length - 1]['Time'] || "00:00:0";
-
-
-
-
-                    // Extract numeric values
-                    const lats = results.map(row => parseFloat(row['Lat']) || 0);
-                    const lons = results.map(row => parseFloat(row['Lon']) || 0);
-                    const speeds = results.map(row => parseFloat(row['Speed (m/s)']) || 0);
-                    const heartRates = results.map(row => parseInt(row['Heart Rate (bpm)']) || 0);
-                    const accelerationImpulses = results.map(row => parseFloat(row['Instantaneous Acceleration Impulse']) || 0);
-                    //console.log("✅ Extracted data:", { playerId, startTime, endTime });
-
-                    if (lats.includes(NaN) || lons.includes(NaN) || speeds.includes(NaN)) {
-                        return reject(new Error("❌ Invalid numeric data found."));
-                    }
-
-                    // Save session data
-                    const sessionPlayerData = new SessionPlayerData({
-                        sessionId,
-                        userId,
-                        playerId,
-                        startTime,
-                        endTime,
-                        lats,
-                        lons,
-                        speeds,
-                        heartRates,
-                        accelerationImpulses
-                    });
-
-                    await sessionPlayerData.save();
-                    const playerName = sessionPlayerData.playerId;
-                    //console.log("✅ SessionPlayerData saved:", sessionPlayerData._id);
-                     
-                    await createPlayersFromCSV(sessionId, userId);
-
-
-                    // Creates session-level metrics
-                    const sessionPlayerMetrics = Object.keys(metricsCalculations).map(metric => ({
-                        MetricName: metric,
-                        Value: metricsCalculations[metric](speeds), // Calculate session metrics
-                        Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
-                    })); // 🆕 Added sessionPlayerMetrics calculation
-
-                    // Creates split-level metrics
-                    const splitPlayerMetrics = session.splits.map((split, index) => {
-                        const splitSpeeds = speeds.slice(split.start, split.end);
-                        const splitMetrics = Object.keys(metricsCalculations).map(metric => ({
-                            MetricName: metric,
-                            Value: metricsCalculations[metric](splitSpeeds), // Calculate split metrics
-                            Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
-                        }));
-                        return { SplitNumber: index + 1, SplitMetrics: splitMetrics }; // 🆕 Added splitPlayerMetrics calculation
-                    });
-
-                    // Update session
-                    const updatedSession = await Session.findByIdAndUpdate(
-                        sessionId,
-                        { $inc: { number: 1 }, $addToSet: { sessionPlayerData: {_id: sessionPlayerData._id, playerName, sessionPlayerMetrics, splitPlayerMetrics } }
-                    },
-                        { new: true }
-                    );
-
-                    //console.log(`✅ Session updated: ${updatedSession.number} CSV files processed.`);
-                    resolve();
-                })
-                .on('error', (error) => {
-                    //console.error("🚨 CSV read error:", error.message);
-                    reject(new Error(`CSV read error: ${error.message}`));
-                });
-
-        } catch (error) {
-           // console.error("🚨 Unexpected CSV processing error:", error.message);
-            reject(new Error(`CSV processing error: ${error.message}`));
-        }
+  // 5) Prepare documents for insertion (one doc per unique player).
+  console.log("💾 [parseCSV] Preparing SessionPlayerData documents for insertion...");
+  const insertArray = [];
+  for (const [playerId, pdata] of Object.entries(playersData)) {
+    const sortedTimes = pdata.times.sort((a, b) => a - b);
+    const startTime = sortedTimes[0] || new Date();
+    const endTime = sortedTimes[sortedTimes.length - 1] || new Date();
+    insertArray.push({
+      userId,
+      sessionId,
+      playerId,
+      startTime,
+      endTime,
+      lats: pdata.lats,
+      lons: pdata.lons,
+      speeds: pdata.speeds,
+      heartRates: pdata.heartRates,
+      accelerationImpulses: pdata.accelerations,
     });
+  }
+
+  if (!insertArray.length) {
+    console.log("✅ [parseCSV] Inserted 0 SessionPlayerData documents. (No data?)");
+  }
+  const insertedDocs = await SessionPlayerData.insertMany(insertArray, { ordered: false });
+  console.log(`✅ [parseCSV] Inserted ${insertedDocs.length} SessionPlayerData documents.`);
+
+  // 6) Generate metrics and update session.sessionPlayerData.
+  console.log("📊 [parseCSV] Generating metrics and updating session...");
+  session.sessionPlayerData = [];
+  const allPlayerDocs = await SessionPlayerData.find({ sessionId });
+  for (const doc of allPlayerDocs) {
+    const speeds = doc.speeds.length ? doc.speeds : [0];
+    const distance = speeds.reduce((acc, val) => acc + val, 0) / 10 / 1000;
+    const topSpeed = Math.max(...speeds);
+    const highSpeedRunning = speeds.filter((v) => v > 5.5).reduce((acc, val) => acc + val, 0) / 10 / 1000;
+    const sprinting = speeds.filter((v) => v > 7).reduce((acc, val) => acc + val, 0) / 10 / 1000;
+
+    const sessionPlayerMetrics = [
+      { MetricName: 'Distance', Value: distance, Unit: 'km' },
+      { MetricName: 'TopSpeed', Value: topSpeed, Unit: 'm/s' },
+      { MetricName: 'HighSpeedRunning', Value: highSpeedRunning, Unit: 'km' },
+      { MetricName: 'Sprinting', Value: sprinting, Unit: 'km' },
+    ];
+
+    const splitPlayerMetrics = [];
+    for (let i = 0; i < session.splits.length; i++) {
+      // For demonstration, we simply duplicate the same metrics for each split.
+      splitPlayerMetrics.push({
+        SplitNumber: i + 1,
+        SplitMetrics: [
+          { MetricName: 'Distance', Value: distance, Unit: 'km' },
+          { MetricName: 'TopSpeed', Value: topSpeed, Unit: 'm/s' },
+          { MetricName: 'HighSpeedRunning', Value: highSpeedRunning, Unit: 'km' },
+          { MetricName: 'Sprinting', Value: sprinting, Unit: 'km' },
+        ],
+      });
+    }
+
+    session.sessionPlayerData.push({
+      csvId: doc._id,
+      playerName: doc.playerId,
+      sessionPlayerMetrics,
+      splitPlayerMetrics,
+    });
+  }
+  await session.save();
+  console.log("✅ [parseCSV] Session updated with CSV metrics.");
+
+  // 7) Create any missing players (once)
+  console.log("🛠️ [parseCSV] Creating any missing players...");
+  await createPlayersFromCSV(sessionId, userId);
+  console.log("✅ [parseCSV] createPlayersFromCSV done.");
+
+  // 8) Recalculate average distance for the session
+  console.log("🔄 [parseCSV] Recalculating average distance...");
+  await calculateAverageDistance(sessionId);
+  console.log("✅ [parseCSV] Average distance updated.");
+
+  // 9) Re-fetch and return the updated session (populated with sessionPlayerData)
+  const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
+  console.log("🚀 [parseCSV] Done. Returning updated session.");
+  return updatedSession;
 };
 
 export default parseCSV;
