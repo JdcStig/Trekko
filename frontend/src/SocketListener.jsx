@@ -8,8 +8,9 @@ const socket = io(process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000');
 
 const SocketListener = () => {
   useEffect(() => {
-    socket.on('playerCreated', ({ playerName }) => {
-      toast.success(`New player created: ${playerName}`, { position: 'top-right' });
+    socket.on('playerCreated', (data) => {
+      // Now data.playerName should be defined
+      toast.success(`New player created: ${data.playerName}`, { position: 'top-right' });
     });
 
     return () => {
