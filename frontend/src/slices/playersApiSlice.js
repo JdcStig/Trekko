@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { BASE_URL } from '../constants';
+import { sessionsApiSlice } from './sessionsApiSlice'; 
 
 export const playersApiSlice = createApi({
   reducerPath: 'playersApi',
@@ -17,14 +18,30 @@ export const playersApiSlice = createApi({
   
 
     
-    deletePlayer: builder.mutation({
-      query: (id) => ({
-        url: `players/${id}`,
-        method: 'DELETE',
-        credentials: 'include',
-      }),
-      invalidatesTags: [{ type: 'Player', id: 'LIST' }],
+  deletePlayer: builder.mutation({
+    query: (id) => ({
+      url: `players/${id}`,
+      method: 'DELETE',
+      credentials: 'include',
     }),
+    async onQueryStarted(id, { dispatch, queryFulfilled }) {
+      try {
+        // Waits for the delete request to complete
+        await queryFulfilled;
+
+        // Refetch the players list
+        dispatch(playersApiSlice.util.invalidateTags([{ type: 'Player', id: 'LIST' }]));
+
+        // Additionally, refetch sessions and sessionPlayerData
+        dispatch(sessionsApiSlice.util.invalidateTags(['Session']));
+
+      } catch (err) {
+        console.error('Failed to delete player:', err);
+      }
+    },
+    invalidatesTags: [{ type: 'Player', id: 'LIST' }],
+  }),
+  
 
 
     createPlayer: builder.mutation({
