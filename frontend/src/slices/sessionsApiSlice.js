@@ -25,7 +25,8 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
         method: 'PUT',
         body: updatedSession,
       }),
-      invalidatesTags: ['Session'],
+      // invalidatesTags: ['Session'],
+      invalidatesTags: [{ type: 'Session', id: 'LIST' }, { type: 'SessionCSV', id: 'LIST' }],
     }),
 
     // DELETE /api/sessions/:id
