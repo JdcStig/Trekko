@@ -6,6 +6,7 @@ import App from './App';
 import PlayerManagementScreen from './screens/PlayerManagementScreen';
 import TeamManagementScreen from './screens/TeamManagementScreen';
 import SessionManagementScreen from './screens/SessionManagementScreen';
+import PlayByPlayAnalysisScreen from './screens/PlayByPlayAnalysisScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import { Provider } from 'react-redux';
@@ -30,6 +31,7 @@ const router = createBrowserRouter(
         <Route path="/PlayerManagementScreen" element={<PlayerManagementScreen />} />
         <Route path="/TeamManagementScreen" element={<TeamManagementScreen />} />
         <Route path="/SessionManagementScreen" element={<SessionManagementScreen />} />
+        <Route path="/PlayByPlayAnalysisScreen" element={<PlayByPlayAnalysisScreen />} />
         <Route index element={<TeamManagementScreen />} />
       </Route>
     </Route>

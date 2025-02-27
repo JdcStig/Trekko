@@ -54,6 +54,12 @@ const Header = () => {
               <Nav.Link as={Link} to="/SessionManagementScreen">
                 <FaUsers /> Session Management
               </Nav.Link>
+
+              <Nav.Link as={Link} to="/PlayByPlayAnalysisScreen">
+                <FaUsers /> PlayByPlay Analysis
+              </Nav.Link>
+
+
               {userInfo ? (
                 <NavDropdown title={userInfo.name} id="username">
                   <NavDropdown.Item onClick={logoutHandler} disabled={isLoading}>
