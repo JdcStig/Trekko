@@ -238,59 +238,7 @@ const updateSession = asyncHandler(async (req, res) => {
     throw new Error("Session not found");
   }
 
-  // Handle splits: If provided, process them
-  let convertedSplits = session.splits; // Default to existing splits
-  if (splits && Array.isArray(splits)) {
-    convertedSplits = splits.map((split, index) => {
-      if (!split.title) {
-        res.status(400);
-        throw new Error("Split title is required.");
-      }
-
-      const start = typeof split.start === "number"
-        ? split.start
-        : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-      const end = typeof split.end === "number"
-        ? split.end
-        : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
-
-      return {
-        title: split.title,
-        splitNumber: index + 1,
-        start,
-        end,
-      };
-    });
-
-    // Update session splits
-    session.splits = convertedSplits;
-
-    // Handle splitPlayerMetrics in sessionPlayerData
-    const updatedSplitNumbers = convertedSplits.map(split => split.splitNumber);
-
-    // Update splitPlayerMetrics in each sessionPlayerData entry
-    session.sessionPlayerData.forEach(playerData => {
-      // Filter out splitPlayerMetrics that no longer have corresponding splits
-      playerData.splitPlayerMetrics = playerData.splitPlayerMetrics.filter(
-        metric => updatedSplitNumbers.includes(metric.SplitNumber)
-      );
-
-      // Add new splitPlayerMetrics for any new splits
-      updatedSplitNumbers.forEach(splitNumber => {
-        const exists = playerData.splitPlayerMetrics.some(
-          metric => metric.SplitNumber === splitNumber
-        );
-        if (!exists) {
-          playerData.splitPlayerMetrics.push({
-            SplitNumber: splitNumber,
-            SplitMetrics: [] // Initialize empty metrics
-          });
-        }
-      });
-    });
-  }
-
-  // Update other session fields
+  // Update basic fields
   if (teamName) session.teamName = teamName;
   if (sessionName) session.sessionName = sessionName;
   if (date) {
@@ -303,10 +251,64 @@ const updateSession = asyncHandler(async (req, res) => {
   if (duration) session.duration = Number(duration);
   if (notes) session.notes = notes;
 
-  // Save the updated session
+  // Update splits
+  if (splits && Array.isArray(splits)) {
+    const convertedSplits = splits.map((split, index) => {
+      if (!split.title) {
+        res.status(400);
+        throw new Error("Split title is required.");
+      }
+      const start = typeof split.start === "number" 
+        ? split.start 
+        : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+      const end = typeof split.end === "number" 
+        ? split.end 
+        : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+
+      return {
+        title: split.title,
+        splitNumber: index + 1,
+        start,
+        end,
+      };
+    });
+    session.splits = convertedSplits;
+  }
+
+  // Recalculate splitPlayerMetrics
+  if (session.sessionPlayerData && Array.isArray(session.sessionPlayerData)) {
+    session.sessionPlayerData.forEach(playerData => {
+      playerData.splitPlayerMetrics = session.splits.map(split => {
+        // Example calculation, replace with actual logic
+        const metrics = calculateMetricsForSplit(playerData, split);
+        return {
+          SplitNumber: split.splitNumber,
+          SplitMetrics: metrics,
+        };
+      });
+    });
+  }
+
   const updatedSession = await session.save();
   res.status(200).json(updatedSession);
 });
+
+// Helper function to calculate metrics for a split
+const calculateMetricsForSplit = (playerData, split) => {
+  // Implement your actual logic to calculate Distance, TopSpeed, etc.
+  // For example:
+  return [
+    { MetricName: "Distance", Value: Math.random() * 10, Unit: "km" },
+    { MetricName: "TopSpeed", Value: Math.random() * 10, Unit: "m/s" },
+    { MetricName: "HighSpeedRunning", Value: Math.random() * 5, Unit: "km" },
+    { MetricName: "Sprinting", Value: Math.random() * 3, Unit: "km" },
+  ];
+};
+
+
+
+
+
 
 
 

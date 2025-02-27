@@ -15,21 +15,15 @@ const metricsCalculations = {
   };
 
 
-const parseCSV = async (fileBuffer, sessionId, userId) => {
+  const parseCSV = async (fileBuffer, sessionId, userId) => {
     return new Promise(async (resolve, reject) => {
-        //console.log("📌 `parseCSV` function called! ✅");
-
         try {
             if (!fileBuffer || fileBuffer.length === 0) {
-               // console.error("🚨 File buffer is empty!");
                 return reject(new Error("Uploaded file is empty."));
             }
 
-            //console.log(`✅ File buffer received, size: ${fileBuffer.length} bytes`);
-
             // Validate sessionId is a valid MongoDB ObjectId
             if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-                //console.error("🚨 Invalid sessionId:", sessionId);
                 return reject(new Error("Invalid session ID."));
             }
 
@@ -40,8 +34,6 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
             else if (fileString.includes(';')) delimiter = ';';
             else if (fileString.includes('  ')) delimiter = ' ';
 
-           // console.log(`✅ Using detected delimiter: "${delimiter}"`);
-
             const stream = Readable.from(fileString);
             const results = [];
 
@@ -49,8 +41,6 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                 .pipe(csvParser({ separator: delimiter, trim: true }))
                 .on('data', (row) => results.push(row))
                 .on('end', async () => {
-                    //console.log(`✅ CSV parsed successfully. Rows: ${results.length}`);
-
                     if (results.length === 0) {
                         return reject(new Error("CSV file is empty or not parsed correctly."));
                     }
@@ -61,14 +51,9 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                         return reject(new Error(`Session not found: ${sessionId}`));
                     }
 
-                    //console.log("✅ Session found. Processing data...");
-
                     const playerId = results[0]['Player Display Name'] || "Unknown Player";
                     const startTime = results[0]['Time'] || "00:00:0";
                     const endTime = results[results.length - 1]['Time'] || "00:00:0";
-
-
-
 
                     // Extract numeric values
                     const lats = results.map(row => parseFloat(row['Lat']) || 0);
@@ -76,10 +61,9 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     const speeds = results.map(row => parseFloat(row['Speed (m/s)']) || 0);
                     const heartRates = results.map(row => parseInt(row['Heart Rate (bpm)']) || 0);
                     const accelerationImpulses = results.map(row => parseFloat(row['Instantaneous Acceleration Impulse']) || 0);
-                    //console.log("✅ Extracted data:", { playerId, startTime, endTime });
 
                     if (lats.includes(NaN) || lons.includes(NaN) || speeds.includes(NaN)) {
-                        return reject(new Error("❌ Invalid numeric data found."));
+                        return reject(new Error("Invalid numeric data found."));
                     }
 
                     // Save session data
@@ -97,51 +81,66 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
                     });
 
                     await sessionPlayerData.save();
-                    const playerName = sessionPlayerData.playerId;
-                    //console.log("✅ SessionPlayerData saved:", sessionPlayerData._id);
-                     
                     await createPlayersFromCSV(sessionId, userId);
-
 
                     // Creates session-level metrics
                     const sessionPlayerMetrics = Object.keys(metricsCalculations).map(metric => ({
                         MetricName: metric,
                         Value: metricsCalculations[metric](speeds), // Calculate session metrics
                         Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
-                    })); // 🆕 Added sessionPlayerMetrics calculation
+                    }));
 
-                    // Creates split-level metrics
+                    // Creates split-level metrics using time-based filtering
                     const splitPlayerMetrics = session.splits.map((split, index) => {
-                        const splitSpeeds = speeds.slice(split.start, split.end);
+                        // Filter rows based on split start and end times
+                        const splitRows = results.filter(row => {
+                            const time = parseTimeToSeconds(row['Time']);
+                            return time >= split.start && time <= split.end;
+                        });
+
+                        const splitSpeeds = splitRows.map(row => parseFloat(row['Speed (m/s)']) || 0);
+
                         const splitMetrics = Object.keys(metricsCalculations).map(metric => ({
                             MetricName: metric,
-                            Value: metricsCalculations[metric](splitSpeeds), // Calculate split metrics
+                            Value: metricsCalculations[metric](splitSpeeds),
                             Unit: metric === 'TopSpeed' ? 'm/s' : 'km'
                         }));
-                        return { SplitNumber: index + 1, SplitMetrics: splitMetrics }; // 🆕 Added splitPlayerMetrics calculation
+
+                        return { SplitNumber: index + 1, SplitMetrics: splitMetrics };
                     });
 
                     // Update session
-                    const updatedSession = await Session.findByIdAndUpdate(
+                    await Session.findByIdAndUpdate(
                         sessionId,
-                        { $inc: { number: 1 }, $addToSet: { sessionPlayerData: {_id: sessionPlayerData._id, playerName, sessionPlayerMetrics, splitPlayerMetrics } }
-                    },
+                        {
+                            $inc: { number: 1 },
+                            $addToSet: {
+                                sessionPlayerData: {
+                                    _id: sessionPlayerData._id,
+                                    playerName: sessionPlayerData.playerId,
+                                    sessionPlayerMetrics,
+                                    splitPlayerMetrics
+                                }
+                            }
+                        },
                         { new: true }
                     );
 
-                    //console.log(`✅ Session updated: ${updatedSession.number} CSV files processed.`);
                     resolve();
                 })
                 .on('error', (error) => {
-                    //console.error("🚨 CSV read error:", error.message);
                     reject(new Error(`CSV read error: ${error.message}`));
                 });
-
         } catch (error) {
-           // console.error("🚨 Unexpected CSV processing error:", error.message);
             reject(new Error(`CSV processing error: ${error.message}`));
         }
     });
+};
+
+// Helper function to parse HH:MM:SS time format into seconds
+const parseTimeToSeconds = (timeStr) => {
+    const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+    return (hours * 3600) + (minutes * 60) + seconds;
 };
 
 export default parseCSV;
