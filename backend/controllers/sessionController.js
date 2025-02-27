@@ -9,6 +9,7 @@ import Team from '../models/teamModel.js';
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
+import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; // Import the new helper
 
 // ====================== Metrics Calculation Helpers ======================
 const metricsCalculations = {
@@ -146,16 +147,14 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
     ];
 
-    const splitPlayerMetrics = (session.splits || []).map((split, index) => {
-      const splitSpeeds = speeds.slice(split.start, split.end);
-      const splitMetrics = [
-        { MetricName: 'Distance', Value: metricsCalculations.Distance(splitSpeeds), Unit: 'km' },
-        { MetricName: 'TopSpeed', Value: metricsCalculations.TopSpeed(splitSpeeds), Unit: 'm/s' },
-        { MetricName: 'HighSpeedRunning', Value: metricsCalculations.HighSpeedRunning(splitSpeeds), Unit: 'km' },
-        { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(splitSpeeds), Unit: 'km' },
-      ];
-      return { SplitNumber: index + 1, SplitMetrics: splitMetrics };
-    });
+    // --- NEW: per-split metrics using the helper (with console logs) ---
+    console.log(
+      `\n[parseCSV] Calculating split metrics for playerId="${doc.playerId}"`
+    );
+    const splitPlayerMetrics = calculateSplitPlayerMetrics(
+      speeds,
+      session.splits || []
+    );
 
     session.sessionPlayerData.push({
       csvId: doc._id,
@@ -401,3 +400,4 @@ export const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
   }
   res.status(200).json({ message: 'All CSV data deleted', session });
 });
+
