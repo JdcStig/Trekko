@@ -129,22 +129,22 @@ const SessionCharts = ({ sessionId }) => {
 
   const distanceOptions = {
     ...baseOptions,
-    title: `Distance - [${currentSplitLabel}]`,
+    title: `Distance`,
     vAxis: { title: 'Distance (km)', minValue: 0 },
   };
   const topSpeedOptions = {
     ...baseOptions,
-    title: `Top Speed - [${currentSplitLabel}]`,
+    title: `Top Speed`,
     vAxis: { title: 'Speed (m/s)', minValue: 0 },
   };
   const hsrOptions = {
     ...baseOptions,
-    title: `High Speed Running - [${currentSplitLabel}]`,
+    title: `High Speed Running`,
     vAxis: { title: 'Distance (km)', minValue: 0 },
   };
   const sprintOptions = {
     ...baseOptions,
-    title: `Sprinting - [${currentSplitLabel}]`,
+    title: `Sprinting`,
     vAxis: { title: 'Distance (km)', minValue: 0 },
   };
 
