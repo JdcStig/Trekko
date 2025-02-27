@@ -9,7 +9,7 @@ import Team from '../models/teamModel.js';
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
-import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; // Import the new helper
+import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; 
 
 // ====================== Metrics Calculation Helpers ======================
 const metricsCalculations = {
@@ -312,59 +312,18 @@ export const deleteSession = asyncHandler(async (req, res) => {
 });
 
 // ====================== PUT /api/sessions/:id (Update Session) ======================
+
 export const updateSession = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
+
+  // 1) Find the session in the database
   const session = await Session.findById(req.params.id);
   if (!session) {
     res.status(404);
     throw new Error('Session not found');
   }
 
-  // Handle splits: If provided, process them
-  let convertedSplits = session.splits; // Default to existing splits
-  if (splits && Array.isArray(splits)) {
-    convertedSplits = splits.map((split, index) => {
-      if (!split.title) {
-        res.status(400);
-        throw new Error('Split title is required.');
-      }
-      const start = typeof split.start === "number"
-        ? split.start
-        : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-      const end = typeof split.end === "number"
-        ? split.end
-        : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
-      return {
-        title: split.title,
-        splitNumber: index + 1,
-        start: start,
-        end: end,
-      };
-    });
-    // Update session splits
-    session.splits = convertedSplits;
-    // Update splitPlayerMetrics in each sessionPlayerData entry
-    const updatedSplitNumbers = convertedSplits.map(split => split.splitNumber);
-    session.sessionPlayerData.forEach(playerData => {
-      // Remove metrics for splits that no longer exist
-      playerData.splitPlayerMetrics = playerData.splitPlayerMetrics.filter(
-        metric => updatedSplitNumbers.includes(metric.SplitNumber)
-      );
-      // Add new split metrics for any new splits
-      updatedSplitNumbers.forEach(splitNumber => {
-        const exists = playerData.splitPlayerMetrics.some(
-          metric => metric.SplitNumber === splitNumber
-        );
-        if (!exists) {
-          playerData.splitPlayerMetrics.push({
-            SplitNumber: splitNumber,
-            SplitMetrics: [] // Initialize empty metrics
-          });
-        }
-      });
-    });
-  }
-
+  // 2) Update the basic fields if provided
   if (teamName) session.teamName = teamName;
   if (sessionName) session.sessionName = sessionName;
   if (date) {
@@ -376,10 +335,78 @@ export const updateSession = asyncHandler(async (req, res) => {
   if (type) session.type = type;
   if (duration) session.duration = Number(duration);
   if (notes) session.notes = notes;
-  // If splits were provided, session.splits has already been updated.
-  const updatedSession = await session.save();
-  res.status(200).json(updatedSession);
+
+  // 3) If the request includes a new splits array, update and recalc
+  let convertedSplits = session.splits; // Default to existing splits
+  if (splits && Array.isArray(splits)) {
+    // Convert each split's start/end from HH:mm:ss or numeric to numeric seconds
+    convertedSplits = splits.map((split, index) => {
+      if (!split.title) {
+        res.status(400);
+        throw new Error('Split title is required.');
+      }
+      const startSec = typeof split.start === 'number'
+        ? split.start
+        : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+      const endSec = typeof split.end === 'number'
+        ? split.end
+        : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+
+      return {
+        title: split.title,
+        splitNumber: index + 1,
+        start: startSec,
+        end: endSec,
+      };
+    });
+
+    // Update the session's splits array
+    session.splits = convertedSplits;
+  }
+
+  // 4) Save the session now so it has the latest splits in DB
+  await session.save();
+
+  // 5) If splits were updated, we need to recalc per-split metrics
+  if (splits && Array.isArray(splits)) {
+    // a) Re-fetch all player data for this session
+    const allPlayerDocs = await SessionPlayerData.find({ sessionId: session._id });
+
+    // b) Clear out the old sessionPlayerData
+    session.sessionPlayerData = [];
+
+    // c) For each player's doc, recalc both overall + per-split metrics
+    for (const doc of allPlayerDocs) {
+      const speeds = doc.speeds || [];
+
+      // Overall metrics
+      const sessionPlayerMetrics = [
+        { MetricName: 'Distance', Value: metricsCalculations.Distance(speeds), Unit: 'km' },
+        { MetricName: 'TopSpeed', Value: metricsCalculations.TopSpeed(speeds), Unit: 'm/s' },
+        { MetricName: 'HighSpeedRunning', Value: metricsCalculations.HighSpeedRunning(speeds), Unit: 'km' },
+        { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
+      ];
+
+      // Per-split metrics (distance, HSR, sprinting, topSpeed) for each split
+      const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits);
+
+      session.sessionPlayerData.push({
+        csvId: doc._id,
+        playerName: doc.playerId,
+        sessionPlayerMetrics,
+        splitPlayerMetrics,
+      });
+    }
+
+    // d) Save the session again with the updated metrics
+    await session.save();
+  }
+
+  // 6) Return the final updated session
+  res.status(200).json(session);
 });
+
+
 
 // ====================== DELETE /api/sessions/:id/csvs/all (Delete All CSV Data) ======================
 export const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
