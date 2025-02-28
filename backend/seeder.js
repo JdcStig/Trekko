@@ -6,6 +6,7 @@ import Player from './models/playerModel.js';
 import Team from './models/teamModel.js';
 import Session from './models/sessionModel.js';
 import SessionPlayerData from './models/sessionPlayerDataModel.js';
+import PlayByPlayAnalysis from './models/playByPlayAnalysisModel.js';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -107,6 +108,29 @@ const sessionPlayerDatas = [
 },
 ];
 
+const playByPlayAnalysis = [
+   {
+    timeStart: '02:24.13',
+    timeEnd: '02:25.10',
+    teamStartPosession: 'Antrim',
+    teamEndPosession: 'Offaly',
+    turnovers: '1',
+    startAction: 'Kickout',
+    endAction: 'Kickout',
+    outcome: 'Shot',
+   },  
+   {
+    timeStart: '04:24.13',
+    timeEnd: '05:25.10',
+    teamStartPosession: 'Offaly',
+    teamEndPosession: 'Antrim',
+    turnovers: '0',
+    startAction: 'Kickout',
+    endAction: 'Kickout',
+    outcome: 'Free',
+   }, 
+];
+
 const importData = async () => {
   try {
     await User.deleteMany(); // Clears previous users
@@ -119,6 +143,8 @@ const importData = async () => {
     await Session.insertMany(sessions); // Reinserts whats above
     await SessionPlayerData.deleteMany(); // Clears previous teams
     await SessionPlayerData.insertMany(sessionPlayerDatas); // Reinserts whats above
+    await PlayByPlayAnalysis.deleteMany(); // Clears previous teams
+    await PlayByPlayAnalysis.insertMany(playByPlayAnalysis); // Reinserts whats above
     //console.log("Seeded successfully");
     process.exit();
   } catch (error) {

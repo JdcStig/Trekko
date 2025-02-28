@@ -47,6 +47,19 @@ const sessionSchema = new mongoose.Schema(
         end: { type: Number, required: true, default: 0  },
       },
     ],
+    plays: [
+      {
+        title: { type: String, required: true },
+        playNumber: { type: Number, required: true },
+        timeStart: { type: Number, required: true, default: 0  },
+        timeEnd: { type: Number, required: true, default: 0  },
+        teamStartPosession: { type: String, required: true, default: 0  },
+        teamEndPosession: { type: String, required: true, default: 0  },
+        turnovers: { type: Number, required: true, default: 0  },
+        startAction: { type: String, required: true },
+        endAction: { type: String, required: true },
+      },
+    ],
     notes: {
       type: String, 
       default: '',

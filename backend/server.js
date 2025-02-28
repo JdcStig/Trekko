@@ -13,6 +13,7 @@ import userRoutes from './routes/userRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
+import playByPlayAnalysisRoutes from './routes/playByPlayAnalysisRoutes.js';
 import { initSocket } from './socket.js';
 
 const app = express();
@@ -51,6 +52,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/playbyplayAnalysis', playByPlayAnalysisRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {

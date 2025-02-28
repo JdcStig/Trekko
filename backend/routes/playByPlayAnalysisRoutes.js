@@ -1,0 +1,54 @@
+// routes/playByPlayAnalysisRoutes.js
+import express from 'express';
+import multer from 'multer';
+import { protect } from '../middleware/authMiddleware.js';
+import PlayByPlayAnalysis from '../models/playByPlayAnalysisModel.js';
+import {
+  registerPlayByPlayAnalysis,
+  getPlayByPlayAnalysiss,
+  getPlayByPlayAnalysisByID,
+  deletePlayByPlayAnalysis,
+  updatePlayByPlayAnalysis,
+  deleteAllPlayByPlayAnalysisCSVs,
+  uploadPlayByPlayAnalysisCSV,
+} from '../controllers/playByPlayAnalysisController.js';
+
+const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Register & get all playByPlayAnalysiss
+router.route('/')
+  .post(protect, registerPlayByPlayAnalysis)
+  .get(protect, getPlayByPlayAnalysiss);
+
+// Get/Update/Delete playByPlayAnalysis by ID
+router.route('/:id')
+  .get(protect, getPlayByPlayAnalysisByID)
+  .delete(protect, deletePlayByPlayAnalysis)
+  .put(protect, updatePlayByPlayAnalysis);
+
+// Upload CSV
+router.post('/upload', protect, upload.single('file'), uploadPlayByPlayAnalysisCSV);
+
+// GET CSV data for a playByPlayAnalysis – SINGLE DEFINITION!
+router.get('/:id/csvs', protect, async (req, res) => {
+  try {
+    const playByPlayAnalysisId = req.params.id;
+    const playByPlayAnalysis = await PlayByPlayAnalysis.findById(playByPlayAnalysisId).populate('playByPlayAnalysisPlayerData');
+    if (!playByPlayAnalysis) {
+      return res.status(404).json({ message: "PlayByPlay Analysis not found" });
+    }
+    res.status(200).json({
+      playByPlayAnalysisPlayerDataArray: playByPlayAnalysis.playByPlayAnalysisPlayerData,
+      splits: playByPlayAnalysis.splits || []  // default to empty array if no splits
+    });
+  } catch (error) {
+    console.error("Error fetching playByPlay Analysis CSV data:", error);
+    res.status(500).json({ message: "Error fetching CSVs" });
+  }
+});
+
+// Delete all CSV data for a playByPlayAnalysis
+router.delete('/:id/csvs/all', protect, deleteAllPlayByPlayAnalysisCSVs);
+
+export default router;
