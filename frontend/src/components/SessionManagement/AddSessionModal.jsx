@@ -14,6 +14,8 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
   const [numSplits, setNumSplits] = useState('');
   const [splits, setSplits] = useState([]);
   const [notes, setNotes] = useState('');
+  // State for CSV file(s)
+  const [csvFiles, setCsvFiles] = useState(null);
 
   // Get teams and user info
   const { userInfo } = useSelector((state) => state.auth);
@@ -32,6 +34,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
       setNumSplits('');
       setSplits([]);
       setNotes('');
+      setCsvFiles(null);
     }
   }, [show]);
 
@@ -39,7 +42,14 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
   useEffect(() => {
     const num = parseInt(numSplits, 10);
     if (!isNaN(num) && num > 0) {
-      setSplits(Array.from({ length: num }, (_, index) => ({ title: '', start: '', end: '', splitNumber: index + 1 })));
+      setSplits(
+        Array.from({ length: num }, (_, index) => ({
+          title: '',
+          start: '',
+          end: '',
+          splitNumber: index + 1,
+        }))
+      );
     } else {
       setSplits([]);
     }
@@ -100,6 +110,11 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
       splits,
       notes,
     };
+
+    // If session type is "Game", attach CSV file(s)
+    if (type === 'Game' && csvFiles) {
+      sessionFormData.csvFiles = csvFiles;
+    }
 
     // Call the passed in onAddSession function (which should return a promise)
     onAddSession(sessionFormData)
@@ -177,6 +192,19 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
               <option value="Game">Game</option>
             </Form.Control>
           </Form.Group>
+
+          {/* CSV File Input (only shown if type is "Game") */}
+          {type === 'Game' && (
+            <Form.Group controlId="csvFiles" className="mb-3">
+              <Form.Label>Attach CSV File(s)</Form.Label>
+              <Form.Control
+                type="file"
+                accept=".csv"
+                multiple
+                onChange={(e) => setCsvFiles(e.target.files)}
+              />
+            </Form.Group>
+          )}
 
           {/* Duration */}
           <Form.Group controlId="duration" className="mb-3">
