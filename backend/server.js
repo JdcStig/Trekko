@@ -22,13 +22,14 @@ const port = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
-// Middlewares
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Setup CORS: allow production CLIENT_URL, otherwise localhost
+// Setup CORS
 if (process.env.NODE_ENV === 'production') {
+  // Production: allow only your production CLIENT_URL
   app.use(
     cors({
       origin: process.env.CLIENT_URL, // e.g., https://trakko.onrender.com
@@ -36,24 +37,24 @@ if (process.env.NODE_ENV === 'production') {
     })
   );
 } else {
+  // Development: allow localhost + any dev URLs
   app.use(
     cors({
-      origin: [
-        'http://localhost:3000',
-        'https://trakko.onrender.com'
-      ],
-      credentials: true
+      origin: ['http://localhost:3000', 'https://trakko.onrender.com'],
+      credentials: true,
     })
   );
 }
 
-// API routes
+// =============== API Routes ===============
+// e.g., /api/users, /api/players, /api/teams, /api/sessions
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/sessions', sessionRoutes);
-app.use('/api/playbyplayAnalysis', playByPlayAnalysisRoutes);
-app.use('/api/playByPlayAnalysiss', playByPlayAnalysisRoutes);
+
+// Use ONE consistent path for play-by-play analysis routes
+app.use('/api/playbyplayanalysis', playByPlayAnalysisRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
@@ -76,7 +77,7 @@ app.use(errorHandler);
 const server = http.createServer(app);
 initSocket(server);
 
-// Start server
+// Start the server
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

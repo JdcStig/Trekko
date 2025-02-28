@@ -1,10 +1,11 @@
+// src/slices/sessionsApiSlice.js
 import { apiSlice } from './apiSlice';
 
 export const sessionsApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // GET /api/sessions
     getSessions: builder.query({
-      query: () => '/sessions', // all lowercase
+      query: () => '/sessions',
       providesTags: ['Session'],
     }),
 
@@ -21,18 +22,17 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
     // PUT /api/sessions/:id
     updateSession: builder.mutation({
       query: (updatedSession) => ({
-        url: `/sessions/${updatedSession._id}`, // use backticks
+        url: `/sessions/${updatedSession._id}`,
         method: 'PUT',
         body: updatedSession,
       }),
-      // invalidatesTags: ['Session'],
       invalidatesTags: [{ type: 'Session', id: 'LIST' }, { type: 'SessionCSV', id: 'LIST' }],
     }),
 
     // DELETE /api/sessions/:id
     deleteSession: builder.mutation({
       query: (id) => ({
-        url: `/sessions/${id}`, // use backticks
+        url: `/sessions/${id}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['Session'],
@@ -50,7 +50,7 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
 
     // GET /api/sessions/:id/csvs
     getSessionCSVs: builder.query({
-      query: (sessionId) => `/sessions/${sessionId}/csvs`, // use backticks or quotes
+      query: (sessionId) => `/sessions/${sessionId}/csvs`,
       providesTags: (result, error, arg) =>
         result && result.sessionPlayerDataArray
           ? [
@@ -92,6 +92,6 @@ export const {
   useDeleteSessionMutation,
   useUploadSessionCSVMutation,
   useGetSessionCSVsQuery,
-  useDeleteSessionCSVMutation,
   useDeleteAllSessionCSVsMutation,
+  useDeleteSessionCSVMutation,
 } = sessionsApiSlice;

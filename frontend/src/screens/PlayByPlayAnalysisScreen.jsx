@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Table,
   Button,
@@ -9,33 +9,49 @@ import {
   Form,
   Pagination,
 } from 'react-bootstrap';
-import { FaTrash, FaSortUp, FaSortDown } from 'react-icons/fa';
-import { toast } from 'react-toastify';
+import { FaSortUp, FaSortDown } from 'react-icons/fa';
 import Loader from '../components/Loader';
-import ConfirmDeletion from '../components/ConfirmDeletion';
-import Message from '../components/Message'; // If you use a custom Message component
-import {
-  useGetPlayByPlayAnalysissQuery,
-  useDeletePlayByPlayAnalysisMutation,
-} from '../slices/playByPlayAnalysisApiSlice';
+import Message from '../components/Message';
+import { useGetSessionsQuery } from '../slices/sessionsApiSlice';
 
 const PlayByPlayAnalysisScreen = () => {
-  // Fetch all play-by-play analyses
-  const { data: analyses, isLoading, error, refetch } = useGetPlayByPlayAnalysissQuery();
-  const [deleteAnalysis] = useDeletePlayByPlayAnalysisMutation();
+  // 1) Fetch all sessions
+  const { data: sessions, isLoading, error } = useGetSessionsQuery();
 
-  // Sorting, filtering, and pagination state
+  // 2) Flatten all plays
+  const [allPlays, setAllPlays] = useState([]);
+
+  useEffect(() => {
+    if (sessions && Array.isArray(sessions)) {
+      const combined = [];
+      sessions.forEach((session) => {
+        if (Array.isArray(session.plays) && session.plays.length > 0) {
+          session.plays.forEach((play) => {
+            combined.push({
+              // Keep track of session info
+              sessionId: session._id,
+              sessionName: session.sessionName,
+              // Merge the play fields
+              ...play,
+            });
+          });
+        }
+      });
+      setAllPlays(combined);
+    }
+  }, [sessions]);
+
+  // ====== Sorting & Filtering & Pagination State ======
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [filterOutcome, setFilterOutcome] = useState('All');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filterTeamStart, setFilterTeamStart] = useState('All');
+  const [filterTeamEnd, setFilterTeamEnd] = useState('All');
+  const [filterStartAction, setFilterStartAction] = useState('All');
+  const [filterEndAction, setFilterEndAction] = useState('All');
+
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 10;
 
-  // Deletion modal state
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [selectedAnalysis, setSelectedAnalysis] = useState(null);
-
-  // Handle column sorting
+  // ====== Sorting ======
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -44,18 +60,17 @@ const PlayByPlayAnalysisScreen = () => {
     setSortConfig({ key, direction });
   };
 
-  // ======== SORTING ========
-  let sortedAnalyses = analyses ? [...analyses] : [];
+  let sortedPlays = [...allPlays];
   if (sortConfig.key) {
-    sortedAnalyses.sort((a, b) => {
+    sortedPlays.sort((a, b) => {
       const valA = a[sortConfig.key];
       const valB = b[sortConfig.key];
 
-      // Numeric comparison
+      // numeric
       if (typeof valA === 'number' && typeof valB === 'number') {
         return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
       }
-      // String comparison
+      // string
       if (typeof valA === 'string' && typeof valB === 'string') {
         return sortConfig.direction === 'asc'
           ? valA.localeCompare(valB)
@@ -65,214 +80,309 @@ const PlayByPlayAnalysisScreen = () => {
     });
   }
 
-  // ======== FILTER & SEARCH ========
-  let filteredAnalyses = [...sortedAnalyses];
-  // Filter by outcome
-  if (filterOutcome !== 'All') {
-    filteredAnalyses = filteredAnalyses.filter(
-      (analysis) => analysis.outcome?.toLowerCase() === filterOutcome.toLowerCase()
+  // ====== Unique Values for Filtering ======
+  const uniqueTeamStarts = [
+    ...new Set(allPlays.map((p) => p.teamStartPosession).filter(Boolean)),
+  ];
+  const uniqueTeamEnds = [
+    ...new Set(allPlays.map((p) => p.teamEndPosession).filter(Boolean)),
+  ];
+  const uniqueStartActions = [
+    ...new Set(allPlays.map((p) => p.startAction).filter(Boolean)),
+  ];
+  const uniqueEndActions = [
+    ...new Set(allPlays.map((p) => p.endAction).filter(Boolean)),
+  ];
+
+  // ====== Filtering ======
+  let filteredPlays = [...sortedPlays];
+  if (filterTeamStart !== 'All') {
+    filteredPlays = filteredPlays.filter(
+      (play) =>
+        play.teamStartPosession?.toLowerCase() === filterTeamStart.toLowerCase()
+    );
+  }
+  if (filterTeamEnd !== 'All') {
+    filteredPlays = filteredPlays.filter(
+      (play) =>
+        play.teamEndPosession?.toLowerCase() === filterTeamEnd.toLowerCase()
+    );
+  }
+  if (filterStartAction !== 'All') {
+    filteredPlays = filteredPlays.filter(
+      (play) => play.startAction?.toLowerCase() === filterStartAction.toLowerCase()
+    );
+  }
+  if (filterEndAction !== 'All') {
+    filteredPlays = filteredPlays.filter(
+      (play) => play.endAction?.toLowerCase() === filterEndAction.toLowerCase()
     );
   }
 
-
-  // ======== PAGINATION ========
+  // ====== Pagination ======
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredAnalyses.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredAnalyses.length / itemsPerPage);
+  const currentItems = filteredPlays.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredPlays.length / itemsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Build unique outcomes for filter dropdown
-  const uniqueOutcomes = [
-    ...new Set(analyses?.map((analysis) => analysis.outcome) || []),
-  ].filter(Boolean);
+  // ====== Render ======
+  if (isLoading) {
+    return (
+      <Container className="mt-4">
+        <h1>Play By Play Analysis</h1>
+        <Loader />
+      </Container>
+    );
+  }
 
-  // ======== DELETE LOGIC ========
-  const handleDeleteClick = (analysis) => {
-    setSelectedAnalysis(analysis);
-    setShowConfirm(true);
-  };
+  if (error) {
+    return (
+      <Container className="mt-4">
+        <h1>Play By Play Analysis</h1>
+        <Message variant="danger">
+          {error.data?.message || error.error || 'An error occurred.'}
+        </Message>
+      </Container>
+    );
+  }
 
-  const handleConfirmDeletion = async () => {
-    if (!selectedAnalysis) return;
-    try {
-      await deleteAnalysis(selectedAnalysis._id).unwrap();
-      toast.success('Analysis deleted successfully!');
-      refetch();
-    } catch (err) {
-      toast.error('Failed to delete analysis.');
-    } finally {
-      setShowConfirm(false);
-      setSelectedAnalysis(null);
-    }
-  };
-
-  const handleCancelDeletion = () => {
-    setShowConfirm(false);
-    setSelectedAnalysis(null);
-  };
+  if (!allPlays.length) {
+    return (
+      <Container className="mt-4">
+        <h1>Play By Play Analysis</h1>
+        <Alert variant="info">No plays found in any session.</Alert>
+      </Container>
+    );
+  }
 
   return (
-    <Container>
-      {/* Heading Row */}
-      <Row className="align-items-center my-4">
-        <Col>
-          <h2>Play By Play Analysis</h2>
-        </Col>
-      </Row>
+    <Container className="mt-4">
+      <h1>Play By Play Analysis</h1>
 
-      {/* Filter & Search Row */}
+      {/* Filters */}
       <Row className="mb-3">
-        <Col md={4}>
-          <Form.Group controlId="filterOutcome">
-            <Form.Label>Filter by Outcome</Form.Label>
+        <Col md={3}>
+          <Form.Group>
+            <Form.Label>Filter by Team Start</Form.Label>
             <Form.Control
               as="select"
-              value={filterOutcome}
+              value={filterTeamStart}
               onChange={(e) => {
-                setFilterOutcome(e.target.value);
+                setFilterTeamStart(e.target.value);
                 setCurrentPage(1);
               }}
             >
               <option value="All">All</option>
-              {uniqueOutcomes.map((out) => (
-                <option key={out} value={out}>
-                  {out}
+              {uniqueTeamStarts.map((pos) => (
+                <option key={pos} value={pos}>
+                  {pos}
                 </option>
               ))}
             </Form.Control>
           </Form.Group>
         </Col>
-       
+        <Col md={3}>
+          <Form.Group>
+            <Form.Label>Filter by Team End</Form.Label>
+            <Form.Control
+              as="select"
+              value={filterTeamEnd}
+              onChange={(e) => {
+                setFilterTeamEnd(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="All">All</option>
+              {uniqueTeamEnds.map((pos) => (
+                <option key={pos} value={pos}>
+                  {pos}
+                </option>
+              ))}
+            </Form.Control>
+          </Form.Group>
+        </Col>
+      
+        <Col md={3}>
+          <Form.Group>
+            <Form.Label>Filter by Start Action</Form.Label>
+            <Form.Control
+              as="select"
+              value={filterStartAction}
+              onChange={(e) => {
+                setFilterStartAction(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="All">All</option>
+              {uniqueStartActions.map((act) => (
+                <option key={act} value={act}>
+                  {act}
+                </option>
+              ))}
+            </Form.Control>
+          </Form.Group>
+        </Col>
+        <Col md={3}>
+          <Form.Group>
+            <Form.Label>Filter by End Action</Form.Label>
+            <Form.Control
+              as="select"
+              value={filterEndAction}
+              onChange={(e) => {
+                setFilterEndAction(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="All">All</option>
+              {uniqueEndActions.map((act) => (
+                <option key={act} value={act}>
+                  {act}
+                </option>
+              ))}
+            </Form.Control>
+          </Form.Group>
+        </Col>
       </Row>
 
-      {/* Main Content: Loader / Error / Table */}
-      {isLoading ? (
-        <Loader />
-      ) : error ? (
-        <Message variant="danger">
-          {error?.data?.message || 'An error occurred while fetching analyses.'}
-        </Message>
-      ) : currentItems.length === 0 ? (
-        <Alert variant="info" className="text-center">
-          No play-by-play analyses found.
-        </Alert>
-      ) : (
-        <>
-          <Table striped bordered hover responsive className="table-sm">
-            <thead className="table-dark">
-              <tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('timeStart')}>
-                  Time Start{' '}
-                  {sortConfig.key === 'timeStart' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('timeEnd')}>
-                  Time End{' '}
-                  {sortConfig.key === 'timeEnd' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('teamStartPosession')}
-                >
-                  Team Start Posession{' '}
-                  {sortConfig.key === 'teamStartPosession' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('teamEndPosession')}
-                >
-                  Team End Posession{' '}
-                  {sortConfig.key === 'teamEndPosession' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('turnovers')}>
-                  Turnovers{' '}
-                  {sortConfig.key === 'turnovers' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('startAction')}>
-                  Start Action{' '}
-                  {sortConfig.key === 'startAction' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('endAction')}>
-                  End Action{' '}
-                  {sortConfig.key === 'endAction' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('outcome')}>
-                  Outcome{' '}
-                  {sortConfig.key === 'outcome' &&
-                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-                </th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems.map((analysis) => (
-                <tr key={analysis._id}>
-                  <td>{analysis.timeStart}</td>
-                  <td>{analysis.timeEnd}</td>
-                  <td>{analysis.teamStartPosession}</td>
-                  <td>{analysis.teamEndPosession}</td>
-                  <td>{analysis.turnovers}</td>
-                  <td>{analysis.startAction}</td>
-                  <td>{analysis.endAction}</td>
-                  <td>{analysis.outcome}</td>
-                  <td>
-                    <Button
-                      variant="light"
-                      size="sm"
-                      onClick={() => handleDeleteClick(analysis)}
-                    >
-                      <FaTrash />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+      <Table striped bordered hover responsive className="table-sm">
+        <thead className="table-dark">
+          <tr>
+            <th>Session</th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('title')}
+            >
+              Title{' '}
+              {sortConfig.key === 'title' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('playNumber')}
+            >
+              Play #
+              {sortConfig.key === 'playNumber' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('timeStart')}
+            >
+              Time Start
+              {sortConfig.key === 'timeStart' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('timeEnd')}
+            >
+              Time End
+              {sortConfig.key === 'timeEnd' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            {/* ADD half and duration columns */}
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('half')}
+            >
+              Half
+              {sortConfig.key === 'half' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('duration')}
+            >
+              Duration
+              {sortConfig.key === 'duration' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('teamStartPosession')}
+            >
+              Team Start
+              {sortConfig.key === 'teamStartPosession' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('teamEndPosession')}
+            >
+              Team End
+              {sortConfig.key === 'teamEndPosession' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('turnovers')}
+            >
+              Turnovers
+              {sortConfig.key === 'turnovers' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('startAction')}
+            >
+              Start Action
+              {sortConfig.key === 'startAction' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+            <th
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleSort('endAction')}
+            >
+              End Action
+              {sortConfig.key === 'endAction' &&
+                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {currentItems.map((play) => (
+            <tr key={play._id || Math.random()}>
+              <td>{play.sessionName}</td>
+              <td>{play.title}</td>
+              <td>{play.playNumber}</td>
+              <td>{play.timeStart}</td>
+              <td>{play.timeEnd}</td>
+              <td>{play.half}</td>
+              <td>{play.duration}</td>
+              <td>{play.teamStartPosession}</td>
+              <td>{play.teamEndPosession}</td>
+              <td>{play.turnovers}</td>
+              <td>{play.startAction}</td>
+              <td>{play.endAction}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Pagination className="justify-content-center">
-              <Pagination.Prev
-                onClick={() => paginate(currentPage - 1)}
-                disabled={currentPage === 1}
-              />
-              {[...Array(totalPages).keys()].map((num) => (
-                <Pagination.Item
-                  key={num + 1}
-                  active={num + 1 === currentPage}
-                  onClick={() => paginate(num + 1)}
-                >
-                  {num + 1}
-                </Pagination.Item>
-              ))}
-              <Pagination.Next
-                onClick={() => paginate(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              />
-            </Pagination>
-          )}
-        </>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination className="justify-content-center">
+          <Pagination.Prev
+            onClick={() => paginate(currentPage - 1)}
+            disabled={currentPage === 1}
+          />
+          {[...Array(totalPages).keys()].map((num) => (
+            <Pagination.Item
+              key={num + 1}
+              active={num + 1 === currentPage}
+              onClick={() => paginate(num + 1)}
+            >
+              {num + 1}
+            </Pagination.Item>
+          ))}
+          <Pagination.Next
+            onClick={() => paginate(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          />
+        </Pagination>
       )}
-
-      {/* Confirm Deletion Modal */}
-      <ConfirmDeletion
-        show={showConfirm}
-        onConfirm={handleConfirmDeletion}
-        onCancel={handleCancelDeletion}
-        message={
-          selectedAnalysis
-            ? `Are you sure you want to delete analysis ID: ${selectedAnalysis._id}?`
-            : 'Are you sure you want to delete this analysis?'
-        }
-      />
     </Container>
   );
 };
