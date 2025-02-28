@@ -66,6 +66,19 @@ const sessions = [
             end: ''
         }
     ],
+    plays: [
+      {
+          title: 'Play 1',
+          playNumber: 1,
+          timeStart: 0,
+          timeEnd: 0,
+          teamStartPosession: 'Antrim',
+          teamEndPosession: 'Offaly',
+          turnovers: 1,
+          startAction: 'Kickout',
+          endAction: 'Kickout',
+      }
+  ],
     notes: '',
     sessionPlayerData: []
 },
@@ -84,6 +97,19 @@ const sessions = [
             end: ''
         }
     ],
+    plays: [
+      {
+          title: 'Play 1',
+          playNumber: 2,
+          timeStart: 5,
+          timeEnd: 67,
+          teamStartPosession: 'Offaly',
+          teamEndPosession: 'Antrim',
+          turnovers: 0,
+          startAction: 'Kickout',
+          endAction: 'Kickout',
+      }
+  ],
     notes: '',
     sessionPlayerData: []
 },
@@ -110,21 +136,21 @@ const sessionPlayerDatas = [
 
 const playByPlayAnalysis = [
    {
-    timeStart: '02:24.13',
-    timeEnd: '02:25.10',
+    timeStart: 0,
+    timeEnd: 0,
     teamStartPosession: 'Antrim',
     teamEndPosession: 'Offaly',
-    turnovers: '1',
+    turnovers: 1,
     startAction: 'Kickout',
     endAction: 'Kickout',
     outcome: 'Shot',
    },  
    {
-    timeStart: '04:24.13',
-    timeEnd: '05:25.10',
+    timeStart: 0,
+    timeEnd: 0,
     teamStartPosession: 'Offaly',
     teamEndPosession: 'Antrim',
-    turnovers: '0',
+    turnovers: 0,
     startAction: 'Kickout',
     endAction: 'Kickout',
     outcome: 'Free',
@@ -133,22 +159,22 @@ const playByPlayAnalysis = [
 
 const importData = async () => {
   try {
-    await User.deleteMany(); // Clears previous users
-    await User.insertMany(users); // Reinserts whats above
-    await Player.deleteMany(); // Clears previous players
-    await Player.insertMany(players); // Reinserts whats above
-    await Team.deleteMany(); // Clears previous teams
-    await Team.insertMany(teams); // Reinserts whats above
+  //  await User.deleteMany(); // Clears previous users
+  //  await User.insertMany(users); // Reinserts whats above
+  //  await Player.deleteMany(); // Clears previous players
+  //  await Player.insertMany(players); // Reinserts whats above
+  //  await Team.deleteMany(); // Clears previous teams
+  //  await Team.insertMany(teams); // Reinserts whats above
     await Session.deleteMany(); // Clears previous teams
     await Session.insertMany(sessions); // Reinserts whats above
-    await SessionPlayerData.deleteMany(); // Clears previous teams
-    await SessionPlayerData.insertMany(sessionPlayerDatas); // Reinserts whats above
+  //  await SessionPlayerData.deleteMany(); // Clears previous teams
+  //  await SessionPlayerData.insertMany(sessionPlayerDatas); // Reinserts whats above
     await PlayByPlayAnalysis.deleteMany(); // Clears previous teams
     await PlayByPlayAnalysis.insertMany(playByPlayAnalysis); // Reinserts whats above
-    //console.log("Seeded successfully");
+    console.log("Seeded successfully");
     process.exit();
   } catch (error) {
-    //console.error(`Error: ${error}`);
+    console.error(`Error: ${error}`);
     process.exit(1);
   }
 };

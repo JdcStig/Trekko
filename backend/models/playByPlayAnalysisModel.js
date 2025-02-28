@@ -10,10 +10,12 @@ const playByPlayAnalysisSchema = new mongoose.Schema(
     timeStart: {
         type: Number, // Unix timestamp format
         required: true,
+        default: 0,
     },
     timeEnd: {
         type: Number, // Unix timestamp format
         required: true,
+        default: 0,
     },
     teamStartPosession: {
       type: String,
@@ -24,7 +26,7 @@ const playByPlayAnalysisSchema = new mongoose.Schema(
         required: true,
     },
     turnovers: {
-      type: String,
+      type: Number,
       required: true,
     },
     startAction: {
