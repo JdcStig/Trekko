@@ -77,6 +77,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
   // 4) Build in-memory data for each player
   console.log("🔄 [parseCSV] Building in-memory data for each player...");
   const playersData = {}; // key: playerId
+  const sessionDate = new Date(session.date);
   rows.forEach((row) => {
     const playerId = row['Player Display Name'] || 'Unknown Player';
     const speed = parseFloat(row['Speed (m/s)']) || 0;
@@ -84,10 +85,13 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
     const lon = parseFloat(row['Longitude']) || 0;
     const hr = parseFloat(row['Heart Rate']) || 0;
     const accel = parseFloat(row['Acceleration (m/s^2)']) || 0;
-    const dateStr = row['UTC Date'];
-    const timeStr = row['UTC Time'];
-    const combinedDateTime =
-      dateStr && timeStr ? new Date(`${dateStr}T${timeStr}Z`) : new Date();
+    // const dateStr = row['UTC Date'];
+    const timeStr = row['Time'];
+    // const combinedDateTime = dateStr && timeStr ? new Date(`${dateStr}T${timeStr}Z`) : new Date();
+    const timeParts = timeStr.split(':').map(Number);
+    const combinedDateTime = new Date(sessionDate);
+    combinedDateTime.setUTCHours(timeParts[0], timeParts[1], timeParts[2] || 0, 0);
+    const unixTimestamp = Math.floor(combinedDateTime.getTime() / 1000); //Converts into Unix
 
     if (!playersData[playerId]) {
       playersData[playerId] = {
@@ -103,7 +107,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       };
     }
     // Push data
-    playersData[playerId].times.push(combinedDateTime);
+    playersData[playerId].times.push(unixTimestamp);
     playersData[playerId].lats.push(lat);
     playersData[playerId].lons.push(lon);
     playersData[playerId].speeds.push(speed);
@@ -116,8 +120,8 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
   const insertArray = [];
   for (const [playerId, pdata] of Object.entries(playersData)) {
     const sortedTimes = pdata.times.sort((a, b) => a - b);
-    const startTime = sortedTimes[0] || new Date();
-    const endTime = sortedTimes[sortedTimes.length - 1] || new Date();
+    const startTime = sortedTimes[0] || Math.floor(Date.now() / 1000);
+    const endTime = sortedTimes[sortedTimes.length - 1] || Math.floor(Date.now() / 1000);
     insertArray.push({
       userId,
       sessionId,

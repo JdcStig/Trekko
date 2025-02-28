@@ -76,12 +76,12 @@ const parseCSV = async (fileBuffer, playByPlayAnalysisId, userId) => {
   rows.forEach((row) => {
     const timeStart = row['TimeStart'] || 'Unknown Time';
     const timeEnd = parseFloat(row['TimeEnd']) || 0;
+    const duration = parseFloat(row['Duration']) || 0;
     const teamStartPosession = parseFloat(row['TeamStartPosession']) || 0;
     const teamEndPosession = parseFloat(row['TeamEndPosession']) || 0;
     const turnovers = parseFloat(row['Turnovers']) || 0;
     const startAction = parseFloat(row['StartAction']) || 0;
     const endAction = row['EndAction'];
-    const outcome = row['Outcome'];
     let combinedDateTime = (dateStr && timeStr)
       ? new Date(`${dateStr}T${timeStr}Z`)
       : new Date();
@@ -91,20 +91,20 @@ const parseCSV = async (fileBuffer, playByPlayAnalysisId, userId) => {
         userId,
         timeStart,
         timeEnd,
+        duration,
         teamStartPosession,
         teamEndPosession,
         turnovers,
         startAction,
         endAction,
-        outcome,
       };
     }
-    playByPlayAnalysissData[playByPlayAnalysisId].times.push(combinedDateTime);
-    playByPlayAnalysissData[playByPlayAnalysisId].lats.push(lat);
-    playByPlayAnalysissData[playByPlayAnalysisId].lons.push(lon);
-    playByPlayAnalysissData[playByPlayAnalysisId].speeds.push(speed);
-    playByPlayAnalysissData[playByPlayAnalysisId].heartRates.push(hr);
-    playByPlayAnalysissData[playByPlayAnalysisId].accelerations.push(accel);
+    // playByPlayAnalysissData[playByPlayAnalysisId].times.push(combinedDateTime);
+    // playByPlayAnalysissData[playByPlayAnalysisId].lats.push(lat);
+    // playByPlayAnalysissData[playByPlayAnalysisId].lons.push(lon);
+    // playByPlayAnalysissData[playByPlayAnalysisId].speeds.push(speed);
+    // playByPlayAnalysissData[playByPlayAnalysisId].heartRates.push(hr);
+    // playByPlayAnalysissData[playByPlayAnalysisId].accelerations.push(accel);
   });
 
   // 5) Prepare documents for insertion (one per unique playByPlayAnalysis)
@@ -112,18 +112,18 @@ const parseCSV = async (fileBuffer, playByPlayAnalysisId, userId) => {
   const insertArray = [];
   for (const [playByPlayAnalysisId, pdata] of Object.entries(playByPlayAnalysissData)) {
     const sortedTimes = pdata.times.sort((a, b) => a - b);
-    const startTime = sortedTimes[0] || new Date();
-    const endTime = sortedTimes[sortedTimes.length - 1] || new Date();
+    const timeStart = sortedTimes[0] || new Date();
+    const timeEnd = sortedTimes[sortedTimes.length - 1] || new Date();
     insertArray.push({
       userId,
       timeStart,
       timeEnd,
+      duration,
       teamStartPosession,
       teamEndPosession,
       turnovers,
       startAction,
       endAction,
-      outcome,
     });
   }
   if (!insertArray.length) {
@@ -214,7 +214,7 @@ export const uploadPlayByPlayAnalysisCSV = asyncHandler(async (req, res) => {
 
 // ====================== POST /api/playByPlayAnalysiss (Create PlayByPlayAnalysis) ======================
 export const registerPlayByPlayAnalysis = asyncHandler(async (req, res) => {
-  const { timeStart, timeEnd, teamStartPosession, teamEndPosession, turnovers, startAction, endAction, outcome } = req.body;
+  const { timeStart, timeEnd, duration, teamStartPosession, teamEndPosession, turnovers, startAction, endAction } = req.body;
   const userId = req.user._id;
   // let parsedDate;
   // if (isNaN(parsedDate)) {
@@ -253,12 +253,12 @@ export const registerPlayByPlayAnalysis = asyncHandler(async (req, res) => {
     userId,
     timeStart,
     timeEnd,
+    duration,
     teamStartPosession,
     teamEndPosession,
     turnovers,
     startAction,
     endAction,
-    outcome,
   });
   if (playByPlayAnalysis) {
     return res.status(200).json(playByPlayAnalysis);
