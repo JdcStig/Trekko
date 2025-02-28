@@ -76,12 +76,12 @@ const parseCSV = async (fileBuffer, playByPlayAnalysisId, userId) => {
   rows.forEach((row) => {
     const timeStart = row['TimeStart'] || 'Unknown Time';
     const timeEnd = parseFloat(row['TimeEnd']) || 0;
+    const duration = parseFloat(row['Duration']) || 0;
     const teamStartPosession = parseFloat(row['TeamStartPosession']) || 0;
     const teamEndPosession = parseFloat(row['TeamEndPosession']) || 0;
     const turnovers = parseFloat(row['Turnovers']) || 0;
     const startAction = parseFloat(row['StartAction']) || 0;
     const endAction = row['EndAction'];
-    const outcome = row['Outcome'];
     let combinedDateTime = (dateStr && timeStr)
       ? new Date(`${dateStr}T${timeStr}Z`)
       : new Date();
@@ -91,20 +91,20 @@ const parseCSV = async (fileBuffer, playByPlayAnalysisId, userId) => {
         userId,
         timeStart,
         timeEnd,
+        duration,
         teamStartPosession,
         teamEndPosession,
         turnovers,
         startAction,
         endAction,
-        outcome,
       };
     }
-    playByPlayAnalysissData[playByPlayAnalysisId].times.push(combinedDateTime);
-    playByPlayAnalysissData[playByPlayAnalysisId].lats.push(lat);
-    playByPlayAnalysissData[playByPlayAnalysisId].lons.push(lon);
-    playByPlayAnalysissData[playByPlayAnalysisId].speeds.push(speed);
-    playByPlayAnalysissData[playByPlayAnalysisId].heartRates.push(hr);
-    playByPlayAnalysissData[playByPlayAnalysisId].accelerations.push(accel);
+    // playByPlayAnalysissData[playByPlayAnalysisId].times.push(combinedDateTime);
+    // playByPlayAnalysissData[playByPlayAnalysisId].lats.push(lat);
+    // playByPlayAnalysissData[playByPlayAnalysisId].lons.push(lon);
+    // playByPlayAnalysissData[playByPlayAnalysisId].speeds.push(speed);
+    // playByPlayAnalysissData[playByPlayAnalysisId].heartRates.push(hr);
+    // playByPlayAnalysissData[playByPlayAnalysisId].accelerations.push(accel);
   });
 
   // 5) Prepare documents for insertion (one per unique playByPlayAnalysis)
@@ -112,18 +112,18 @@ const parseCSV = async (fileBuffer, playByPlayAnalysisId, userId) => {
   const insertArray = [];
   for (const [playByPlayAnalysisId, pdata] of Object.entries(playByPlayAnalysissData)) {
     const sortedTimes = pdata.times.sort((a, b) => a - b);
-    const startTime = sortedTimes[0] || new Date();
-    const endTime = sortedTimes[sortedTimes.length - 1] || new Date();
+    const timeStart = sortedTimes[0] || new Date();
+    const timeEnd = sortedTimes[sortedTimes.length - 1] || new Date();
     insertArray.push({
       userId,
       timeStart,
       timeEnd,
+      duration,
       teamStartPosession,
       teamEndPosession,
       turnovers,
       startAction,
       endAction,
-      outcome,
     });
   }
   if (!insertArray.length) {
@@ -214,7 +214,7 @@ export const uploadPlayByPlayAnalysisCSV = asyncHandler(async (req, res) => {
 
 // ====================== POST /api/playByPlayAnalysiss (Create PlayByPlayAnalysis) ======================
 export const registerPlayByPlayAnalysis = asyncHandler(async (req, res) => {
-  const { timeStart, timeEnd, teamStartPosession, teamEndPosession, turnovers, startAction, endAction, outcome } = req.body;
+  const { timeStart, timeEnd, duration, teamStartPosession, teamEndPosession, turnovers, startAction, endAction } = req.body;
   const userId = req.user._id;
   // let parsedDate;
   // if (isNaN(parsedDate)) {
@@ -253,12 +253,12 @@ export const registerPlayByPlayAnalysis = asyncHandler(async (req, res) => {
     userId,
     timeStart,
     timeEnd,
+    duration,
     teamStartPosession,
     teamEndPosession,
     turnovers,
     startAction,
     endAction,
-    outcome,
   });
   if (playByPlayAnalysis) {
     return res.status(200).json(playByPlayAnalysis);
@@ -302,74 +302,74 @@ export const deletePlayByPlayAnalysis = asyncHandler(async (req, res) => {
 });
 
 // ====================== PUT /api/playByPlayAnalysiss/:id (Update PlayByPlayAnalysis) ======================
-export const updatePlayByPlayAnalysis = asyncHandler(async (req, res) => {
-  const { teamName, playByPlayAnalysisName, date, type, duration, splits, notes } = req.body;
-  const playByPlayAnalysis = await PlayByPlayAnalysis.findById(req.params.id);
-  if (!playByPlayAnalysis) {
-    res.status(404);
-    throw new Error('PlayByPlayAnalysis not found');
-  }
+// export const updatePlayByPlayAnalysis = asyncHandler(async (req, res) => {
+//   const { teamName, playByPlayAnalysisName, date, type, duration, splits, notes } = req.body;
+//   const playByPlayAnalysis = await PlayByPlayAnalysis.findById(req.params.id);
+//   if (!playByPlayAnalysis) {
+//     res.status(404);
+//     throw new Error('PlayByPlayAnalysis not found');
+//   }
 
-  // Handle splits: If provided, process them
-  let convertedSplits = playByPlayAnalysis.splits; // Default to existing splits
-  if (splits && Array.isArray(splits)) {
-    convertedSplits = splits.map((split, index) => {
-      if (!split.title) {
-        res.status(400);
-        throw new Error('Split title is required.');
-      }
-      const start = typeof split.start === "number"
-        ? split.start
-        : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-      const end = typeof split.end === "number"
-        ? split.end
-        : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
-      return {
-        title: split.title,
-        splitNumber: index + 1,
-        start: start,
-        end: end,
-      };
-    });
-    // Update playByPlayAnalysis splits
-    playByPlayAnalysis.splits = convertedSplits;
-    // Update splitPlayerMetrics in each playByPlayAnalysisPlayerData entry
-    const updatedSplitNumbers = convertedSplits.map(split => split.splitNumber);
-    playByPlayAnalysis.playByPlayAnalysisPlayerData.forEach(playByPlayAnalysisData => {
-      // Remove metrics for splits that no longer exist
-      playByPlayAnalysisData.splitPlayerMetrics = playByPlayAnalysisData.splitPlayerMetrics.filter(
-        metric => updatedSplitNumbers.includes(metric.SplitNumber)
-      );
-      // Add new split metrics for any new splits
-      updatedSplitNumbers.forEach(splitNumber => {
-        const exists = playByPlayAnalysisData.splitPlayerMetrics.some(
-          metric => metric.SplitNumber === splitNumber
-        );
-        if (!exists) {
-          playByPlayAnalysisData.splitPlayerMetrics.push({
-            SplitNumber: splitNumber,
-            SplitMetrics: [] // Initialize empty metrics
-          });
-        }
-      });
-    });
-  }
+//   // Handle splits: If provided, process them
+//   let convertedSplits = playByPlayAnalysis.splits; // Default to existing splits
+//   if (splits && Array.isArray(splits)) {
+//     convertedSplits = splits.map((split, index) => {
+//       if (!split.title) {
+//         res.status(400);
+//         throw new Error('Split title is required.');
+//       }
+//       const start = typeof split.start === "number"
+//         ? split.start
+//         : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
+//       const end = typeof split.end === "number"
+//         ? split.end
+//         : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+//       return {
+//         title: split.title,
+//         splitNumber: index + 1,
+//         start: start,
+//         end: end,
+//       };
+//     });
+//     // Update playByPlayAnalysis splits
+//     playByPlayAnalysis.splits = convertedSplits;
+//     // Update splitPlayerMetrics in each playByPlayAnalysisPlayerData entry
+//     const updatedSplitNumbers = convertedSplits.map(split => split.splitNumber);
+//     playByPlayAnalysis.playByPlayAnalysisPlayerData.forEach(playByPlayAnalysisData => {
+//       // Remove metrics for splits that no longer exist
+//       playByPlayAnalysisData.splitPlayerMetrics = playByPlayAnalysisData.splitPlayerMetrics.filter(
+//         metric => updatedSplitNumbers.includes(metric.SplitNumber)
+//       );
+//       // Add new split metrics for any new splits
+//       updatedSplitNumbers.forEach(splitNumber => {
+//         const exists = playByPlayAnalysisData.splitPlayerMetrics.some(
+//           metric => metric.SplitNumber === splitNumber
+//         );
+//         if (!exists) {
+//           playByPlayAnalysisData.splitPlayerMetrics.push({
+//             SplitNumber: splitNumber,
+//             SplitMetrics: [] // Initialize empty metrics
+//           });
+//         }
+//       });
+//     });
+//   }
 
-  if (teamName) playByPlayAnalysis.teamName = teamName;
-  if (playByPlayAnalysisName) playByPlayAnalysis.playByPlayAnalysisName = playByPlayAnalysisName;
-  if (date) {
-    const parsedDate = new Date(date).getTime();
-    if (!isNaN(parsedDate)) {
-      playByPlayAnalysis.date = parsedDate;
-    }
-  }
-  if (type) playByPlayAnalysis.type = type;
-  if (duration) playByPlayAnalysis.duration = Number(duration);
-  if (notes) playByPlayAnalysis.notes = notes;
-  // If splits were provided, playByPlayAnalysis.splits has already been updated.
-  const updatedPlayByPlayAnalysis = await playByPlayAnalysis.save();
-  res.status(200).json(updatedPlayByPlayAnalysis);
-});
+//   if (teamName) playByPlayAnalysis.teamName = teamName;
+//   if (playByPlayAnalysisName) playByPlayAnalysis.playByPlayAnalysisName = playByPlayAnalysisName;
+//   if (date) {
+//     const parsedDate = new Date(date).getTime();
+//     if (!isNaN(parsedDate)) {
+//       playByPlayAnalysis.date = parsedDate;
+//     }
+//   }
+//   if (type) playByPlayAnalysis.type = type;
+//   if (duration) playByPlayAnalysis.duration = Number(duration);
+//   if (notes) playByPlayAnalysis.notes = notes;
+//   // If splits were provided, playByPlayAnalysis.splits has already been updated.
+//   const updatedPlayByPlayAnalysis = await playByPlayAnalysis.save();
+//   res.status(200).json(updatedPlayByPlayAnalysis);
+// });
 
 // ====================== DELETE /api/playByPlayAnalysiss/:id/csvs/all (Delete All CSV Data) ======================
 export const deleteAllPlayByPlayAnalysisCSVs = asyncHandler(async (req, res) => {

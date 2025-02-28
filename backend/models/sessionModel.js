@@ -53,6 +53,8 @@ const sessionSchema = new mongoose.Schema(
         playNumber: { type: Number, required: true },
         timeStart: { type: Number, required: true, default: 0  },
         timeEnd: { type: Number, required: true, default: 0  },
+        duration: { type: Number, required: true, default: 0  },
+        half: { type: Number, required: true, default: 0  },
         teamStartPosession: { type: String, required: true, default: 0  },
         teamEndPosession: { type: String, required: true, default: 0  },
         turnovers: { type: Number, required: true, default: 0  },
