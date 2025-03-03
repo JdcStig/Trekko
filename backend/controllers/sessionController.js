@@ -11,6 +11,7 @@ import { parsePlayByPlayCSV } from "../controllers/playByPlayAnalysisController.
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
 import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; 
+//import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js'; 
 
 // ====================== Metrics Calculation Helpers ======================
 const metricsCalculations = {
@@ -180,6 +181,10 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
 
   // 9) Fetch and return the updated session (populated with sessionPlayerData)
   const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
+
+  // Compute playPlayerMetrics
+ // await calculatePlayPlayerMetrics(sessionId, updatedSession.plays);
+  
   console.log("🚀 [parseCSV] Done. Returning updated session.");
   return updatedSession;
 };
