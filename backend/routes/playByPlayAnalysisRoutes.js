@@ -48,6 +48,18 @@ router.get('/:id/csvs', protect, async (req, res) => {
   }
 });
 
+// Fetches Play-By-Play Data by Session ID
+router.get('/session/:sessionId', protect, async (req, res) => {
+  try {
+    const plays = await PlayByPlayAnalysis.find({ sessionId: req.params.sessionId });
+    res.status(200).json(plays);
+  } catch (error) {
+    console.error("Error fetching play-by-play data:", error);
+    res.status(500).json({ message: "Error fetching play-by-play data" });
+  }
+});
+
+
 // Delete all CSV data for a playByPlayAnalysis
 router.delete('/:id/csvs/all', protect, deleteAllPlayByPlayAnalysisCSVs);
 

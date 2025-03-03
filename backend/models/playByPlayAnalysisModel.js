@@ -7,6 +7,11 @@ const playByPlayAnalysisSchema = new mongoose.Schema(
       ref: "User", // Reference to the users model
       required: true,
     },
+    sessionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Session",
+      required: true,
+    },
     timeStart: {
         type: Number, // Unix timestamp format
         required: true,

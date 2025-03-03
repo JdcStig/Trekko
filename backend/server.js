@@ -52,7 +52,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/sessions', sessionRoutes);
-app.use('/api/playbyplayAnalysis', playByPlayAnalysisRoutes);
+app.use('/api/playbyplayanalysis', playByPlayAnalysisRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
