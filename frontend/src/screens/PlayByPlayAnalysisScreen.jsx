@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/screens/PlayByPlayAnalysisScreen.jsx
+import React, { useState } from 'react';
 import {
   Table,
   Button,
@@ -9,47 +10,60 @@ import {
   Form,
   Pagination,
 } from 'react-bootstrap';
-import { FaSortUp, FaSortDown } from 'react-icons/fa';
-import Loader from '../components/Loader';
+import {
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaSortUp,
+  FaSortDown,
+} from 'react-icons/fa';
+import { FaChartLine, FaListUl } from 'react-icons/fa6';
+import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
-import { useGetSessionsQuery } from '../slices/sessionsApiSlice';
+import Loader from '../components/Loader';
+import { toast } from 'react-toastify';
+import {
+  useGetSessionsQuery,
+  useCreateSessionMutation,
+  useUpdateSessionMutation,
+  useDeleteSessionMutation,
+} from '../slices/sessionsApiSlice';
+import AddSessionModal from '../components/SessionManagement/AddSessionModal';
+import EditSessionModal from '../components/SessionManagement/EditSessionModal';
+import AddCSVModal from '../components/SessionManagement/AddCSVModal';
+import SessionCharts from '../components/SessionCharts'; // The same chart component as in SessionManagement
 
 const PlayByPlayAnalysisScreen = () => {
   // 1) Fetch all sessions
-  const { data: sessions, isLoading, error } = useGetSessionsQuery();
+  const { data, isLoading, error, refetch } = useGetSessionsQuery();
 
-  // 2) Flatten all plays
-  const [allPlays, setAllPlays] = useState([]);
+  // 2) Filter sessions to only those with type='game'
+  const gameSessions = data
+    ? data.filter((session) => session.type?.toLowerCase() === 'game')
+    : [];
 
-  useEffect(() => {
-    if (sessions && Array.isArray(sessions)) {
-      const combined = [];
-      sessions.forEach((session) => {
-        if (Array.isArray(session.plays) && session.plays.length > 0) {
-          session.plays.forEach((play) => {
-            combined.push({
-              // Keep track of session info
-              sessionId: session._id,
-              sessionName: session.sessionName,
-              // Merge the play fields
-              ...play,
-            });
-          });
-        }
-      });
-      setAllPlays(combined);
-    }
-  }, [sessions]);
+  // 3) RTK Query mutations
+  const [createSession] = useCreateSessionMutation();
+  const [deleteSession] = useDeleteSessionMutation();
+  const [updateSession] = useUpdateSessionMutation();
 
-  // ====== Sorting & Filtering & Pagination State ======
+  // 4) Modal & state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showCSVModal, setShowCSVModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [newSessionId, setNewSessionId] = useState(null);
+
+  // 5) Sorting, search, pagination
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [filterTeamStart, setFilterTeamStart] = useState('All');
-  const [filterTeamEnd, setFilterTeamEnd] = useState('All');
-  const [filterStartAction, setFilterStartAction] = useState('All');
-  const [filterEndAction, setFilterEndAction] = useState('All');
-
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // 6) Expand/collapse states for chart & plays
+  const [chartSessionId, setChartSessionId] = useState(null);
+  const [playsSessionId, setPlaysSessionId] = useState(null);
 
   // ====== Sorting ======
   const handleSort = (key) => {
@@ -60,17 +74,39 @@ const PlayByPlayAnalysisScreen = () => {
     setSortConfig({ key, direction });
   };
 
-  let sortedPlays = [...allPlays];
+  let sortedSessions = [...gameSessions];
   if (sortConfig.key) {
-    sortedPlays.sort((a, b) => {
+    sortedSessions.sort((a, b) => {
       const valA = a[sortConfig.key];
       const valB = b[sortConfig.key];
 
-      // numeric
+      // Compare durations as numbers
+      if (sortConfig.key === 'duration') {
+        return sortConfig.direction === 'asc'
+          ? Number(valA) - Number(valB)
+          : Number(valB) - Number(valA);
+      }
+      // Compare dates
+      if (sortConfig.key === 'date') {
+        return sortConfig.direction === 'asc'
+          ? new Date(a.date) - new Date(b.date)
+          : new Date(b.date) - new Date(a.date);
+      }
+      // Compare splits based on array length
+      if (
+        sortConfig.key === 'splits' &&
+        Array.isArray(valA) &&
+        Array.isArray(valB)
+      ) {
+        return sortConfig.direction === 'asc'
+          ? valA.length - valB.length
+          : valB.length - valA.length;
+      }
+      // If values are numbers
       if (typeof valA === 'number' && typeof valB === 'number') {
         return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
       }
-      // string
+      // If values are strings
       if (typeof valA === 'string' && typeof valB === 'string') {
         return sortConfig.direction === 'asc'
           ? valA.localeCompare(valB)
@@ -80,54 +116,117 @@ const PlayByPlayAnalysisScreen = () => {
     });
   }
 
-  // ====== Unique Values for Filtering ======
-  const uniqueTeamStarts = [
-    ...new Set(allPlays.map((p) => p.teamStartPosession).filter(Boolean)),
-  ];
-  const uniqueTeamEnds = [
-    ...new Set(allPlays.map((p) => p.teamEndPosession).filter(Boolean)),
-  ];
-  const uniqueStartActions = [
-    ...new Set(allPlays.map((p) => p.startAction).filter(Boolean)),
-  ];
-  const uniqueEndActions = [
-    ...new Set(allPlays.map((p) => p.endAction).filter(Boolean)),
-  ];
-
-  // ====== Filtering ======
-  let filteredPlays = [...sortedPlays];
-  if (filterTeamStart !== 'All') {
-    filteredPlays = filteredPlays.filter(
-      (play) =>
-        play.teamStartPosession?.toLowerCase() === filterTeamStart.toLowerCase()
-    );
-  }
-  if (filterTeamEnd !== 'All') {
-    filteredPlays = filteredPlays.filter(
-      (play) =>
-        play.teamEndPosession?.toLowerCase() === filterTeamEnd.toLowerCase()
-    );
-  }
-  if (filterStartAction !== 'All') {
-    filteredPlays = filteredPlays.filter(
-      (play) => play.startAction?.toLowerCase() === filterStartAction.toLowerCase()
-    );
-  }
-  if (filterEndAction !== 'All') {
-    filteredPlays = filteredPlays.filter(
-      (play) => play.endAction?.toLowerCase() === filterEndAction.toLowerCase()
+  // ====== Search by sessionName ======
+  let filteredSessions = [...sortedSessions];
+  if (searchTerm.trim() !== '') {
+    filteredSessions = filteredSessions.filter((session) =>
+      session.sessionName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }
 
   // ====== Pagination ======
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredPlays.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredPlays.length / itemsPerPage);
-
+  const currentItems = filteredSessions.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredSessions.length / itemsPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  // ====== Add Session ======
+  const handleAddSession = async (sessionData) => {
+    const response = await createSession(sessionData).unwrap();
+    return response.session || response;
+  };
+  const handleSessionCreated = (newSession) => {
+    setNewSessionId(newSession._id);
+    setShowCSVModal(true);
+  };
+
+  // ====== Edit Session ======
+  const handleEditClick = (session) => {
+    setSelectedSession(session);
+    setShowEditModal(true);
+  };
+  const handleEditSession = async (sessionData) => {
+    await updateSession(sessionData).unwrap();
+    toast.success('Session updated successfully!', { position: 'top-right' });
+    refetch();
+    setShowEditModal(false);
+    setSelectedSession(null);
+  };
+
+  // ====== Delete Session ======
+  const handleDeleteClick = (session) => {
+    setSelectedSession(session);
+    setShowConfirm(true);
+  };
+  const handleConfirmDeletion = async () => {
+    if (!selectedSession) return;
+    try {
+      await deleteSession(selectedSession._id).unwrap();
+      refetch();
+      toast.success('Session deleted successfully!', { position: 'top-right' });
+    } catch (err) {
+      toast.error('Failed to delete session.', { position: 'top-right' });
+    } finally {
+      setShowConfirm(false);
+      setSelectedSession(null);
+    }
+  };
+  const handleCancelDeletion = () => {
+    setShowConfirm(false);
+    setSelectedSession(null);
+  };
+
+  // ====== Toggle Chart & Plays ======
+  const toggleChart = (sessionId) => {
+    setChartSessionId((prev) => (prev === sessionId ? null : sessionId));
+  };
+  const togglePlays = (sessionId) => {
+    setPlaysSessionId((prev) => (prev === sessionId ? null : sessionId));
+  };
+
+  // ====== Old Plays Table Filters ======
+  const [filterTeamStart, setFilterTeamStart] = useState('All');
+  const [filterTeamEnd, setFilterTeamEnd] = useState('All');
+  const [filterStartAction, setFilterStartAction] = useState('All');
+  const [filterEndAction, setFilterEndAction] = useState('All');
+
+  const filterPlays = (session) => {
+    if (!session || !Array.isArray(session.plays)) return [];
+    let plays = [...session.plays];
+    if (filterTeamStart !== 'All') {
+      plays = plays.filter(
+        (p) =>
+          p.teamStartPosession?.toLowerCase() === filterTeamStart.toLowerCase()
+      );
+    }
+    if (filterTeamEnd !== 'All') {
+      plays = plays.filter(
+        (p) =>
+          p.teamEndPosession?.toLowerCase() === filterTeamEnd.toLowerCase()
+      );
+    }
+    if (filterStartAction !== 'All') {
+      plays = plays.filter(
+        (p) =>
+          p.startAction?.toLowerCase() === filterStartAction.toLowerCase()
+      );
+    }
+    if (filterEndAction !== 'All') {
+      plays = plays.filter(
+        (p) => p.endAction?.toLowerCase() === filterEndAction.toLowerCase()
+      );
+    }
+    return plays;
+  };
+
+  const getUniqueValues = (session, key) => {
+    if (!session || !Array.isArray(session.plays)) return [];
+    return [...new Set(session.plays.map((p) => p[key]).filter(Boolean))];
+  };
+
   // ====== Render ======
+
   if (isLoading) {
     return (
       <Container className="mt-4">
@@ -136,255 +235,397 @@ const PlayByPlayAnalysisScreen = () => {
       </Container>
     );
   }
-
   if (error) {
     return (
       <Container className="mt-4">
         <h1>Play By Play Analysis</h1>
-        <Message variant="danger">
-          {error.data?.message || error.error || 'An error occurred.'}
-        </Message>
-      </Container>
-    );
-  }
-
-  if (!allPlays.length) {
-    return (
-      <Container className="mt-4">
-        <h1>Play By Play Analysis</h1>
-        <Alert variant="info">No plays found in any session.</Alert>
+        <Alert variant="danger">
+          {error.data?.message || 'An error occurred while fetching sessions.'}
+        </Alert>
       </Container>
     );
   }
 
   return (
-    <Container className="mt-4">
-      <h1>Play By Play Analysis</h1>
+    <Container>
+      {/* Page heading and Add button */}
+      <Row className="align-items-center my-4">
+        <Col>
+          <h2>Play By Play Analysis</h2>
+        </Col>
+        <Col className="text-end">
+          <Button
+            variant="primary"
+            className="btn-sm"
+            onClick={() => setShowAddModal(true)}
+          >
+            <FaPlus />
+          </Button>
+        </Col>
+      </Row>
 
-      {/* Filters */}
+      {/* Always show the search bar, even if no sessions found */}
       <Row className="mb-3">
-        <Col md={3}>
-          <Form.Group>
-            <Form.Label>Filter by Team Start</Form.Label>
+        <Col md={4}>
+          <Form.Group controlId="searchTerm">
+            <Form.Label>Search by Session Name</Form.Label>
             <Form.Control
-              as="select"
-              value={filterTeamStart}
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
               onChange={(e) => {
-                setFilterTeamStart(e.target.value);
+                setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-            >
-              <option value="All">All</option>
-              {uniqueTeamStarts.map((pos) => (
-                <option key={pos} value={pos}>
-                  {pos}
-                </option>
-              ))}
-            </Form.Control>
-          </Form.Group>
-        </Col>
-        <Col md={3}>
-          <Form.Group>
-            <Form.Label>Filter by Team End</Form.Label>
-            <Form.Control
-              as="select"
-              value={filterTeamEnd}
-              onChange={(e) => {
-                setFilterTeamEnd(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="All">All</option>
-              {uniqueTeamEnds.map((pos) => (
-                <option key={pos} value={pos}>
-                  {pos}
-                </option>
-              ))}
-            </Form.Control>
-          </Form.Group>
-        </Col>
-      
-        <Col md={3}>
-          <Form.Group>
-            <Form.Label>Filter by Start Action</Form.Label>
-            <Form.Control
-              as="select"
-              value={filterStartAction}
-              onChange={(e) => {
-                setFilterStartAction(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="All">All</option>
-              {uniqueStartActions.map((act) => (
-                <option key={act} value={act}>
-                  {act}
-                </option>
-              ))}
-            </Form.Control>
-          </Form.Group>
-        </Col>
-        <Col md={3}>
-          <Form.Group>
-            <Form.Label>Filter by End Action</Form.Label>
-            <Form.Control
-              as="select"
-              value={filterEndAction}
-              onChange={(e) => {
-                setFilterEndAction(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="All">All</option>
-              {uniqueEndActions.map((act) => (
-                <option key={act} value={act}>
-                  {act}
-                </option>
-              ))}
-            </Form.Control>
+            />
           </Form.Group>
         </Col>
       </Row>
 
-      <Table striped bordered hover responsive className="table-sm">
-        <thead className="table-dark">
-          <tr>
-            <th>Session</th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('title')}
-            >
-              Title{' '}
-              {sortConfig.key === 'title' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('playNumber')}
-            >
-              Play #
-              {sortConfig.key === 'playNumber' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('timeStart')}
-            >
-              Time Start
-              {sortConfig.key === 'timeStart' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('timeEnd')}
-            >
-              Time End
-              {sortConfig.key === 'timeEnd' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            {/* ADD half and duration columns */}
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('half')}
-            >
-              Half
-              {sortConfig.key === 'half' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('duration')}
-            >
-              Duration
-              {sortConfig.key === 'duration' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('teamStartPosession')}
-            >
-              Team Start
-              {sortConfig.key === 'teamStartPosession' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('teamEndPosession')}
-            >
-              Team End
-              {sortConfig.key === 'teamEndPosession' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('turnovers')}
-            >
-              Turnovers
-              {sortConfig.key === 'turnovers' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('startAction')}
-            >
-              Start Action
-              {sortConfig.key === 'startAction' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-            <th
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSort('endAction')}
-            >
-              End Action
-              {sortConfig.key === 'endAction' &&
-                (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {currentItems.map((play) => (
-            <tr key={play._id || Math.random()}>
-              <td>{play.sessionName}</td>
-              <td>{play.title}</td>
-              <td>{play.playNumber}</td>
-              <td>{play.timeStart}</td>
-              <td>{play.timeEnd}</td>
-              <td>{play.half}</td>
-              <td>{play.duration}</td>
-              <td>{play.teamStartPosession}</td>
-              <td>{play.teamEndPosession}</td>
-              <td>{play.turnovers}</td>
-              <td>{play.startAction}</td>
-              <td>{play.endAction}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      {/* If no sessions after filtering, show "No data found" but keep filters */}
+      {filteredSessions.length === 0 ? (
+        <Alert variant="info">No data found.</Alert>
+      ) : (
+        <>
+          {/* Remove `responsive` to avoid horizontal scroll */}
+          <Table striped bordered hover className="table-sm">
+            <thead className="table-dark">
+              <tr>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('teamName')}
+                >
+                  Team{' '}
+                  {sortConfig.key === 'teamName' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('sessionName')}
+                >
+                  Session Name{' '}
+                  {sortConfig.key === 'sessionName' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('date')}
+                >
+                  Date{' '}
+                  {sortConfig.key === 'date' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('number')}
+                >
+                  Number{' '}
+                  {sortConfig.key === 'number' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('type')}
+                >
+                  Type{' '}
+                  {sortConfig.key === 'type' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('duration')}
+                >
+                  Duration{' '}
+                  {sortConfig.key === 'duration' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('avgDistance')}
+                >
+                  Avg Distance{' '}
+                  {sortConfig.key === 'avgDistance' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('splits')}
+                >
+                  Splits{' '}
+                  {sortConfig.key === 'splits' &&
+                    (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                </th>
+                <th>Notes</th>
+                {/* Edit, Delete, Chart, Plays */}
+                <th></th>
+                <th></th>
+                <th>Chart</th>
+                <th>Plays</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentItems.map((session) => (
+                <React.Fragment key={session._id}>
+                  <tr>
+                    <td>{session.teamName}</td>
+                    <td>{session.sessionName}</td>
+                    <td>{new Date(session.date).toLocaleDateString()}</td>
+                    <td>{session.sessionPlayerData?.length || 0}</td>
+                    <td>{session.type}</td>
+                    <td>{session.duration || 'N/A'}</td>
+                    <td>
+                      {session.avgDistance
+                        ? session.avgDistance.toFixed(2) + ' km/s'
+                        : 'N/A'}
+                    </td>
+                    <td>
+                      {Array.isArray(session.splits) ? session.splits.length : 0}
+                    </td>
+                    <td>{session.notes || 'N/A'}</td>
+                    {/* Edit button */}
+                    <td>
+                      <Button
+                        variant="light"
+                        className="btn-sm mx-2"
+                        onClick={() => handleEditClick(session)}
+                      >
+                        <FaEdit />
+                      </Button>
+                    </td>
+                    {/* Delete button */}
+                    <td>
+                      <Button
+                        variant="light"
+                        className="btn-sm mx-2"
+                        onClick={() => handleDeleteClick(session)}
+                      >
+                        <FaTrash />
+                      </Button>
+                    </td>
+                    {/* Chart icon */}
+                    <td>
+                      <Button
+                        variant="light"
+                        className="btn-sm mx-2"
+                        onClick={() => toggleChart(session._id)}
+                      >
+                        <FaChartLine />
+                      </Button>
+                    </td>
+                    {/* Plays icon */}
+                    <td>
+                      <Button
+                        variant="light"
+                        className="btn-sm mx-2"
+                        onClick={() => togglePlays(session._id)}
+                      >
+                        <FaListUl />
+                      </Button>
+                    </td>
+                  </tr>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Pagination className="justify-content-center">
-          <Pagination.Prev
-            onClick={() => paginate(currentPage - 1)}
-            disabled={currentPage === 1}
-          />
-          {[...Array(totalPages).keys()].map((num) => (
-            <Pagination.Item
-              key={num + 1}
-              active={num + 1 === currentPage}
-              onClick={() => paginate(num + 1)}
-            >
-              {num + 1}
-            </Pagination.Item>
-          ))}
-          <Pagination.Next
-            onClick={() => paginate(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          />
-        </Pagination>
+                  {/* If chartSessionId === session._id, expand row with SessionCharts */}
+                  {chartSessionId === session._id && (
+                    <tr>
+                      <td colSpan={13}>
+                        <SessionCharts sessionId={session._id} />
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* If playsSessionId === session._id, expand row with old plays table + filters */}
+                  {playsSessionId === session._id && (
+                    <tr>
+                      <td colSpan={13}>
+                        {/* Plays filters */}
+                        {Array.isArray(session.plays) && session.plays.length > 0 ? (
+                          <>
+                            <Row className="mb-3">
+                              <Col md={3}>
+                                <Form.Group>
+                                  <Form.Label>Filter by Team Start</Form.Label>
+                                  <Form.Control
+                                    as="select"
+                                    value={filterTeamStart}
+                                    onChange={(e) => setFilterTeamStart(e.target.value)}
+                                  >
+                                    <option value="All">All</option>
+                                    {getUniqueValues(session, 'teamStartPosession').map((val) => (
+                                      <option key={val} value={val}>
+                                        {val}
+                                      </option>
+                                    ))}
+                                  </Form.Control>
+                                </Form.Group>
+                              </Col>
+                              <Col md={3}>
+                                <Form.Group>
+                                  <Form.Label>Filter by Team End</Form.Label>
+                                  <Form.Control
+                                    as="select"
+                                    value={filterTeamEnd}
+                                    onChange={(e) => setFilterTeamEnd(e.target.value)}
+                                  >
+                                    <option value="All">All</option>
+                                    {getUniqueValues(session, 'teamEndPosession').map((val) => (
+                                      <option key={val} value={val}>
+                                        {val}
+                                      </option>
+                                    ))}
+                                  </Form.Control>
+                                </Form.Group>
+                              </Col>
+                              <Col md={3}>
+                                <Form.Group>
+                                  <Form.Label>Filter by Start Action</Form.Label>
+                                  <Form.Control
+                                    as="select"
+                                    value={filterStartAction}
+                                    onChange={(e) => setFilterStartAction(e.target.value)}
+                                  >
+                                    <option value="All">All</option>
+                                    {getUniqueValues(session, 'startAction').map((val) => (
+                                      <option key={val} value={val}>
+                                        {val}
+                                      </option>
+                                    ))}
+                                  </Form.Control>
+                                </Form.Group>
+                              </Col>
+                              <Col md={3}>
+                                <Form.Group>
+                                  <Form.Label>Filter by End Action</Form.Label>
+                                  <Form.Control
+                                    as="select"
+                                    value={filterEndAction}
+                                    onChange={(e) => setFilterEndAction(e.target.value)}
+                                  >
+                                    <option value="All">All</option>
+                                    {getUniqueValues(session, 'endAction').map((val) => (
+                                      <option key={val} value={val}>
+                                        {val}
+                                      </option>
+                                    ))}
+                                  </Form.Control>
+                                </Form.Group>
+                              </Col>
+                            </Row>
+
+                            {/* Old plays table */}
+                            <Table striped bordered hover className="table-sm">
+                              <thead className="table-dark">
+                                <tr>
+                                  {/* remove session col */}
+                                  <th>Title</th>
+                                  <th>Play</th>
+                                  <th>TimeStart</th>
+                                  <th>TimeEnd</th>
+                                  <th>Half</th>
+                                  <th>Duration</th>
+                                  <th>TeamStart</th>
+                                  <th>TeamEnd</th>
+                                  <th>Turnovers</th>
+                                  <th>StartAction</th>
+                                  <th>EndAction</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filterPlays(session).map((play) => (
+                                  <tr key={play._id}>
+                                    <td>{play.title}</td>
+                                    <td>{play.playNumber}</td>
+                                    <td>{play.timeStart}</td>
+                                    <td>{play.timeEnd}</td>
+                                    <td>{play.half}</td>
+                                    <td>{play.duration}</td>
+                                    <td>{play.teamStartPosession}</td>
+                                    <td>{play.teamEndPosession}</td>
+                                    <td>{play.turnovers}</td>
+                                    <td>{play.startAction}</td>
+                                    <td>{play.endAction}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </Table>
+                          </>
+                        ) : (
+                          <Alert variant="info">No plays found for this session.</Alert>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </Table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination className="justify-content-center">
+              <Pagination.Prev
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+              />
+              {[...Array(totalPages).keys()].map((num) => (
+                <Pagination.Item
+                  key={num + 1}
+                  active={num + 1 === currentPage}
+                  onClick={() => paginate(num + 1)}
+                >
+                  {num + 1}
+                </Pagination.Item>
+              ))}
+              <Pagination.Next
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              />
+            </Pagination>
+          )}
+        </>
       )}
+
+      {/* ConfirmDeletion modal */}
+      <ConfirmDeletion
+        show={showConfirm}
+        onConfirm={handleConfirmDeletion}
+        onCancel={handleCancelDeletion}
+        message={`Are you sure you want to delete the session "${selectedSession?.sessionName}"?`}
+      />
+
+      {/* AddSession Modal */}
+      <AddSessionModal
+        show={showAddModal}
+        onHide={() => setShowAddModal(false)}
+        onAddSession={handleAddSession}
+        onAddSessionSuccess={handleSessionCreated}
+      />
+
+      {/* EditSession Modal */}
+      <EditSessionModal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
+        onEditSession={handleEditSession}
+        onRefreshSessions={refetch}
+        session={selectedSession}
+      />
+
+      {/* CSV Upload Modal */}
+      <AddCSVModal
+        show={showCSVModal}
+        onHide={() => {
+          setShowCSVModal(false);
+          refetch();
+        }}
+        sessionId={newSessionId}
+      />
     </Container>
   );
 };
 
 export default PlayByPlayAnalysisScreen;
+
+// Helper function to build unique filter values for a session's plays
+function getUniqueValues(session, key) {
+  if (!session || !Array.isArray(session.plays)) return [];
+  return [...new Set(session.plays.map((p) => p[key]).filter(Boolean))];
+}
