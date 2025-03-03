@@ -2,9 +2,11 @@ import asyncHandler from '../middleware/asyncHandler.js';
 import mongoose from 'mongoose';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
+import moment from "moment";
 
 import PlayByPlayAnalysis from '../models/playByPlayAnalysisModel.js';
 import Session from '../models/sessionModel.js';
+// import calculatePlayPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; 
 import Team from '../models/teamModel.js';
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
@@ -65,26 +67,41 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     throw new Error("CSV is empty or could not be parsed.");
   }
 
+  
   // Fetch session
   const session = await Session.findById(sessionId);
   if (!session) {
     throw new Error(`Session not found: ${sessionId}`);
   }
 
+  // Ensure session.date exists and is valid
+  if (!session.date) {
+  throw new Error(`Session date is missing for session: ${sessionId}`);
+  }
+
+  // Define sessionStartDate from session.date (stored as Unix timestamp)
+  const sessionStartDate = moment.unix(session.date).utc();
+
   // Process and insert PlayByPlayAnalysis data
-  const playData = rows.map((row, index) => ({
-    userId,
-    sessionId,
-    timeStart: parseFloat(row["TimeStart"]) || 0,
-    timeEnd: parseFloat(row["TimeEnd"]) || 0,
-    duration: parseFloat(row["Duration"]) || 0,
-    half: parseInt(row["Half"]) || 1,
-    teamStartPossession: row["TeamStartPossession"] || "Unknown",
-    teamEndPossession: row["TeamEndPossession"] || "Unknown",
-    turnovers: parseInt(row["Turnovers"]) || 0,
-    startAction: row["StartAction"] || "Unknown",
-    endAction: row["EndAction"] || "Unknown",
-  }));
+  const playData = rows.map((row, index) => {
+    const startTime = 24 * parseFloat(row["StartTime"]) || 0;
+    const endTime = 24 * parseFloat(row["EndTime"]) || 0;
+
+    return {
+      userId,
+      sessionId,
+      timeStart: sessionStartDate.clone().add(startTime, "seconds").unix(),  
+      timeEnd: sessionStartDate.clone().add(endTime, "seconds").unix(),     
+      duration: parseFloat(row["Duration"]) || 0,
+      half: parseInt(row["Half"]) || 1,
+      teamStartPossession: row["StartPossession"] || "Unknown",
+      teamEndPossession: row["EndPossession"] || "Unknown",
+      turnovers: parseInt(row["Turnovers"]) || 0,
+      startAction: row["StartAction"] || "Unknown",
+      endAction: row["EndAction"] || "Unknown",
+    };
+  });
+
 
   // Insert into PlayByPlayAnalysis collection
   const insertedDocs = await PlayByPlayAnalysis.insertMany(playData, { ordered: false });
@@ -98,6 +115,9 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   }));
   await session.save();
   console.log(`✅ Updated session with ${session.plays.length} plays.`);
+
+  // Compute playPlayerMetrics after plays have been inserted
+  // await calculatePlayPlayerMetrics(sessionId, session.plays);
 
   return insertedDocs;
 };

@@ -55,8 +55,8 @@ const sessionSchema = new mongoose.Schema(
         timeEnd: { type: Number, required: true, default: 0  },
         duration: { type: Number, required: true, default: 0  },
         half: { type: Number, required: true, default: 0  },
-        teamStartPosession: { type: String, required: true, default: 0  },
-        teamEndPosession: { type: String, required: true, default: 0  },
+        teamStartPossession: { type: String, required: true, default: "Unknown" },
+        teamEndPossession: { type: String, required: true, default: "Unknown" },
         turnovers: { type: Number, required: true, default: 0  },
         startAction: { type: String, required: true },
         endAction: { type: String, required: true },
@@ -82,7 +82,15 @@ const sessionSchema = new mongoose.Schema(
             Value: { type: Number, required: true },
             Unit: { type: String, required: true }
           }]
-        }]
+        }],
+        // playPlayerMetrics: [{  
+        //   PlayNumber: { type: Number, required: true },
+        //   PlayMetrics: [{
+        //     MetricName: { type: String, required: true },
+        //     Value: { type: Number, required: true },
+        //     Unit: { type: String, required: true }
+        //   }]
+        // }]
       },
     ],
   },
