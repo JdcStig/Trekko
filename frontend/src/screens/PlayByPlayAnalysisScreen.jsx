@@ -1,3 +1,4 @@
+// src/screens/PlayByPlayAnalysisScreen.jsx
 import React, { useState } from 'react';
 import {
   Table,
@@ -32,7 +33,7 @@ import EditSessionModal from '../components/SessionManagement/EditSessionModal';
 import AddCSVModal from '../components/SessionManagement/AddCSVModal';
 import SessionCharts from '../components/SessionCharts'; // The same chart component as in SessionManagement
 
-const PlayByPlayAnalysisScreen = () => {
+export default function PlayByPlayAnalysisScreen() {
   // 1) Fetch all sessions
   const { data, isLoading, error, refetch } = useGetSessionsQuery();
 
@@ -190,19 +191,21 @@ const PlayByPlayAnalysisScreen = () => {
   const [filterStartAction, setFilterStartAction] = useState('All');
   const [filterEndAction, setFilterEndAction] = useState('All');
 
+  // Use consistent property names: "teamStartPossession" and "teamEndPossession"
   const filterPlays = (session) => {
     if (!session || !Array.isArray(session.plays)) return [];
     let plays = [...session.plays];
+
     if (filterTeamStart !== 'All') {
       plays = plays.filter(
         (p) =>
-          p.teamStartPosession?.toLowerCase() === filterTeamStart.toLowerCase()
+          p.teamStartPossession?.toLowerCase() === filterTeamStart.toLowerCase()
       );
     }
     if (filterTeamEnd !== 'All') {
       plays = plays.filter(
         (p) =>
-          p.teamEndPosession?.toLowerCase() === filterTeamEnd.toLowerCase()
+          p.teamEndPossession?.toLowerCase() === filterTeamEnd.toLowerCase()
       );
     }
     if (filterStartAction !== 'All') {
@@ -219,13 +222,13 @@ const PlayByPlayAnalysisScreen = () => {
     return plays;
   };
 
-  const getUniqueValues = (session, key) => {
+  // Also unify here: "teamStartPossession" and "teamEndPossession"
+  function getUniqueValues(session, key) {
     if (!session || !Array.isArray(session.plays)) return [];
     return [...new Set(session.plays.map((p) => p[key]).filter(Boolean))];
-  };
+  }
 
   // ====== Render ======
-
   if (isLoading) {
     return (
       <Container className="mt-4">
@@ -237,9 +240,9 @@ const PlayByPlayAnalysisScreen = () => {
   if (error) {
     return (
       <Container className="mt-4">
-        <h1>Play By Play Analysis</h1>
-        <Alert variant="danger">
-          {error.data?.message || 'An error occurred while fetching sessions.'}
+        <h2>Play By Play Analysis</h2>
+        <Alert variant="info" className="text-center">
+          No session found.
         </Alert>
       </Container>
     );
@@ -290,66 +293,42 @@ const PlayByPlayAnalysisScreen = () => {
           <Table striped bordered hover className="table-sm">
             <thead className="table-dark">
               <tr>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('teamName')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('teamName')}>
                   Team{' '}
                   {sortConfig.key === 'teamName' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('sessionName')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('sessionName')}>
                   Session Name{' '}
                   {sortConfig.key === 'sessionName' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('date')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('date')}>
                   Date{' '}
                   {sortConfig.key === 'date' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('number')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('number')}>
                   Number{' '}
                   {sortConfig.key === 'number' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('type')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('type')}>
                   Type{' '}
                   {sortConfig.key === 'type' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('duration')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('duration')}>
                   Duration{' '}
                   {sortConfig.key === 'duration' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('avgDistance')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('avgDistance')}>
                   Avg Distance{' '}
                   {sortConfig.key === 'avgDistance' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleSort('splits')}
-                >
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('splits')}>
                   Splits{' '}
                   {sortConfig.key === 'splits' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
@@ -358,8 +337,8 @@ const PlayByPlayAnalysisScreen = () => {
                 {/* Edit, Delete, Chart, Plays */}
                 <th></th>
                 <th></th>
-                <th>Chart</th>
-                <th>Plays</th>
+                <th></th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -449,7 +428,7 @@ const PlayByPlayAnalysisScreen = () => {
                                     onChange={(e) => setFilterTeamStart(e.target.value)}
                                   >
                                     <option value="All">All</option>
-                                    {getUniqueValues(session, 'teamStartPosession').map((val) => (
+                                    {getUniqueValues(session, 'teamStartPossession').map((val) => (
                                       <option key={val} value={val}>
                                         {val}
                                       </option>
@@ -466,7 +445,7 @@ const PlayByPlayAnalysisScreen = () => {
                                     onChange={(e) => setFilterTeamEnd(e.target.value)}
                                   >
                                     <option value="All">All</option>
-                                    {getUniqueValues(session, 'teamEndPosession').map((val) => (
+                                    {getUniqueValues(session, 'teamEndPossession').map((val) => (
                                       <option key={val} value={val}>
                                         {val}
                                       </option>
@@ -520,12 +499,13 @@ const PlayByPlayAnalysisScreen = () => {
                                   <th>TimeStart</th>
                                   <th>TimeEnd</th>
                                   <th>Half</th>
-                                  <th>Duration</th>
+                                  <th>Duration (seconds)</th>
                                   <th>TeamStart</th>
                                   <th>TeamEnd</th>
                                   <th>Turnovers</th>
                                   <th>StartAction</th>
                                   <th>EndAction</th>
+                                  <th></th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -537,11 +517,16 @@ const PlayByPlayAnalysisScreen = () => {
                                     <td>{play.timeEnd}</td>
                                     <td>{play.half}</td>
                                     <td>{play.duration}</td>
-                                    <td>{play.teamStartPosession}</td>
-                                    <td>{play.teamEndPosession}</td>
+                                    <td>{play.teamStartPossession}</td>
+                                    <td>{play.teamEndPossession}</td>
                                     <td>{play.turnovers}</td>
                                     <td>{play.startAction}</td>
                                     <td>{play.endAction}</td>
+                                    <td>
+                                      <Button variant="light" className="btn-sm mx-2">
+                                        <FaChartLine />
+                                      </Button>
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -619,12 +604,4 @@ const PlayByPlayAnalysisScreen = () => {
       />
     </Container>
   );
-};
-
-export default PlayByPlayAnalysisScreen;
-
-// Helper function to build unique filter values for a session's plays
-function getUniqueValues(session, key) {
-  if (!session || !Array.isArray(session.plays)) return [];
-  return [...new Set(session.plays.map((p) => p[key]).filter(Boolean))];
 }
