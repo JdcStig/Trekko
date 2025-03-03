@@ -16,7 +16,7 @@ import {
   FaSortUp,
   FaSortDown
 } from 'react-icons/fa';
-import { FaMagnifyingGlass } from "react-icons/fa6";
+import { FaChartLine } from "react-icons/fa6";
 import ConfirmDeletion from '../components/ConfirmDeletion';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
@@ -373,7 +373,7 @@ const SessionManagementScreen = () => {
                       className="btn-sm mx-2"
                       onClick={() => handleShowChart(session._id)}
                     >
-                      <FaMagnifyingGlass />
+                      <FaChartLine />
                     </Button>
                   </td>
                 </tr>
