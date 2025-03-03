@@ -52,8 +52,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/sessions', sessionRoutes);
-
-// Use ONE consistent path for play-by-play analysis routes
 app.use('/api/playbyplayanalysis', playByPlayAnalysisRoutes);
 
 // Serve static files from React app in production

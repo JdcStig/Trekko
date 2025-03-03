@@ -1,4 +1,3 @@
-// src/screens/PlayByPlayAnalysisScreen.jsx
 import React, { useState } from 'react';
 import {
   Table,

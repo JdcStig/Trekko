@@ -6,6 +6,7 @@ import { Readable } from 'stream';
 import Session from '../models/sessionModel.js';
 import SessionPlayerData from '../models/sessionPlayerDataModel.js';
 import Team from '../models/teamModel.js';
+import { parsePlayByPlayCSV } from "../controllers/playByPlayAnalysisController.js";
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
@@ -188,29 +189,42 @@ export default parseCSV;
 // ====================== POST /api/sessions/upload ======================
 // Route handler to upload and process a CSV file for a session.
 export const uploadSessionCSV = asyncHandler(async (req, res) => {
-  console.log('📌 Received CSV upload request for session:', req.body.sessionId);
-  const { sessionId } = req.body;
+  console.log("📌 Received CSV upload request for session:", req.body.sessionId);
+  const { sessionId, type } = req.body; // Added 'type' to determine file type
+
   if (!sessionId) {
-    console.error('🚨 No session ID provided!');
-    return res.status(400).json({ message: 'Session ID is required.' });
+    console.error("🚨 No session ID provided!");
+    return res.status(400).json({ message: "Session ID is required." });
   }
+
   if (!req.file) {
-    console.error('🚨 No file uploaded!');
-    return res.status(400).json({ message: 'No file uploaded.' });
+    console.error("🚨 No file uploaded!");
+    return res.status(400).json({ message: "No file uploaded." });
   }
+
   console.log(`✅ File received: ${req.file.originalname} | Size: ${req.file.size} bytes`);
 
   if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-    console.error('🚨 Invalid sessionId:', sessionId);
-    return res.status(400).json({ message: 'Invalid session ID.' });
+    console.error("🚨 Invalid sessionId:", sessionId);
+    return res.status(400).json({ message: "Invalid session ID." });
   }
 
   try {
-    const updatedSession = await parseCSV(req.file.buffer, sessionId, req.user._id);
-    console.log('🚀 CSV processing complete! Returning updated session.');
-    return res.status(201).json(updatedSession);
+    let updatedData;
+
+    if (type === "session") {
+      updatedData = await parseCSV(req.file.buffer, sessionId, req.user._id);
+      console.log("🚀 Session CSV processing complete!");
+    } else if (type === "playbyplay") {
+      updatedData = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
+      console.log("🚀 Play-by-Play CSV processing complete!");
+    } else {
+      return res.status(400).json({ message: "Invalid CSV type." });
+    }
+
+    return res.status(201).json(updatedData);
   } catch (error) {
-    console.error('🚨 Error processing CSV:', error.message);
+    console.error("🚨 Error processing CSV:", error.message);
     return res.status(500).json({ message: error.message });
   }
 });

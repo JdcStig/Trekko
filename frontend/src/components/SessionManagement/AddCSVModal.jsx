@@ -4,52 +4,57 @@ import { toast } from 'react-toastify';
 import { useUploadSessionCSVMutation } from '../../slices/sessionsApiSlice';
 
 const AddCSVModal = ({ show, onHide, sessionId }) => {
-  const [files, setFiles] = useState([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const fileInputRef = useRef(null);
+  const [sessionFiles, setSessionFiles] = useState([]);
+  const [playByPlayFiles, setPlayByPlayFiles] = useState([]);
+  const sessionFileInputRef = useRef(null);
+  const playByPlayFileInputRef = useRef(null);
   const [uploadSessionCSV] = useUploadSessionCSVMutation();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    //.log("Files updated:", files.length);
-  }, [files]);
+    console.log("Session Files updated:", sessionFiles.length);
+    console.log("PlayByPlay Files updated:", playByPlayFiles.length);
+  }, [sessionFiles, playByPlayFiles]);
+  
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e, setFiles) => {
     const selectedFiles = Array.from(e.target.files);
     setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
   };
 
-  const removeFile = (index) => {
-    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+  const removeFile = (index, setFiles, fileList) => {
+    setFiles(fileList.filter((_, i) => i !== index));
   };
 
-  const clearFiles = () => {
+  const clearFiles = (setFiles, inputRef) => {
     setFiles([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 100);
+    if (inputRef.current) inputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (files.length === 0) {
-      toast.error("No CSV files selected!", { position: 'top-right' });
-      return;
-    }
     setIsSubmitting(true);
+
     try {
-      for (let file of files) {
+      for (let file of sessionFiles) {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("sessionId", sessionId);
+        formData.append("type", "session");
         await uploadSessionCSV(formData).unwrap();
       }
-      toast.success("CSV files uploaded successfully!", { position: 'top-right' });
-      clearFiles();
+      
+      for (let file of playByPlayFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("sessionId", sessionId);
+        formData.append("type", "playbyplay");
+        await uploadSessionCSV(formData).unwrap();
+      }
+
+      toast.success("CSV uploaded successfully!", { position: 'top-right' });
+      clearFiles(setSessionFiles, sessionFileInputRef);
+      clearFiles(setPlayByPlayFiles, playByPlayFileInputRef);
       onHide();
     } catch (err) {
       toast.error(err.data?.message || "CSV upload failed.", { position: 'top-right' });
@@ -59,59 +64,69 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
   };
 
   return (
-    !isRefreshing && (
-      <Modal show={show} onHide={onHide} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Upload CSV Files</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form onSubmit={handleSubmit}>
-            <Form.Group controlId="csvFiles" className="mb-3">
-              <Form.Label>Select CSV Files</Form.Label>
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  multiple
-                  onChange={handleFileChange}
-                  style={{ display: 'none' }} // Hide default input
-                  id="fileUpload"
-                />
-                <label htmlFor="fileUpload" className="btn btn-primary">
-                  Choose Files
-                </label>
-              </div>
-              <small className="text-muted">You can select multiple CSV files.</small>
-            </Form.Group>
-            {files.length > 0 && (
-              <>
-                <p><strong>Files selected: {files.length}</strong></p>
-                <ListGroup className="mb-3">
-                  {files.map((file, index) => (
-                    <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
-                      {file.name}
-                      <Button variant="danger" size="sm" onClick={() => removeFile(index)}>
-                        Delete
-                      </Button>
-                    </ListGroup.Item>
-                  ))}
-                </ListGroup>
-                <Button variant="warning" className="mb-2 w-100" onClick={clearFiles}>
-                  Remove All
-                </Button>
-                <div className="d-flex justify-content-between">
-                  <Button variant="primary" type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Uploading..." : "Submit"}
-                  </Button>
-                  <Button variant="secondary" onClick={onHide}>Close</Button>
-                </div>
-              </>
-            )}
-          </Form>
-        </Modal.Body>
-      </Modal>
-    )
+    <Modal show={show} onHide={onHide} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>Upload CSV Files</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form onSubmit={handleSubmit}>
+          
+          {/* Session CSV Upload */}
+          <Form.Group controlId="sessionCsv" className="mb-3">
+            <Form.Label>Upload Session CSV</Form.Label>
+            <input
+              ref={sessionFileInputRef}
+              type="file"
+              accept=".csv"
+              multiple
+              onChange={(e) => handleFileChange(e, setSessionFiles)}
+              style={{ display: 'none' }}
+              id="sessionFileUpload"
+            />
+            <label htmlFor="sessionFileUpload" className="btn btn-primary">
+              Choose Files
+            </label>
+            <ListGroup className="mt-2">
+              {sessionFiles.map((file, index) => (
+                <ListGroup.Item key={index}>
+                  {file.name}
+                  <Button variant="danger" size="sm" onClick={() => removeFile(index, setSessionFiles, sessionFiles)}>Delete</Button>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          </Form.Group>
+
+          {/* Play-by-Play CSV Upload */}
+          <Form.Group controlId="playByPlayCsv" className="mb-3">
+            <Form.Label>Upload Play-by-Play CSV</Form.Label>
+            <input
+              ref={playByPlayFileInputRef}
+              type="file"
+              accept=".csv"
+              multiple
+              onChange={(e) => handleFileChange(e, setPlayByPlayFiles)}
+              style={{ display: 'none' }}
+              id="playByPlayFileUpload"
+            />
+            <label htmlFor="playByPlayFileUpload" className="btn btn-primary">
+              Choose Files
+            </label>
+            <ListGroup className="mt-2">
+              {playByPlayFiles.map((file, index) => (
+                <ListGroup.Item key={index}>
+                  {file.name}
+                  <Button variant="danger" size="sm" onClick={() => removeFile(index, setPlayByPlayFiles, playByPlayFiles)}>Delete</Button>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          </Form.Group>
+
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Uploading..." : "Submit"}
+          </Button>
+        </Form>
+      </Modal.Body>
+    </Modal>
   );
 };
 
