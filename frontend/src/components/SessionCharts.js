@@ -1,43 +1,58 @@
+// src/components/SessionCharts.jsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Chart } from 'react-google-charts';
 import { useGetSessionCSVsQuery } from '../slices/sessionsApiSlice';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
-const SessionCharts = ({ sessionId }) => {
+const SessionCharts = ({ sessionId, dropdownSource = "splits", plays: playsProp }) => {
   const chartRef = useRef(null);
   const { data, isLoading, error } = useGetSessionCSVsQuery(sessionId);
 
   // Parsed CSV data (array of objects, one per player)
   const playerDataArray = data?.sessionPlayerDataArray || [];
 
-  // Session splits (with title, splitNumber, etc.)
-  const splits = data?.splits || [];
+  // For dropdown options, use either the splits array (default) or the provided plays array
+  const sourceArray = dropdownSource === "splits" ? (data?.splits || []) : (playsProp || []);
 
-  // 1) Build a dropdown array with an "Overall" option plus one entry per split
-  const splitsForDropdown = useMemo(() => {
-    const result = [{ label: 'Overall', value: null }]; // “No Split”
-    splits.forEach((split) => {
-      result.push({
-        label: split.title,
-        value: split.splitNumber,
-      });
+  // Build the dropdown options:
+  // - If dropdownSource === "splits", each option shows the split title and uses the splitNumber as value.
+  // - If dropdownSource === "plays", each option shows the play title and uses the play title as value.
+  const dropdownOptions = useMemo(() => {
+    const result = [
+      {
+        label: dropdownSource === "splits" ? 'Overall' : 'All Titles',
+        value: dropdownSource === "splits" ? null : 'All',
+      },
+    ];
+    sourceArray.forEach((item) => {
+      if (dropdownSource === "splits") {
+        result.push({
+          label: item.title, // split title
+          value: item.splitNumber,
+        });
+      } else {
+        result.push({
+          label: item.title, // play title
+          value: item.title,
+        });
+      }
     });
     return result;
-  }, [splits]);
+  }, [sourceArray, dropdownSource]);
 
-  // 2) Which split is selected?  (null = overall)
-  const [selectedSplitNumber, setSelectedSplitNumber] = useState(null);
+  // Selected filter value from the dropdown.
+  // For splits, it's either null (for overall) or a number; for plays, it's a string.
+  const [filterValue, setFilterValue] = useState(dropdownSource === "splits" ? null : 'All');
 
-  // 3) All unique player names (for the checkboxes)
+  // All unique player names (for checkboxes)
   const allPlayerNames = useMemo(() => {
     return Array.from(new Set(playerDataArray.map((p) => p.playerName)));
   }, [playerDataArray]);
 
-  // 4) Which players are visible? (checkboxes)
+  // Which players are visible?
   const [visiblePlayers, setVisiblePlayers] = useState({});
   useEffect(() => {
-    // Whenever the list of players changes, ensure each is visible by default
     setVisiblePlayers((prev) => {
       const updated = { ...prev };
       allPlayerNames.forEach((name) => {
@@ -49,7 +64,6 @@ const SessionCharts = ({ sessionId }) => {
     });
   }, [allPlayerNames]);
 
-  // Toggle a player's visibility
   const togglePlayerVisibility = (playerName) => {
     setVisiblePlayers((prev) => ({
       ...prev,
@@ -60,37 +74,54 @@ const SessionCharts = ({ sessionId }) => {
   if (isLoading) return <p>Loading chart data...</p>;
   if (error) return <p>Error loading chart data.</p>;
 
-  // 5) Prepare data arrays for each metric
+  // Prepare data arrays for each metric
   const distanceData = [['Player', 'Distance (km)']];
   const topSpeedData = [['Player', 'Top Speed (m/s)']];
   const hsrData = [['Player', 'High Speed Running (km)']];
   const sprintData = [['Player', 'Sprinting (km)']];
 
-  // 6) Helper: find the correct metric
-  //    - If no split selected => use overall metrics from sessionPlayerMetrics
-  //    - Otherwise => use the specific split from splitPlayerMetrics
+  // Helper to extract metric value.
+  // In "splits" mode, if filterValue is null use overall metrics;
+  // otherwise, use the metrics in the matching split.
+  // In "plays" mode, we assume each playerItem may have a titleMetrics object mapping play titles to metrics.
   const getMetricValue = (playerItem, metricName) => {
-    if (selectedSplitNumber === null) {
-      // Overall metric
-      const found = playerItem.sessionPlayerMetrics?.find(
-        (m) => m.MetricName === metricName
-      );
-      return found ? Number(found.Value) : NaN;
+    if (dropdownSource === "splits") {
+      if (filterValue === null) {
+        const found = playerItem.sessionPlayerMetrics?.find(
+          (m) => m.MetricName === metricName
+        );
+        return found ? Number(found.Value) : NaN;
+      } else {
+        const foundSplit = playerItem.splitPlayerMetrics?.find(
+          (sp) => sp.SplitNumber === filterValue
+        );
+        if (!foundSplit) return NaN;
+        const foundMetric = foundSplit.SplitMetrics.find(
+          (m) => m.MetricName === metricName
+        );
+        return foundMetric ? Number(foundMetric.Value) : NaN;
+      }
     } else {
-      // Split‑specific metric
-      const foundSplit = playerItem.splitPlayerMetrics?.find(
-        (sp) => sp.SplitNumber === selectedSplitNumber
-      );
-      if (!foundSplit) return NaN;
-
-      const foundMetric = foundSplit.SplitMetrics.find(
-        (m) => m.MetricName === metricName
-      );
-      return foundMetric ? Number(foundMetric.Value) : NaN;
+      // "plays" mode
+      if (filterValue === 'All') {
+        const found = playerItem.sessionPlayerMetrics?.find(
+          (m) => m.MetricName === metricName
+        );
+        return found ? Number(found.Value) : NaN;
+      } else {
+        // Assume playerItem.titleMetrics is an object: { [title]: [{MetricName, Value, Unit}, ...] }
+        if (!playerItem.titleMetrics) return NaN;
+        const metricsForTitle = playerItem.titleMetrics[filterValue];
+        if (!metricsForTitle) return NaN;
+        const foundMetric = metricsForTitle.find(
+          (m) => m.MetricName === metricName
+        );
+        return foundMetric ? Number(foundMetric.Value) : NaN;
+      }
     }
   };
 
-  // 7) Populate chart arrays
+  // Populate the chart data arrays
   playerDataArray.forEach((player) => {
     distanceData.push([player.playerName, getMetricValue(player, 'Distance')]);
     topSpeedData.push([player.playerName, getMetricValue(player, 'TopSpeed')]);
@@ -98,9 +129,9 @@ const SessionCharts = ({ sessionId }) => {
     sprintData.push([player.playerName, getMetricValue(player, 'Sprinting')]);
   });
 
-  // 8) Filter out hidden players or invalid data
+  // Filter out hidden players
   const filterChartData = (dataArray) => [
-    dataArray[0], // Header row
+    dataArray[0],
     ...dataArray.slice(1).filter(
       (row) =>
         visiblePlayers[row[0]] === true &&
@@ -114,7 +145,7 @@ const SessionCharts = ({ sessionId }) => {
   const filteredHSRData = filterChartData(hsrData);
   const filteredSprintData = filterChartData(sprintData);
 
-  // 9) Basic chart config
+  // Basic chart configuration
   const baseOptions = {
     hAxis: { title: 'Player', slantedText: true, slantedTextAngle: 45 },
     vAxis: { title: '', minValue: 0 },
@@ -122,10 +153,10 @@ const SessionCharts = ({ sessionId }) => {
     legend: { position: 'none' },
   };
 
-  // Show the chosen split’s title in the chart title
-  const currentSplitLabel =
-    splitsForDropdown.find((opt) => opt.value === selectedSplitNumber)?.label ||
-    'Overall';
+  // Get the label for the current filter from the dropdown options.
+  const currentFilterLabel =
+    dropdownOptions.find((opt) => opt.value === filterValue)?.label ||
+    (dropdownSource === "splits" ? 'Overall' : 'All Titles');
 
   const distanceOptions = {
     ...baseOptions,
@@ -148,7 +179,7 @@ const SessionCharts = ({ sessionId }) => {
     vAxis: { title: 'Distance (km)', minValue: 0 },
   };
 
-  // 10) PDF export
+  // PDF export for current charts
   const handleExportPDF = async () => {
     if (!chartRef.current) return;
     try {
@@ -174,7 +205,48 @@ const SessionCharts = ({ sessionId }) => {
     }
   };
 
-  // 11) Check if there’s anything to display
+  // PDF export: Export charts for every value from the dropdown (excluding overall)
+  const handleExportAllValuesPDF = async () => {
+    try {
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const optionsToExport = dropdownOptions.filter(
+        (opt) => opt.value !== (dropdownSource === "splits" ? null : 'All')
+      );
+
+      for (let i = 0; i < optionsToExport.length; i++) {
+        setFilterValue(optionsToExport[i].value);
+        // Wait for charts to update (adjust delay as needed)
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        const canvas = await html2canvas(chartRef.current);
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = imgWidth / imgHeight;
+        let newImgWidth = pdfWidth;
+        let newImgHeight = pdfWidth / ratio;
+        if (newImgHeight > pdfHeight) {
+          newImgHeight = pdfHeight;
+          newImgWidth = pdfHeight * ratio;
+        }
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.text(`Charts for ${optionsToExport[i].label}`, 40, 40);
+        pdf.addImage(imgData, 'PNG', 0, 50, newImgWidth, newImgHeight);
+      }
+      pdf.save('all_values_charts.pdf');
+      // Reset filterValue to default (Overall or All Titles)
+      setFilterValue(dropdownSource === "splits" ? null : 'All');
+    } catch (err) {
+      console.error('Error exporting all values PDF:', err);
+    }
+  };
+
+  // Check if any chart data is available
   const hasAnyData =
     filteredDistanceData.length > 1 ||
     filteredTopSpeedData.length > 1 ||
@@ -183,31 +255,33 @@ const SessionCharts = ({ sessionId }) => {
 
   return (
     <div>
-      {/* Top bar: export button (left) and split dropdown (right) */}
-      <div className="charts-top-bar" style={{ display: 'flex', justifyContent: 'space-between' }}>
+      {/* Top bar: two buttons for PDF export and a dropdown for filter selection */}
+      <div className="charts-top-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           {hasAnyData && (
-            <button className="btn btn-success" onClick={handleExportPDF}>
-              Export Charts to PDF
-            </button>
+            <>
+              <button className="btn btn-success" onClick={handleExportPDF}>
+                Export Current Charts to PDF
+              </button>
+              <button className="btn btn-warning" onClick={handleExportAllValuesPDF} style={{ marginLeft: '10px' }}>
+                Export All {dropdownSource === "splits" ? 'Splits' : 'Titles'} Charts to PDF
+              </button>
+            </>
           )}
         </div>
-
         <div>
-          {/* Split dropdown (includes “Overall” option) */}
-          <label style={{ marginRight: '10px' }}>Select a Split:</label>
+          <label style={{ marginRight: '10px' }}>
+            Select a {dropdownSource === "splits" ? 'Split' : 'Title'}:
+          </label>
           <select
-            value={selectedSplitNumber === null ? '' : selectedSplitNumber}
+            value={filterValue === null ? '' : filterValue}
             onChange={(e) => {
               const val = e.target.value;
-              setSelectedSplitNumber(val === '' ? null : Number(val));
+              setFilterValue(val === '' ? (dropdownSource === "splits" ? null : 'All') : (dropdownSource === "splits" ? Number(val) : val));
             }}
           >
-            {splitsForDropdown.map((option) => (
-              <option
-                key={option.value === null ? 'No Split' : option.value}
-                value={option.value === null ? '' : option.value}
-              >
+            {dropdownOptions.map((option) => (
+              <option key={option.value === null ? 'No Value' : option.value} value={option.value === null ? '' : option.value}>
                 {option.label}
               </option>
             ))}
@@ -218,15 +292,8 @@ const SessionCharts = ({ sessionId }) => {
       {/* Player Checkboxes */}
       <div className="player-checkbox-container" style={{ marginTop: '1rem' }}>
         {allPlayerNames.map((name) => (
-          <label
-            key={name}
-            style={{ marginRight: '1rem', display: 'inline-block' }}
-          >
-            <input
-              type="checkbox"
-              checked={visiblePlayers[name] || false}
-              onChange={() => togglePlayerVisibility(name)}
-            />
+          <label key={name} style={{ marginRight: '1rem', display: 'inline-block' }}>
+            <input type="checkbox" checked={visiblePlayers[name] || false} onChange={() => togglePlayerVisibility(name)} />
             {name}
           </label>
         ))}
