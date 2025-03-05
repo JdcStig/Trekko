@@ -81,6 +81,7 @@ const EditCSVModal = ({
           const formData = new FormData();
           formData.append('file', file);
           formData.append('sessionId', sessionId);
+          formData.append('type', 'session');
           return uploadSessionCSV(formData).unwrap();
         });
         const responses = await Promise.all(uploadPromises);

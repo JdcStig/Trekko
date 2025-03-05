@@ -255,15 +255,7 @@ export default function PlayByPlayAnalysisScreen() {
         <Col>
           <h2>Play By Play Analysis</h2>
         </Col>
-        <Col className="text-end">
-          <Button
-            variant="primary"
-            className="btn-sm"
-            onClick={() => setShowAddModal(true)}
-          >
-            <FaPlus />
-          </Button>
-        </Col>
+        
       </Row>
 
       {/* Always show the search bar, even if no sessions found */}
@@ -496,10 +488,12 @@ export default function PlayByPlayAnalysisScreen() {
                                   {/* remove session col */}
                                   <th>Title</th>
                                   <th>Play</th>
-                                  <th>TimeStart</th>
-                                  <th>TimeEnd</th>
+                                  {/* <th>TimeStart</th>
+                                  <th>TimeEnd</th> */}
                                   <th>Half</th>
                                   <th>Duration (seconds)</th>
+                                  <th>Numb Sprints</th>
+                                  <th>Avg Distance</th>
                                   <th>TeamStart</th>
                                   <th>TeamEnd</th>
                                   <th>Turnovers</th>
@@ -513,10 +507,14 @@ export default function PlayByPlayAnalysisScreen() {
                                   <tr key={play._id}>
                                     <td>{play.title}</td>
                                     <td>{play.playNumber}</td>
-                                    <td>{play.timeStart}</td>
-                                    <td>{play.timeEnd}</td>
+                                   
+                                    {/* <td>{play.timeStart}</td>
+                                    <td>{play.timeEnd}</td> */}
+                                    
                                     <td>{play.half}</td>
                                     <td>{play.duration}</td>
+                                    <td>{play.numbsprints}</td>
+                                    <td>{play.avgdistance}</td>
                                     <td>{play.teamStartPossession}</td>
                                     <td>{play.teamEndPossession}</td>
                                     <td>{play.turnovers}</td>
