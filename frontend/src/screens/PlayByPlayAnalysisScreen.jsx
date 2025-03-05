@@ -494,11 +494,11 @@ export default function PlayByPlayAnalysisScreen() {
                                   <th>Duration (seconds)</th>
                                   <th>Numb Sprints</th>
                                   <th>Avg Distance</th>
-                                  <th>TeamStart</th>
-                                  <th>TeamEnd</th>
+                                  <th>Team Start Possession</th>
+                                  <th>Team End Possession</th>
                                   <th>Turnovers</th>
-                                  <th>StartAction</th>
-                                  <th>EndAction</th>
+                                  <th>Start Action</th>
+                                  <th>End Action</th>
                                   <th></th>
                                 </tr>
                               </thead>
