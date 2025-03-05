@@ -35,92 +35,81 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   console.log(`📌 [parsePlayByPlayCSV] Start for session=${sessionId} | user=${userId}`);
 
   if (!fileBuffer || fileBuffer.length === 0) {
-    throw new Error("Uploaded file is empty.");
-  }
-  if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-    throw new Error("Invalid session ID.");
-  }
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    throw new Error("Invalid user ID.");
+      throw new Error("Uploaded file is empty.");
   }
 
-  // Convert buffer to string & detect delimiter
+  if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      throw new Error("Invalid session ID.");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid user ID.");
+  }
+
   const fileString = fileBuffer.toString("utf-8");
   let delimiter = ",";
   if (fileString.includes("\t")) delimiter = "\t";
   else if (fileString.includes(";")) delimiter = ";";
   else if (fileString.includes("  ")) delimiter = " ";
+
   console.log(`🔍 [parsePlayByPlayCSV] Detected delimiter: "${delimiter}"`);
 
-  // Parse CSV rows
   const rows = [];
   await new Promise((resolve, reject) => {
-    Readable.from(fileString)
-      .pipe(csvParser({ separator: delimiter, trim: true }))
-      .on("data", (row) => rows.push(row))
-      .on("end", resolve)
-      .on("error", reject);
+      Readable.from(fileString)
+          .pipe(csvParser({ separator: delimiter, trim: true }))
+          .on("data", (row) => rows.push(row))
+          .on("end", resolve)
+          .on("error", reject);
   });
+
   console.log(`✅ [parsePlayByPlayCSV] CSV parsed. Total rows: ${rows.length}`);
 
   if (!rows.length) {
-    throw new Error("CSV is empty or could not be parsed.");
+      throw new Error("CSV is empty or could not be parsed.");
   }
 
-  
-  // Fetch session
   const session = await Session.findById(sessionId);
   if (!session) {
-    throw new Error(`Session not found: ${sessionId}`);
+      throw new Error(`Session not found: ${sessionId}`);
   }
 
-  // Ensure session.date exists and is valid
-  if (!session.date) {
-  throw new Error(`Session date is missing for session: ${sessionId}`);
-  }
-
-  // Define sessionStartDate from session.date (stored as Unix timestamp)
   const sessionStartDate = moment.unix(session.date).utc();
 
-  // Process and insert PlayByPlayAnalysis data
   const playData = rows.map((row, index) => {
-    const startTime = 24 * parseFloat(row["StartTime"]) || 0;
-    const endTime = 24 * parseFloat(row["EndTime"]) || 0;
+      const startTime = parseFloat(row["StartTime"]) * 24 || 0;
+      const endTime = parseFloat(row["EndTime"]) * 24 || 0;
 
-    return {
-      userId,
-      sessionId,
-      timeStart: sessionStartDate.clone().add(startTime, "seconds").unix(),  
-      timeEnd: sessionStartDate.clone().add(endTime, "seconds").unix(),     
-      duration: parseFloat(row["Duration"]) || 0,
-      half: parseInt(row["Half"]) || 1,
-      teamStartPossession: row["StartPossession"] || "Unknown",
-      teamEndPossession: row["EndPossession"] || "Unknown",
-      turnovers: parseInt(row["Turnovers"]) || 0,
-      startAction: row["StartAction"] || "Unknown",
-      endAction: row["EndAction"] || "Unknown",
-    };
+      return {
+          userId,
+          sessionId,
+          timeStart: moment().startOf("day").add(startTime, "hours").unix(),  
+          timeEnd: moment().startOf("day").add(endTime, "hours").unix(),
+          duration: parseFloat(row["Duration"]) || 0,
+          half: parseInt(row["Half"]) || 1,
+          teamStartPossession: row["StartPossession"] || "Unknown",
+          teamEndPossession: row["EndPossession"] || "Unknown",
+          turnovers: parseInt(row["Turnovers"]) || 0,
+          startAction: row["StartAction"] || "Unknown",
+          endAction: row["EndAction"] || "Unknown",
+      };
   });
 
-
-  // Insert into PlayByPlayAnalysis collection
   const insertedDocs = await PlayByPlayAnalysis.insertMany(playData, { ordered: false });
   console.log(`✅ Inserted ${insertedDocs.length} PlayByPlayAnalysis records.`);
 
-  // Update session plays
   session.plays = playData.map((play, index) => ({
-    title: `Play ${index + 1}`,
-    playNumber: index + 1,
-    ...play,
+      title: `Play ${index + 1}`,
+      playNumber: index + 1,
+      ...play,
   }));
+
   await session.save();
   console.log(`✅ Updated session with ${session.plays.length} plays.`);
 
-  // Compute playPlayerMetrics after plays have been inserted
-  // await calculatePlayPlayerMetrics(sessionId, session.plays);
-
   return insertedDocs;
 };
+
 
 export default parsePlayByPlayCSV;
 

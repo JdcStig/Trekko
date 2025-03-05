@@ -83,14 +83,14 @@ const sessionSchema = new mongoose.Schema(
             Unit: { type: String, required: true }
           }]
         }],
-        // playPlayerMetrics: [{  
-        //   PlayNumber: { type: Number, required: true },
-        //   PlayMetrics: [{
-        //     MetricName: { type: String, required: true },
-        //     Value: { type: Number, required: true },
-        //     Unit: { type: String, required: true }
-        //   }]
-        // }]
+        playPlayerMetrics: [{  
+          PlayNumber: { type: Number, required: true },
+          PlayMetrics: [{
+            MetricName: { type: String, required: true },
+            Value: { type: Number, required: true },
+            Unit: { type: String, required: true }
+          }]
+        }]
       },
     ],
   },

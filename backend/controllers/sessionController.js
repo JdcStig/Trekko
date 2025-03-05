@@ -11,7 +11,7 @@ import { parsePlayByPlayCSV } from "../controllers/playByPlayAnalysisController.
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
 import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; 
-//import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js'; 
+import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js'; 
 
 // ====================== Metrics Calculation Helpers ======================
 const metricsCalculations = {
@@ -407,14 +407,19 @@ export const updateSession = asyncHandler(async (req, res) => {
         { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
       ];
 
-      // Per-split metrics (distance, HSR, sprinting, topSpeed) for each split
+      // Per-split/play metrics (distance, HSR, sprinting, topSpeed) for each split
+      console.log(`\n[parseCSV] Calculating split metrics for playerId="${doc.playerId}"`);
       const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits);
+
+      console.log(`\n[parseCSV] Calculating play metrics for playerId="${doc.playerId}"`);
+      const playPlayerMetrics = calculatePlayPlayerMetrics(speeds, session.plays || []);
 
       session.sessionPlayerData.push({
         csvId: doc._id,
         playerName: doc.playerId,
         sessionPlayerMetrics,
         splitPlayerMetrics,
+        playPlayerMetrics,
       });
     }
 
