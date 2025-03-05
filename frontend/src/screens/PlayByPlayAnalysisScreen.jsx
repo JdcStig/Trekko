@@ -31,7 +31,7 @@ import {
 import AddSessionModal from '../components/SessionManagement/AddSessionModal';
 import EditSessionModal from '../components/SessionManagement/EditSessionModal';
 import AddCSVModal from '../components/SessionManagement/AddCSVModal';
-import SessionCharts from '../components/SessionCharts'; // The same chart component as in SessionManagement
+import SessionPlaysCharts from '../components/SessionPlaysCharts'; // <-- Updated import
 
 export default function PlayByPlayAnalysisScreen() {
   // 1) Fetch all sessions
@@ -210,8 +210,7 @@ export default function PlayByPlayAnalysisScreen() {
     }
     if (filterStartAction !== 'All') {
       plays = plays.filter(
-        (p) =>
-          p.startAction?.toLowerCase() === filterStartAction.toLowerCase()
+        (p) => p.startAction?.toLowerCase() === filterStartAction.toLowerCase()
       );
     }
     if (filterEndAction !== 'All') {
@@ -255,7 +254,6 @@ export default function PlayByPlayAnalysisScreen() {
         <Col>
           <h2>Play By Play Analysis</h2>
         </Col>
-        
       </Row>
 
       {/* Always show the search bar, even if no sessions found */}
@@ -281,46 +279,69 @@ export default function PlayByPlayAnalysisScreen() {
         <Alert variant="info">No data found.</Alert>
       ) : (
         <>
-          {/* Remove `responsive` to avoid horizontal scroll */}
           <Table striped bordered hover className="table-sm">
             <thead className="table-dark">
               <tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('teamName')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('teamName')}
+                >
                   Team{' '}
                   {sortConfig.key === 'teamName' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('sessionName')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('sessionName')}
+                >
                   Session Name{' '}
                   {sortConfig.key === 'sessionName' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('date')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('date')}
+                >
                   Date{' '}
                   {sortConfig.key === 'date' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('number')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('number')}
+                >
                   Number{' '}
                   {sortConfig.key === 'number' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('type')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('type')}
+                >
                   Type{' '}
                   {sortConfig.key === 'type' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('duration')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('duration')}
+                >
                   Duration{' '}
                   {sortConfig.key === 'duration' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('avgDistance')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('avgDistance')}
+                >
                   Avg Distance{' '}
                   {sortConfig.key === 'avgDistance' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('splits')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('splits')}
+                >
                   Splits{' '}
                   {sortConfig.key === 'splits' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
@@ -394,11 +415,11 @@ export default function PlayByPlayAnalysisScreen() {
                     </td>
                   </tr>
 
-                  {/* If chartSessionId === session._id, expand row with SessionCharts */}
+                  {/* If chartSessionId === session._id, expand row with SessionPlaysCharts */}
                   {chartSessionId === session._id && (
                     <tr>
                       <td colSpan={13}>
-                        <SessionCharts sessionId={session._id} />
+                        <SessionPlaysCharts sessionId={session._id} />
                       </td>
                     </tr>
                   )}
@@ -485,11 +506,8 @@ export default function PlayByPlayAnalysisScreen() {
                             <Table striped bordered hover className="table-sm">
                               <thead className="table-dark">
                                 <tr>
-                                  {/* remove session col */}
                                   <th>Title</th>
                                   <th>Play</th>
-                                  {/* <th>TimeStart</th>
-                                  <th>TimeEnd</th> */}
                                   <th>Half</th>
                                   <th>Duration (seconds)</th>
                                   <th>Numb Sprints</th>
@@ -507,10 +525,6 @@ export default function PlayByPlayAnalysisScreen() {
                                   <tr key={play._id}>
                                     <td>{play.title}</td>
                                     <td>{play.playNumber}</td>
-                                   
-                                    {/* <td>{play.timeStart}</td>
-                                    <td>{play.timeEnd}</td> */}
-                                    
                                     <td>{play.half}</td>
                                     <td>{play.duration}</td>
                                     <td>{play.numbsprints}</td>
