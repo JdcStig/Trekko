@@ -8,46 +8,42 @@ const SessionPlaysCharts = ({ sessionId }) => {
   const chartRef = useRef(null);
   const { data, isLoading, error } = useGetSessionCSVsQuery(sessionId);
 
-  // Get CSV player data and plays from the fetched data.
+  // 1) Extract the relevant arrays from the fetched data
   const playerDataArray = data?.sessionPlayerDataArray || [];
   const playsArray = data?.plays || [];
 
-  // Build dropdown options from plays data.
-  // The first option is "All" (represented by the string "All"),
-  // followed by each play's title.
+  // 2) Build dropdown options. The first option is “Overall” => 'All'
+  //    Then each play => label “Play X” and value is the numeric playNumber.
   const dropdownOptions = useMemo(() => {
-    const result = [{ label: 'All Plays', value: 'All' }];
+    const result = [{ label: 'Overall', value: 'All' }];
     playsArray.forEach((play) => {
       result.push({
-        label: play.title,
-        value: play.title, // or play.playNumber if you prefer numeric values
+        label: `Play ${play.playNumber}`, // e.g. "Play 1", "Play 2", ...
+        value: play.playNumber,           // numeric
       });
     });
     return result;
   }, [playsArray]);
 
-  // For plays, filterValue is 'All' or the play’s title.
+  // 3) filterValue is either 'All' or a numeric playNumber
   const [filterValue, setFilterValue] = useState('All');
 
-  // Gather all unique player names.
+  // 4) Gather all unique player names (for the show/hide checkboxes)
   const allPlayerNames = useMemo(() => {
     return Array.from(new Set(playerDataArray.map((p) => p.playerName)));
   }, [playerDataArray]);
 
-  // Control which players are visible.
+  // 5) Maintain which players are visible
   const [visiblePlayers, setVisiblePlayers] = useState({});
   useEffect(() => {
-    setVisiblePlayers((prev) => {
-      const updated = { ...prev };
-      allPlayerNames.forEach((name) => {
-        if (!(name in updated)) {
-          updated[name] = true;
-        }
-      });
-      return updated;
+    const newVisibility = {};
+    allPlayerNames.forEach((name) => {
+      newVisibility[name] = true; // default: all visible
     });
+    setVisiblePlayers(newVisibility);
   }, [allPlayerNames]);
 
+  // Toggle a single player’s visibility
   const togglePlayerVisibility = (playerName) => {
     setVisiblePlayers((prev) => ({
       ...prev,
@@ -55,57 +51,64 @@ const SessionPlaysCharts = ({ sessionId }) => {
     }));
   };
 
+  // 6) Loading and error states
   if (isLoading) return <p>Loading chart data...</p>;
   if (error) return <p>Error loading chart data.</p>;
 
-  // Prepare data arrays for each metric.
+  // 7) Prepare data arrays for each metric
   const distanceData = [['Player', 'Distance (km)']];
   const topSpeedData = [['Player', 'Top Speed (m/s)']];
   const hsrData = [['Player', 'High Speed Running (km)']];
   const sprintData = [['Player', 'Sprinting (km)']];
 
   /**
-   * Helper to extract metric value from each player's data.
-   * 
-   * We assume that:
-   *   - "filterValue === 'All'" => use overall metrics from sessionPlayerMetrics
-   *   - otherwise => use the array in playerItem.titleMetrics[filterValue]
-   *     (i.e. the metrics for the specific play title).
-   * 
-   * Adjust this logic if your data structure differs (e.g., if you store
-   * play metrics in a different property name).
+   * getMetricValue:
+   *  - If "Overall", read from sessionPlayerMetrics
+   *  - Otherwise, find the matching playNumber in playPlayerMetrics
    */
   const getMetricValue = (playerItem, metricName) => {
-    // If 'All', use overall metrics
+    // If user selected "Overall", read from sessionPlayerMetrics
     if (filterValue === 'All') {
-      const found = playerItem.sessionPlayerMetrics?.find(
+      const foundOverall = playerItem.sessionPlayerMetrics?.find(
         (m) => m.MetricName === metricName
       );
-      return found ? Number(found.Value) : NaN;
+      return foundOverall ? Number(foundOverall.Value) : NaN;
     }
 
-    // Otherwise, look up the metrics for the specific play
-    if (!playerItem.titleMetrics || !playerItem.titleMetrics[filterValue]) {
-      return NaN;
-    }
-    const metricsForPlay = playerItem.titleMetrics[filterValue];
-    if (!metricsForPlay) return NaN;
+    // Otherwise, filterValue is a numeric playNumber
+    const playNumber = filterValue;
+    const foundPlay = playerItem.playPlayerMetrics?.find(
+      (pm) => pm.PlayNumber === playNumber
+    );
+    if (!foundPlay) return NaN;
 
-    const foundMetric = metricsForPlay.find(
+    const foundMetric = foundPlay.PlayMetrics.find(
       (m) => m.MetricName === metricName
     );
     return foundMetric ? Number(foundMetric.Value) : NaN;
   };
 
-  // Populate chart data arrays for each player.
+  // 8) Populate chart data arrays for each player
   playerDataArray.forEach((player) => {
-    distanceData.push([player.playerName, getMetricValue(player, 'Distance')]);
-    topSpeedData.push([player.playerName, getMetricValue(player, 'TopSpeed')]);
-    hsrData.push([player.playerName, getMetricValue(player, 'HighSpeedRunning')]);
-    sprintData.push([player.playerName, getMetricValue(player, 'Sprinting')]);
+    distanceData.push([
+      player.playerName,
+      getMetricValue(player, 'Distance'),
+    ]);
+    topSpeedData.push([
+      player.playerName,
+      getMetricValue(player, 'TopSpeed'),
+    ]);
+    hsrData.push([
+      player.playerName,
+      getMetricValue(player, 'HighSpeedRunning'),
+    ]);
+    sprintData.push([
+      player.playerName,
+      getMetricValue(player, 'Sprinting'),
+    ]);
   });
 
-  // Filter out rows for players that are not visible or where the value is invalid.
+  // 9) Filter out players that are hidden or invalid data
   const filterChartData = (dataArray) => [
     dataArray[0], // header row
     ...dataArray.slice(1).filter(
@@ -121,7 +124,7 @@ const SessionPlaysCharts = ({ sessionId }) => {
   const filteredHSRData = filterChartData(hsrData);
   const filteredSprintData = filterChartData(sprintData);
 
-  // Basic chart configuration.
+  // 10) Basic chart configuration
   const baseOptions = {
     hAxis: { title: 'Player', slantedText: true, slantedTextAngle: 45 },
     vAxis: { title: '', minValue: 0 },
@@ -150,7 +153,7 @@ const SessionPlaysCharts = ({ sessionId }) => {
     vAxis: { title: 'Distance (km)', minValue: 0 },
   };
 
-  // PDF export for the currently displayed charts.
+  // 11) PDF export for the currently displayed charts
   const handleExportPDF = async () => {
     if (!chartRef.current) return;
     try {
@@ -176,19 +179,17 @@ const SessionPlaysCharts = ({ sessionId }) => {
     }
   };
 
-  // PDF export: Export charts for each play (excluding the "All" option).
+  // 12) PDF export for each play (excluding "Overall")
   const handleExportAllValuesPDF = async () => {
     try {
       const pdf = new jsPDF('p', 'pt', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      // Exclude the "All" option.
       const optionsToExport = dropdownOptions.filter((opt) => opt.value !== 'All');
 
       for (let i = 0; i < optionsToExport.length; i++) {
         setFilterValue(optionsToExport[i].value);
-        // Allow charts time to update.
+        // allow charts time to update
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         const canvas = await html2canvas(chartRef.current);
@@ -209,14 +210,14 @@ const SessionPlaysCharts = ({ sessionId }) => {
         pdf.addImage(imgData, 'PNG', 0, 50, newImgWidth, newImgHeight);
       }
       pdf.save('all_plays_charts.pdf');
-      // Reset filterValue to "All".
+      // Reset filterValue to 'All'
       setFilterValue('All');
     } catch (err) {
       console.error('Error exporting all values PDF:', err);
     }
   };
 
-  // Determine if there is any data for the current filter.
+  // 13) Determine if there is any data for the current filter
   const hasAnyData =
     filteredDistanceData.length > 1 ||
     filteredTopSpeedData.length > 1 ||
@@ -246,13 +247,16 @@ const SessionPlaysCharts = ({ sessionId }) => {
             </>
           )}
         </div>
+
+        {/* The dropdown to select Overall or a specific play */}
         <div>
           <label style={{ marginRight: '10px' }}>Select a Play:</label>
           <select
             value={filterValue}
             onChange={(e) => {
               const val = e.target.value;
-              setFilterValue(val);
+              // Convert string to number unless it's "All"
+              setFilterValue(val === 'All' ? 'All' : Number(val));
             }}
           >
             {dropdownOptions.map((option) => (
