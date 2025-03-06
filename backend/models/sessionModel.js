@@ -1,4 +1,3 @@
-// sessionModel.js
 import mongoose from 'mongoose';
 import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
@@ -7,7 +6,7 @@ const sessionSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User", // Reference to the users model
       required: true,
     },
     teamName: {
@@ -24,12 +23,12 @@ const sessionSchema = new mongoose.Schema(
     },
     number: {
       type: Number,
-      default: 0,
+      default: 0, // Default value 
       required: true,
     },
     type: {
       type: String,
-      enum: ['Training', 'Game'],
+      enum: ["Training", "Game"], // Dropdown values
       required: true,
     },
     duration: {
@@ -55,11 +54,11 @@ const sessionSchema = new mongoose.Schema(
         timeStart: { type: Number, required: true, default: 0 },
         timeEnd: { type: Number, required: true, default: 0 },
         duration: { type: Number, required: true, default: 0 },
-        avgDistance: { type: Number, required: true, default: 0 }, 
-        numSprint: { type: Number, required: true, default: 0 },  
+        avgDistance: { type: Number, required: true, default: 0 }, // Additional field
+        numSprint: { type: Number, required: true, default: 0 },   // Additional field
         half: { type: Number, required: true, default: 0 },
-        teamStartPossession: { type: String, required: true, default: 'Unknown' },
-        teamEndPossession: { type: String, required: true, default: 'Unknown' },
+        teamStartPossession: { type: String, required: true, default: "Unknown" },
+        teamEndPossession: { type: String, required: true, default: "Unknown" },
         turnovers: { type: Number, required: true, default: 0 },
         startAction: { type: String, required: true },
         endAction: { type: String, required: true },
@@ -67,15 +66,12 @@ const sessionSchema = new mongoose.Schema(
     ],
     notes: {
       type: String,
-      default: '',
+      default: "",
     },
     sessionPlayerData: [
       {
         csvId: { type: mongoose.Schema.Types.ObjectId, ref: 'SessionPlayerData' },
         playerName: { type: String },
-        // Add speeds here if that's where you store them:
-        // speeds: { type: [Number], default: [] },
-
         sessionPlayerMetrics: [
           {
             MetricName: { type: String, required: true },
@@ -117,28 +113,28 @@ const sessionSchema = new mongoose.Schema(
 
 /**
  * Pre-save hook:
- *   - Only run if either "plays" or "sessionPlayerData" has changed
- *   - For each player, call calculatePlayPlayerMetrics(speeds, plays)
- *   - Save the returned array to player.playPlayerMetrics
+ *   - Runs only if "plays" or "sessionPlayerData" has been modified.
+ *   - For each player, calls calculatePlayPlayerMetrics(speeds, plays) to generate play metrics.
+ *   - Optionally, recalculates avgDistance using calculateAverageDistance.
  */
-sessionSchema.pre('save', function (next) {
-  // Only run if plays or sessionPlayerData is modified
-  if (!this.isModified('plays') && !this.isModified('sessionPlayerData')) {
+sessionSchema.pre("save", function (next) {
+  // Only run if plays or sessionPlayerData are modified
+  if (!this.isModified("plays") && !this.isModified("sessionPlayerData")) {
     return next();
   }
 
-  // For each player, do your metrics calculation
+  // For each player, calculate play metrics
   this.sessionPlayerData.forEach((player) => {
-    // If you store speeds in player.speeds, do:
+    // If you store speeds in player.speeds, retrieve them; otherwise use an empty array
     const speeds = player.speeds || [];
     const metrics = calculatePlayPlayerMetrics(speeds, this.plays || []);
     player.playPlayerMetrics = metrics;
   });
 
-  // Optionally, recalc avgDistance or other metrics here:
+  // Optionally, recalc avgDistance or other overall metrics here:
   // this.avgDistance = calculateAverageDistance(this.sessionPlayerData);
 
   next();
 });
 
-export default mongoose.model('Session', sessionSchema);
+export default mongoose.model("Session", sessionSchema);

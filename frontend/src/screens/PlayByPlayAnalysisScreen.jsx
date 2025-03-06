@@ -31,7 +31,7 @@ import {
 import AddSessionModal from '../components/SessionManagement/AddSessionModal';
 import EditSessionModal from '../components/SessionManagement/EditSessionModal';
 import AddCSVModal from '../components/SessionManagement/AddCSVModal';
-import SessionCharts from '../components/SessionCharts'; // The same chart component as in SessionManagement
+import SessionPlaysCharts from '../components/SessionPlaysCharts';
 
 export default function PlayByPlayAnalysisScreen() {
   // 1) Fetch all sessions
@@ -191,7 +191,6 @@ export default function PlayByPlayAnalysisScreen() {
   const [filterStartAction, setFilterStartAction] = useState('All');
   const [filterEndAction, setFilterEndAction] = useState('All');
 
-  // Use consistent property names: "teamStartPossession" and "teamEndPossession"
   const filterPlays = (session) => {
     if (!session || !Array.isArray(session.plays)) return [];
     let plays = [...session.plays];
@@ -210,8 +209,7 @@ export default function PlayByPlayAnalysisScreen() {
     }
     if (filterStartAction !== 'All') {
       plays = plays.filter(
-        (p) =>
-          p.startAction?.toLowerCase() === filterStartAction.toLowerCase()
+        (p) => p.startAction?.toLowerCase() === filterStartAction.toLowerCase()
       );
     }
     if (filterEndAction !== 'All') {
@@ -222,7 +220,6 @@ export default function PlayByPlayAnalysisScreen() {
     return plays;
   };
 
-  // Also unify here: "teamStartPossession" and "teamEndPossession"
   function getUniqueValues(session, key) {
     if (!session || !Array.isArray(session.plays)) return [];
     return [...new Set(session.plays.map((p) => p[key]).filter(Boolean))];
@@ -250,15 +247,14 @@ export default function PlayByPlayAnalysisScreen() {
 
   return (
     <Container>
-      {/* Page heading and Add button */}
+      {/* Page heading */}
       <Row className="align-items-center my-4">
         <Col>
           <h2>Play By Play Analysis</h2>
         </Col>
-        
       </Row>
 
-      {/* Always show the search bar, even if no sessions found */}
+      {/* Search bar */}
       <Row className="mb-3">
         <Col md={4}>
           <Form.Group controlId="searchTerm">
@@ -276,51 +272,74 @@ export default function PlayByPlayAnalysisScreen() {
         </Col>
       </Row>
 
-      {/* If no sessions after filtering, show "No data found" but keep filters */}
+      {/* If no sessions after filtering */}
       {filteredSessions.length === 0 ? (
         <Alert variant="info">No data found.</Alert>
       ) : (
         <>
-          {/* Remove `responsive` to avoid horizontal scroll */}
           <Table striped bordered hover className="table-sm">
             <thead className="table-dark">
               <tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('teamName')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('teamName')}
+                >
                   Team{' '}
                   {sortConfig.key === 'teamName' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('sessionName')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('sessionName')}
+                >
                   Session Name{' '}
                   {sortConfig.key === 'sessionName' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('date')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('date')}
+                >
                   Date{' '}
                   {sortConfig.key === 'date' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('number')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('number')}
+                >
                   Number{' '}
                   {sortConfig.key === 'number' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('type')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('type')}
+                >
                   Type{' '}
                   {sortConfig.key === 'type' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('duration')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('duration')}
+                >
                   Duration{' '}
                   {sortConfig.key === 'duration' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('avgDistance')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('avgDistance')}
+                >
                   Avg Distance{' '}
                   {sortConfig.key === 'avgDistance' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('splits')}>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleSort('splits')}
+                >
                   Splits{' '}
                   {sortConfig.key === 'splits' &&
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
@@ -394,16 +413,8 @@ export default function PlayByPlayAnalysisScreen() {
                     </td>
                   </tr>
 
-                  {/* If chartSessionId === session._id, expand row with SessionCharts */}
-                  {chartSessionId === session._id && (
-                    <tr>
-                      <td colSpan={13}>
-                        <SessionCharts sessionId={session._id} />
-                      </td>
-                    </tr>
-                  )}
-
-                  {/* If playsSessionId === session._id, expand row with old plays table + filters */}
+                  {/* Plays first, then charts */}
+                  {/* If playsSessionId === session._id, expand row with plays table + filters */}
                   {playsSessionId === session._id && (
                     <tr>
                       <td colSpan={13}>
@@ -485,11 +496,8 @@ export default function PlayByPlayAnalysisScreen() {
                             <Table striped bordered hover className="table-sm">
                               <thead className="table-dark">
                                 <tr>
-                                  {/* remove session col */}
                                   <th>Title</th>
                                   <th>Play</th>
-                                  {/* <th>TimeStart</th>
-                                  <th>TimeEnd</th> */}
                                   <th>Half</th>
                                   <th>Duration (seconds)</th>
                                   <th>Numb Sprints</th>
@@ -499,7 +507,6 @@ export default function PlayByPlayAnalysisScreen() {
                                   <th>Turnovers</th>
                                   <th>Start Action</th>
                                   <th>End Action</th>
-                                  <th></th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -507,10 +514,6 @@ export default function PlayByPlayAnalysisScreen() {
                                   <tr key={play._id}>
                                     <td>{play.title}</td>
                                     <td>{play.playNumber}</td>
-                                   
-                                    {/* <td>{play.timeStart}</td>
-                                    <td>{play.timeEnd}</td> */}
-                                    
                                     <td>{play.half}</td>
                                     <td>{play.duration}</td>
                                     <td>{play.numbsprints}</td>
@@ -520,11 +523,6 @@ export default function PlayByPlayAnalysisScreen() {
                                     <td>{play.turnovers}</td>
                                     <td>{play.startAction}</td>
                                     <td>{play.endAction}</td>
-                                    <td>
-                                      <Button variant="light" className="btn-sm mx-2">
-                                        <FaChartLine />
-                                      </Button>
-                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -533,6 +531,15 @@ export default function PlayByPlayAnalysisScreen() {
                         ) : (
                           <Alert variant="info">No plays found for this session.</Alert>
                         )}
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* If chartSessionId === session._id, expand row with SessionPlaysCharts */}
+                  {chartSessionId === session._id && (
+                    <tr>
+                      <td colSpan={13}>
+                        <SessionPlaysCharts sessionId={session._id} />
                       </td>
                     </tr>
                   )}

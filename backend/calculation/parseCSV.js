@@ -1,5 +1,3 @@
-
-// parseCSV.js
 import asyncHandler from '../middleware/asyncHandler.js';
 import mongoose from 'mongoose';
 import csvParser from 'csv-parser';
