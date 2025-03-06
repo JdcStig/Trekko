@@ -7,16 +7,17 @@ import moment from 'moment';
 import PlayByPlayAnalysis from '../models/playByPlayAnalysisModel.js';
 import Session from '../models/sessionModel.js';
 import Team from '../models/teamModel.js';
+import SessionPlayerData from '../models/sessionPlayerDataModel.js'; // Used to fetch player data
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
-import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; // Import if needed
-import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js'; // New helper
+import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js';
+import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js';
 
-// ====================== Metrics Calculation Helpers ======================
-// (Not used directly here, but kept if needed elsewhere)
+// ====================== Optional Metrics Calculations Helper ======================
+// (This helper is used to calculate overall session metrics if needed)
 const metricsCalculations = {
-  Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000, // sum in km
+  Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000, // km
   TopSpeed: (values) => Math.max(...values),
   HighSpeedRunning: (values) =>
     (values.filter((v) => v > 5.5).reduce((acc, val) => acc + val, 0) / 10) / 1000,
@@ -25,13 +26,14 @@ const metricsCalculations = {
 };
 
 // ====================== parsePlayByPlayCSV ======================
-// This function:
-//  1) Parses CSV rows to build an array of play data.
-//  2) Inserts the parsed play data into the PlayByPlayAnalysis collection.
-//  3) Appends the new play data to the existing session.plays array.
-//  4) Immediately recalculates per-play metrics for each player in session.sessionPlayerData
-//     using calculatePlayPlayerMetrics(speeds, session.plays).
-//  5) Recalculates average distance and creates any missing players.
+// This function performs the following steps:
+// 1) Parses CSV rows to build an array of play data.
+// 2) Inserts the parsed data into the PlayByPlayAnalysis collection.
+// 3) Appends the new play data to the session.plays array.
+// 4) Immediately recalculates per-play metrics for each player by always
+//    fetching the latest SessionPlayerData from the database and mapping each
+//    document to a new object with updated metrics using calculatePlayPlayerMetrics.
+// 5) Recalculates average distance and creates any missing players.
 const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   console.log(`📌 [parsePlayByPlayCSV] Start for session=${sessionId} | user=${userId}`);
 
@@ -75,7 +77,7 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   const sessionStartDate = moment.unix(session.date).utc();
 
   // Build playData array from CSV rows.
-  // NOTE: Adjust the multiplication factor if your CSV times are in a different unit.
+  // Adjust the multiplication factor if your CSV times are in a different unit.
   const playData = rows.map((row, index) => {
     const startTime = parseFloat(row['StartTime']) * 24 || 0;
     const endTime = parseFloat(row['EndTime']) * 24 || 0;
@@ -112,21 +114,42 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
 
   // ------------------------------
   // Recalculate per-play metrics for each player.
-  if (session.sessionPlayerData && session.sessionPlayerData.length > 0) {
-    console.log('🔄 Recalculating play metrics for each player...');
-    session.sessionPlayerData.forEach((player) => {
-      // Ensure that player.speeds contains valid speed data.
-      const speeds = player.speeds || [];
-      console.log(`Player "${player.playerName}" speeds.length: ${speeds.length}`);
-      // Calculate per-play metrics using the helper.
-      const playMetrics = calculatePlayPlayerMetrics(speeds, session.plays || []);
-      player.playPlayerMetrics = playMetrics;
-    });
-    await session.save();
-    console.log('✅ Session saved with updated playPlayerMetrics for each player.');
-  } else {
-    console.log('⚠️ No sessionPlayerData found. Skipping play metrics recalculation.');
-  }
+  console.log('🔄 Recalculating play metrics for each player...');
+  // Always re-fetch the SessionPlayerData documents to update the metrics.
+  const playerDocs = await SessionPlayerData.find({ sessionId: session._id });
+  session.sessionPlayerData = playerDocs.map((doc) => {
+    const speeds = doc.speeds && doc.speeds.length ? doc.speeds : [0];
+    return {
+      csvId: doc._id,
+      playerName: doc.playerId,
+      sessionPlayerMetrics: [
+        {
+          MetricName: 'Distance',
+          Value: metricsCalculations.Distance(speeds),
+          Unit: 'km',
+        },
+        {
+          MetricName: 'TopSpeed',
+          Value: speeds.length ? Math.max(...speeds) : 0,
+          Unit: 'm/s',
+        },
+        {
+          MetricName: 'HighSpeedRunning',
+          Value: metricsCalculations.HighSpeedRunning(speeds),
+          Unit: 'km',
+        },
+        {
+          MetricName: 'Sprinting',
+          Value: metricsCalculations.Sprinting(speeds),
+          Unit: 'km',
+        },
+      ],
+      splitPlayerMetrics: calculateSplitPlayerMetrics(speeds, session.splits || []),
+      playPlayerMetrics: calculatePlayPlayerMetrics(speeds, session.plays || []),
+    };
+  });
+  await session.save();
+  console.log('✅ Session saved with recalculated playPlayerMetrics for each player.');
   // ------------------------------
 
   // Recalculate average distance for the session.
@@ -143,10 +166,13 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   return updatedSession;
 };
 
-export default parsePlayByPlayCSV;
+// Export the function once.
+export { parsePlayByPlayCSV };
 
-// ====================== POST /api/playByPlayAnalysiss/upload ======================
-// Route handler to upload and process a CSV file for a play-by-play analysis.
+
+// ====================== Endpoint Handlers ======================
+
+// POST /api/playByPlayAnalysiss/upload
 export const uploadPlayByPlayAnalysisCSV = asyncHandler(async (req, res) => {
   console.log('📌 Received CSV upload request for playByPlayAnalysis:', req.body.playByPlayAnalysisId);
   const { playByPlayAnalysisId } = req.body;
@@ -176,7 +202,7 @@ export const uploadPlayByPlayAnalysisCSV = asyncHandler(async (req, res) => {
   }
 });
 
-// ====================== POST /api/playByPlayAnalysiss (Create PlayByPlayAnalysis) ======================
+// POST /api/playByPlayAnalysiss (Create PlayByPlayAnalysis)
 export const registerPlayByPlayAnalysis = asyncHandler(async (req, res) => {
   const { timeStart, timeEnd, duration, teamStartPosession, teamEndPosession, turnovers, startAction, endAction } = req.body;
   const userId = req.user._id;
@@ -199,7 +225,7 @@ export const registerPlayByPlayAnalysis = asyncHandler(async (req, res) => {
   }
 });
 
-// ====================== GET /api/playByPlayAnalysiss (Get All PlayByPlayAnalysiss) ======================
+// GET /api/playByPlayAnalysiss (Get All PlayByPlayAnalysiss)
 export const getPlayByPlayAnalysiss = asyncHandler(async (req, res) => {
   const playByPlayAnalysiss = await PlayByPlayAnalysis.find({ userId: req.user._id });
   if (!playByPlayAnalysiss || playByPlayAnalysiss.length === 0) {
@@ -209,7 +235,7 @@ export const getPlayByPlayAnalysiss = asyncHandler(async (req, res) => {
   res.status(200).json(playByPlayAnalysiss);
 });
 
-// ====================== GET /api/playByPlayAnalysiss/:id (Get PlayByPlayAnalysis by ID) ======================
+// GET /api/playByPlayAnalysiss/:id (Get PlayByPlayAnalysis by ID)
 export const getPlayByPlayAnalysisByID = asyncHandler(async (req, res) => {
   const playByPlayAnalysis = await PlayByPlayAnalysis.findById(req.params.id);
   if (playByPlayAnalysis) {
@@ -220,7 +246,7 @@ export const getPlayByPlayAnalysisByID = asyncHandler(async (req, res) => {
   }
 });
 
-// ====================== DELETE /api/playByPlayAnalysiss/:id (Delete PlayByPlayAnalysis) ======================
+// DELETE /api/playByPlayAnalysiss/:id (Delete PlayByPlayAnalysis)
 export const deletePlayByPlayAnalysis = asyncHandler(async (req, res) => {
   const playByPlayAnalysis = await PlayByPlayAnalysis.findById(req.params.id);
   if (!playByPlayAnalysis) {
@@ -233,7 +259,7 @@ export const deletePlayByPlayAnalysis = asyncHandler(async (req, res) => {
   res.status(200).json({ message: 'PlayByPlayAnalysis deleted successfully' });
 });
 
-// ====================== PUT /api/playByPlayAnalysiss/:id (Update PlayByPlayAnalysis) ======================
+// PUT /api/playByPlayAnalysiss/:id (Update PlayByPlayAnalysis)
 export const updatePlayByPlayAnalysis = asyncHandler(async (req, res) => {
   const { teamName, playByPlayAnalysisName, date, type, duration, splits, notes } = req.body;
   const playByPlayAnalysis = await PlayByPlayAnalysis.findById(req.params.id);
@@ -299,7 +325,7 @@ export const updatePlayByPlayAnalysis = asyncHandler(async (req, res) => {
   res.status(200).json(updatedPlayByPlayAnalysis);
 });
 
-// ====================== DELETE /api/playByPlayAnalysiss/:id/csvs/all (Delete All CSV Data) ======================
+// DELETE /api/playByPlayAnalysiss/:id/csvs/all (Delete All CSV Data)
 export const deleteAllPlayByPlayAnalysisCSVs = asyncHandler(async (req, res) => {
   const playByPlayAnalysisId = req.params.id;
   if (!playByPlayAnalysisId) {
@@ -318,5 +344,3 @@ export const deleteAllPlayByPlayAnalysisCSVs = asyncHandler(async (req, res) => 
   }
   res.status(200).json({ message: 'All CSV data deleted', playByPlayAnalysis });
 });
-
-export { parsePlayByPlayCSV };
