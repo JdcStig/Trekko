@@ -18,8 +18,8 @@ const SessionPlaysCharts = ({ sessionId }) => {
     const result = [{ label: 'Overall', value: 'All' }];
     playsArray.forEach((play) => {
       result.push({
-        label: `Play ${play.playNumber}`, // e.g. "Play 1", "Play 2", ...
-        value: play.playNumber,           // numeric
+        label: `Play ${play.playNumber}`,
+        value: play.playNumber,
       });
     });
     return result;
@@ -90,14 +90,8 @@ const SessionPlaysCharts = ({ sessionId }) => {
 
   // 8) Populate chart data arrays for each player
   playerDataArray.forEach((player) => {
-    distanceData.push([
-      player.playerName,
-      getMetricValue(player, 'Distance'),
-    ]);
-    topSpeedData.push([
-      player.playerName,
-      getMetricValue(player, 'TopSpeed'),
-    ]);
+    distanceData.push([player.playerName, getMetricValue(player, 'Distance')]);
+    topSpeedData.push([player.playerName, getMetricValue(player, 'TopSpeed')]);
     hsrData.push([
       player.playerName,
       getMetricValue(player, 'HighSpeedRunning'),
@@ -124,33 +118,67 @@ const SessionPlaysCharts = ({ sessionId }) => {
   const filteredHSRData = filterChartData(hsrData);
   const filteredSprintData = filterChartData(sprintData);
 
-  // 10) Basic chart configuration
+  // 10) Base chart configuration:
+  //     - Force the chart to start at 0 (no negative axis)
+  //     - Auto-scale the top end
+  //     - Increase left margin to avoid truncating labels
+  //     - Use a custom number format so short decimals don't get ellipses
   const baseOptions = {
-    hAxis: { title: 'Player', slantedText: true, slantedTextAngle: 45 },
-    vAxis: { title: '', minValue: 0 },
-    chartArea: { left: 50, top: 50, bottom: 100, right: 20 },
+    hAxis: {
+      title: 'Player',
+      slantedText: true,
+      slantedTextAngle: 45,
+      textStyle: { fontSize: 12 },
+    },
+    vAxis: {
+      viewWindowMode: 'explicit',
+      viewWindow: { min: 0 },
+      format: '0.###', // up to 3 decimals
+      textStyle: { fontSize: 12 },
+      titleTextStyle: { fontSize: 12 },
+    },
+    chartArea: {
+      left: 80,
+      top: 50,
+      bottom: 100,
+      right: 20,
+      // width: '80%', // optional if you want to further adjust
+    },
     legend: { position: 'none' },
   };
 
+  // Specialized chart options for each metric
   const distanceOptions = {
     ...baseOptions,
     title: 'Distance',
-    vAxis: { title: 'Distance (km)', minValue: 0 },
+    vAxis: {
+      ...baseOptions.vAxis,
+      title: 'Distance (km)',
+    },
   };
   const topSpeedOptions = {
     ...baseOptions,
     title: 'Top Speed',
-    vAxis: { title: 'Speed (m/s)', minValue: 0 },
+    vAxis: {
+      ...baseOptions.vAxis,
+      title: 'Speed (m/s)',
+    },
   };
   const hsrOptions = {
     ...baseOptions,
     title: 'High Speed Running',
-    vAxis: { title: 'Distance (km)', minValue: 0 },
+    vAxis: {
+      ...baseOptions.vAxis,
+      title: 'Distance (km)',
+    },
   };
   const sprintOptions = {
     ...baseOptions,
     title: 'Sprinting',
-    vAxis: { title: 'Distance (km)', minValue: 0 },
+    vAxis: {
+      ...baseOptions.vAxis,
+      title: 'Distance (km)',
+    },
   };
 
   // 11) PDF export for the currently displayed charts
@@ -255,7 +283,6 @@ const SessionPlaysCharts = ({ sessionId }) => {
             value={filterValue}
             onChange={(e) => {
               const val = e.target.value;
-              // Convert string to number unless it's "All"
               setFilterValue(val === 'All' ? 'All' : Number(val));
             }}
           >
