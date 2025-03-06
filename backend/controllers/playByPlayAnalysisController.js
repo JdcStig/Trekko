@@ -6,6 +6,9 @@ import moment from 'moment';
 
 import PlayByPlayAnalysis from '../models/playByPlayAnalysisModel.js';
 import Session from '../models/sessionModel.js';
+import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js'; 
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+
 import Team from '../models/teamModel.js';
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
@@ -106,6 +109,40 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     ...play,
   }));
   session.plays = existingPlays.concat(newPlays);
+
+  //  Calculates playPlayerMetrics after plays are added
+  console.log(`🔄 [parsePlayByPlayCSV] Retrieving speeds from sessionPlayerDatas...`);
+  const sessionPlayerData = await SessionPlayerData.find({ sessionId });
+  
+
+  // Ensures it has speeds
+  if (!sessionPlayerData || sessionPlayerData.length === 0) {
+      console.warn("⚠️ No sessionPlayerData found! playPlayerMetrics will not be calculated.");
+  }
+
+  // Extracts speeds for all players
+  console.log("✅ [parsePlayByPlayCSV] Retrieved sessionPlayerData:", JSON.stringify(sessionPlayerData, null, 2));
+  const speeds = sessionPlayerData.flatMap(player => player.speeds || []);
+  console.log("✅ [parsePlayByPlayCSV] Extracted Speeds:", speeds);
+
+  //  Computes playPlayerMetrics
+  console.log(`🔄 [parsePlayByPlayCSV] Calculating playPlayerMetrics...`);
+  console.log("✅ Extracted Speeds for PlayPlayerMetrics:", JSON.stringify(speeds, null, 2));
+  const playMetricsResults = calculatePlayPlayerMetrics(speeds, session.plays || []);
+
+  console.log("✅ [parsePlayByPlayCSV] Computed Play Metrics:", JSON.stringify(playMetricsResults, null, 2));
+
+  // ✅ Ensures avgDistance and numSprint are properly assigned to plays
+  session.plays = session.plays.map((play) => {
+      const playMetrics = playMetricsResults.find(m => m.PlayNumber === play.playNumber);
+      return {
+          ...play,
+          avgDistance: playMetrics ? playMetrics.AvgDistance : 0,
+          numSprint: playMetrics ? playMetrics.NumSprint : 0,
+      };
+  });
+
+  console.log("✅ [parsePlayByPlayCSV] Updated plays with avgDistance and numSprint.");
 
   await session.save();
   console.log(`✅ Updated session with ${session.plays.length} plays.`);
