@@ -55,6 +55,8 @@ const sessionSchema = new mongoose.Schema(
         timeStart: { type: Number, required: true, default: 0 },
         timeEnd: { type: Number, required: true, default: 0 },
         duration: { type: Number, required: true, default: 0 },
+        avgDistance: { type: Number, required: true, default: 0 }, 
+        numSprint: { type: Number, required: true, default: 0 },  
         half: { type: Number, required: true, default: 0 },
         teamStartPossession: { type: String, required: true, default: 'Unknown' },
         teamEndPossession: { type: String, required: true, default: 'Unknown' },

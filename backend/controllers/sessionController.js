@@ -159,13 +159,45 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       session.splits || []
     );
 
+    console.log(`\n[parseCSV] Calculating play metrics for sessionId="${session._id}"`);
+    const playMetricsResults = calculatePlayPlayerMetrics(speeds, session.plays || []);
+
+    // ✅ Log the computed playPlayerMetrics to verify output
+console.log("📊 [parseCSV] Computed Play Metrics Results:", JSON.stringify(playMetricsResults, null, 2));
+
+    // Assign avgDistance and numSprint to the plays array
+    session.plays = session.plays.map((play) => {
+      const playMetrics = playMetricsResults.find(m => m.PlayNumber === play.playNumber);
+
+  console.log(`🔹 [parseCSV] Updating Play #${play.playNumber}`);
+    console.log(`   - Found Metrics? ${!!playMetrics}`);
+    if (playMetrics) {
+        console.log(`   - Total Distance: ${playMetrics.TotalDistance} km`);
+        console.log(`   - Top Speed: ${playMetrics.TopSpeed} m/s`);
+        console.log(`   - Duration: ${play.duration} seconds`);
+    }
+
+    return {
+      ...play,
+      avgDistance: playMetrics ? playMetrics.AvgDistance : 0,
+      numSprint: playMetrics ? playMetrics.NumSprint : 0,
+  };
+});
+
+console.log("✅ [parseCSV] Updated Session Plays:", JSON.stringify(session.plays, null, 2));
+
     session.sessionPlayerData.push({
       csvId: doc._id,
       playerName: doc.playerId,
       sessionPlayerMetrics,
       splitPlayerMetrics,
+      playPlayerMetrics: playMetricsResults,
     });
   }
+
+  // ✅ Log sessionPlayerData update
+console.log("✅ [parseCSV] Updated Session Player Data:", JSON.stringify(session.sessionPlayerData, null, 2));
+
   await session.save();
   console.log("✅ [parseCSV] Session updated with CSV metrics.");
 
