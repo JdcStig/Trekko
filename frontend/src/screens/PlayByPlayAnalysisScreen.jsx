@@ -496,7 +496,7 @@ export default function PlayByPlayAnalysisScreen() {
                               </Col>
                             </Row>
 
-                            {/* Old plays table */}
+                            {/* Plays table */}
                             <Table striped bordered hover className="table-sm">
                               <thead className="table-dark">
                                 <tr>
@@ -504,8 +504,8 @@ export default function PlayByPlayAnalysisScreen() {
                                   <th>Play</th>
                                   <th>Half</th>
                                   <th>Duration (seconds)</th>
-                                  <th>Numb Sprints</th>
-                                  <th>Avg Distance</th>
+                                  <th>Num Sprints</th>
+                                  <th>Avg Distance (KM)</th>
                                   <th>Team Start Possession</th>
                                   <th>Team End Possession</th>
                                   <th>Turnovers</th>
@@ -520,8 +520,12 @@ export default function PlayByPlayAnalysisScreen() {
                                     <td>{play.playNumber}</td>
                                     <td>{play.half}</td>
                                     <td>{play.duration}</td>
-                                    <td>{play.numbsprints}</td>
-                                    <td>{play.avgdistance}</td>
+                                    <td>{play.numSprint}</td>
+                                    <td>
+                                      {play.avgDistance
+                                        ? play.avgDistance.toFixed(2)
+                                        : 0}
+                                    </td>
                                     <td>{play.teamStartPossession}</td>
                                     <td>{play.teamEndPossession}</td>
                                     <td>{play.turnovers}</td>
@@ -543,6 +547,7 @@ export default function PlayByPlayAnalysisScreen() {
                   {chartSessionId === session._id && (
                     <tr>
                       <td colSpan={14}>
+                        {/* Pass the session.plays array to the chart */}
                         <SessionPlaysCharts
                           sessionId={session._id}
                           sessionName={session.sessionName}

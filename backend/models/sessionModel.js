@@ -1,6 +1,4 @@
-import mongoose from 'mongoose';
-import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js';
-import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
+import mongoose from "mongoose";
 
 const sessionSchema = new mongoose.Schema(
   {
@@ -70,7 +68,7 @@ const sessionSchema = new mongoose.Schema(
     },
     sessionPlayerData: [
       {
-        csvId: { type: mongoose.Schema.Types.ObjectId, ref: 'SessionPlayerData' },
+        csvId: { type: mongoose.Schema.Types.ObjectId, ref: "SessionPlayerData" },
         playerName: { type: String },
         sessionPlayerMetrics: [
           {
@@ -110,31 +108,5 @@ const sessionSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
-/**
- * Pre-save hook:
- *   - Runs only if "plays" or "sessionPlayerData" has been modified.
- *   - For each player, calls calculatePlayPlayerMetrics(speeds, plays) to generate play metrics.
- *   - Optionally, recalculates avgDistance using calculateAverageDistance.
- */
-sessionSchema.pre("save", function (next) {
-  // Only run if plays or sessionPlayerData are modified
-  if (!this.isModified("plays") && !this.isModified("sessionPlayerData")) {
-    return next();
-  }
-
-  // For each player, calculate play metrics
-  this.sessionPlayerData.forEach((player) => {
-    // If you store speeds in player.speeds, retrieve them; otherwise use an empty array
-    const speeds = player.speeds || [];
-    const metrics = calculatePlayPlayerMetrics(speeds, this.plays || []);
-    player.playPlayerMetrics = metrics;
-  });
-
-  // Optionally, recalc avgDistance or other overall metrics here:
-  // this.avgDistance = calculateAverageDistance(this.sessionPlayerData);
-
-  next();
-});
 
 export default mongoose.model("Session", sessionSchema);
