@@ -30,6 +30,7 @@ import AddSessionModal from '../components/SessionManagement/AddSessionModal';
 import EditSessionModal from '../components/SessionManagement/EditSessionModal';
 import AddCSVModal from '../components/SessionManagement/AddCSVModal';
 import SessionPlaysCharts from '../components/SessionPlaysCharts';
+import ExportCSVButton from '../components/ExportCSVButton';
 
 export default function PlayByPlayAnalysisScreen() {
   // 1) Fetch all sessions
@@ -343,11 +344,13 @@ export default function PlayByPlayAnalysisScreen() {
                     (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                 </th>
                 <th>Notes</th>
-                {/* Edit, Delete, Chart, Plays */}
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
+                {/* Action columns */}
+                <th>Edit</th>
+                <th>Delete</th>
+                <th>Chart</th>
+                <th>Plays</th>
+                {/* NEW: Export CSV */}
+                <th>Export CSV</th>
               </tr>
             </thead>
             <tbody>
@@ -409,12 +412,16 @@ export default function PlayByPlayAnalysisScreen() {
                         <FaListUl />
                       </Button>
                     </td>
+                    {/* Export CSV button */}
+                    <td>
+                      <ExportCSVButton session={session} />
+                    </td>
                   </tr>
 
                   {/* Plays row */}
                   {playsSessionId === session._id && (
                     <tr>
-                      <td colSpan={13}>
+                      <td colSpan={14}>
                         {/* Plays filters */}
                         {Array.isArray(session.plays) && session.plays.length > 0 ? (
                           <>
@@ -535,7 +542,7 @@ export default function PlayByPlayAnalysisScreen() {
                   {/* Charts row */}
                   {chartSessionId === session._id && (
                     <tr>
-                      <td colSpan={13}>
+                      <td colSpan={14}>
                         <SessionPlaysCharts
                           sessionId={session._id}
                           sessionName={session.sessionName}
