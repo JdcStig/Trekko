@@ -193,7 +193,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
             </Form.Control>
           </Form.Group>
 
-          {/* CSV File Input (only shown if type is "Game") */}
+          {/* CSV File Input (only shown if type is "Game")
           {type === 'Game' && (
             <Form.Group controlId="csvFiles" className="mb-3">
               <Form.Label>Attach CSV File(s)</Form.Label>
@@ -204,7 +204,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
                 onChange={(e) => setCsvFiles(e.target.files)}
               />
             </Form.Group>
-          )}
+          )} */}
 
           {/* Duration */}
           <Form.Group controlId="duration" className="mb-3">
