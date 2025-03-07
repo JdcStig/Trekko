@@ -4,16 +4,27 @@ import { useGetSessionCSVsQuery } from '../slices/sessionsApiSlice';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
-const SessionPlaysCharts = ({ sessionId }) => {
+const SessionPlaysCharts = ({
+  sessionId,
+  sessionName,   // from parent
+  sessionDate,    // from parent
+  sessionType,    // from parent
+  teamName,       // from parent
+}) => {
   const chartRef = useRef(null);
-  const { data, isLoading, error } = useGetSessionCSVsQuery(sessionId);
 
-  // 1) Extract the relevant arrays from the fetched data
+  // For the "live" single-play or overall chart
+  const [filterValue, setFilterValue] = useState('All');
+
+  // For show/hide of the big hidden container
+  const allChartsRef = useRef(null);
+  const [showAllCharts, setShowAllCharts] = useState(false);
+
+  const { data, isLoading, error } = useGetSessionCSVsQuery(sessionId);
   const playerDataArray = data?.sessionPlayerDataArray || [];
   const playsArray = data?.plays || [];
 
-  // 2) Build dropdown options. The first option is “Overall” => 'All'
-  //    Then each play => label “Play X” and value is the numeric playNumber.
+  // Build dropdown for the "live" chart
   const dropdownOptions = useMemo(() => {
     const result = [{ label: 'Overall', value: 'All' }];
     playsArray.forEach((play) => {
@@ -25,89 +36,66 @@ const SessionPlaysCharts = ({ sessionId }) => {
     return result;
   }, [playsArray]);
 
-  // 3) filterValue is either 'All' or a numeric playNumber
-  const [filterValue, setFilterValue] = useState('All');
-
-  // 4) Gather all unique player names (for the show/hide checkboxes)
+  // Collect all player names for checkboxes
   const allPlayerNames = useMemo(() => {
     return Array.from(new Set(playerDataArray.map((p) => p.playerName)));
   }, [playerDataArray]);
-
-  // 5) Maintain which players are visible
   const [visiblePlayers, setVisiblePlayers] = useState({});
+
   useEffect(() => {
+    // On mount or when allPlayerNames changes, default all to visible
     const newVisibility = {};
     allPlayerNames.forEach((name) => {
-      newVisibility[name] = true; // default: all visible
+      newVisibility[name] = true;
     });
     setVisiblePlayers(newVisibility);
   }, [allPlayerNames]);
 
-  // Toggle a single player’s visibility
-  const togglePlayerVisibility = (playerName) => {
-    setVisiblePlayers((prev) => ({
-      ...prev,
-      [playerName]: !prev[playerName],
-    }));
-  };
-
-  // 6) Loading and error states
+  // Basic loading / error
   if (isLoading) return <p>Loading chart data...</p>;
   if (error) return <p>Error loading chart data.</p>;
 
-  // 7) Prepare data arrays for each metric
+  // === The "live" chart for filterValue ===
   const distanceData = [['Player', 'Distance (km)']];
   const topSpeedData = [['Player', 'Top Speed (m/s)']];
   const hsrData = [['Player', 'High Speed Running (km)']];
   const sprintData = [['Player', 'Sprinting (km)']];
 
-  /**
-   * getMetricValue:
-   *  - If "Overall", read from sessionPlayerMetrics
-   *  - Otherwise, find the matching playNumber in playPlayerMetrics
-   */
+  // Get a single metric for the "live" chart
   const getMetricValue = (playerItem, metricName) => {
-    // If user selected "Overall", read from sessionPlayerMetrics
     if (filterValue === 'All') {
+      // overall
       const foundOverall = playerItem.sessionPlayerMetrics?.find(
         (m) => m.MetricName === metricName
       );
       return foundOverall ? Number(foundOverall.Value) : NaN;
+    } else {
+      // numeric play
+      const foundPlay = playerItem.playPlayerMetrics?.find(
+        (pm) => pm.PlayNumber === filterValue
+      );
+      if (!foundPlay) return NaN;
+      const foundMetric = foundPlay.PlayMetrics.find(
+        (m) => m.MetricName === metricName
+      );
+      return foundMetric ? Number(foundMetric.Value) : NaN;
     }
-
-    // Otherwise, filterValue is a numeric playNumber
-    const playNumber = filterValue;
-    const foundPlay = playerItem.playPlayerMetrics?.find(
-      (pm) => pm.PlayNumber === playNumber
-    );
-    if (!foundPlay) return NaN;
-
-    const foundMetric = foundPlay.PlayMetrics.find(
-      (m) => m.MetricName === metricName
-    );
-    return foundMetric ? Number(foundMetric.Value) : NaN;
   };
 
-  // 8) Populate chart data arrays for each player
+  // Populate "live" chart data
   playerDataArray.forEach((player) => {
     distanceData.push([player.playerName, getMetricValue(player, 'Distance')]);
     topSpeedData.push([player.playerName, getMetricValue(player, 'TopSpeed')]);
-    hsrData.push([
-      player.playerName,
-      getMetricValue(player, 'HighSpeedRunning'),
-    ]);
-    sprintData.push([
-      player.playerName,
-      getMetricValue(player, 'Sprinting'),
-    ]);
+    hsrData.push([player.playerName, getMetricValue(player, 'HighSpeedRunning')]);
+    sprintData.push([player.playerName, getMetricValue(player, 'Sprinting')]);
   });
 
-  // 9) Filter out players that are hidden or invalid data
-  const filterChartData = (dataArray) => [
-    dataArray[0], // header row
-    ...dataArray.slice(1).filter(
+  // Filter out hidden players or NaN rows
+  const filterChartData = (arr) => [
+    arr[0],
+    ...arr.slice(1).filter(
       (row) =>
-        visiblePlayers[row[0]] === true &&
+        visiblePlayers[row[0]] &&
         typeof row[1] === 'number' &&
         !isNaN(row[1])
     ),
@@ -118,81 +106,37 @@ const SessionPlaysCharts = ({ sessionId }) => {
   const filteredHSRData = filterChartData(hsrData);
   const filteredSprintData = filterChartData(sprintData);
 
-  // 10) Base chart configuration:
-  //     - Force the chart to start at 0 (no negative axis)
-  //     - Auto-scale the top end
-  //     - Increase left margin to avoid truncating labels
-  //     - Use a custom number format so short decimals don't get ellipses
   const baseOptions = {
     hAxis: {
-      title: 'Player',
+      title: '',
       slantedText: true,
       slantedTextAngle: 45,
-      textStyle: { fontSize: 12 },
     },
     vAxis: {
       viewWindowMode: 'explicit',
       viewWindow: { min: 0 },
-      format: '0.###', // up to 3 decimals
-      textStyle: { fontSize: 12 },
-      titleTextStyle: { fontSize: 12 },
+      format: '0.###',
     },
-    chartArea: {
-      left: 80,
-      top: 50,
-      bottom: 100,
-      right: 20,
-      // width: '80%', // optional if you want to further adjust
-    },
+    chartArea: { left: 80, top: 50, bottom: 100, right: 20 },
     legend: { position: 'none' },
   };
 
-  // Specialized chart options for each metric
-  const distanceOptions = {
-    ...baseOptions,
-    title: 'Distance',
-    vAxis: {
-      ...baseOptions.vAxis,
-      title: 'Distance (km)',
-    },
-  };
-  const topSpeedOptions = {
-    ...baseOptions,
-    title: 'Top Speed',
-    vAxis: {
-      ...baseOptions.vAxis,
-      title: 'Speed (m/s)',
-    },
-  };
-  const hsrOptions = {
-    ...baseOptions,
-    title: 'High Speed Running',
-    vAxis: {
-      ...baseOptions.vAxis,
-      title: 'Distance (km)',
-    },
-  };
-  const sprintOptions = {
-    ...baseOptions,
-    title: 'Sprinting',
-    vAxis: {
-      ...baseOptions.vAxis,
-      title: 'Distance (km)',
-    },
-  };
+  const distanceOptions = { ...baseOptions, title: 'Distance (km)' };
+  const topSpeedOptions = { ...baseOptions, title: 'Top Speed (m/s)' };
+  const hsrOptions = { ...baseOptions, title: 'High Speed Running (km)' };
+  const sprintOptions = { ...baseOptions, title: 'Sprinting (km)' };
 
-  // 11) PDF export for the currently displayed charts
+  // Export "live" chart to PDF
   const handleExportPDF = async () => {
-    if (!chartRef.current) return;
     try {
+      if (!chartRef.current) return;
       const canvas = await html2canvas(chartRef.current);
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'pt', 'a4');
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = imgWidth / imgHeight;
+      const ratio = canvas.width / canvas.height;
 
       let newImgWidth = pdfWidth;
       let newImgHeight = pdfWidth / ratio;
@@ -203,28 +147,27 @@ const SessionPlaysCharts = ({ sessionId }) => {
       pdf.addImage(imgData, 'PNG', 0, 0, newImgWidth, newImgHeight);
       pdf.save('charts.pdf');
     } catch (err) {
-      console.error('Error exporting PDF:', err);
+      console.error('Export PDF error:', err);
     }
   };
 
-  // 12) PDF export for each play (excluding "Overall")
+  // Export all plays (cover sheet, table, 4 charts per play)
   const handleExportAllValuesPDF = async () => {
     try {
+      setShowAllCharts(true);
+      // Wait for the hidden container to render
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       const pdf = new jsPDF('p', 'pt', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const optionsToExport = dropdownOptions.filter((opt) => opt.value !== 'All');
 
-      for (let i = 0; i < optionsToExport.length; i++) {
-        setFilterValue(optionsToExport[i].value);
-        // allow charts time to update
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        const canvas = await html2canvas(chartRef.current);
+      const chartWrappers = allChartsRef.current.querySelectorAll('.chart-wrapper');
+      for (let i = 0; i < chartWrappers.length; i++) {
+        const canvas = await html2canvas(chartWrappers[i]);
         const imgData = canvas.toDataURL('image/png');
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = imgWidth / imgHeight;
+
+        const ratio = canvas.width / canvas.height;
         let newImgWidth = pdfWidth;
         let newImgHeight = pdfWidth / ratio;
         if (newImgHeight > pdfHeight) {
@@ -234,18 +177,17 @@ const SessionPlaysCharts = ({ sessionId }) => {
         if (i > 0) {
           pdf.addPage();
         }
-        pdf.text(`Charts for Play: ${optionsToExport[i].label}`, 40, 40);
-        pdf.addImage(imgData, 'PNG', 0, 50, newImgWidth, newImgHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, newImgWidth, newImgHeight);
       }
+
       pdf.save('all_plays_charts.pdf');
-      // Reset filterValue to 'All'
-      setFilterValue('All');
     } catch (err) {
-      console.error('Error exporting all values PDF:', err);
+      console.error('Export All PDF error:', err);
+    } finally {
+      setShowAllCharts(false);
     }
   };
 
-  // 13) Determine if there is any data for the current filter
   const hasAnyData =
     filteredDistanceData.length > 1 ||
     filteredTopSpeedData.length > 1 ||
@@ -254,31 +196,26 @@ const SessionPlaysCharts = ({ sessionId }) => {
 
   return (
     <div>
-      {/* Top bar: PDF export buttons and dropdown for plays */}
-      <div
-        className="charts-top-bar"
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-      >
-        <div>
-          {hasAnyData && (
-            <>
-              <button className="btn btn-success" onClick={handleExportPDF}>
-                Export Current Charts to PDF
-              </button>
-              <button
-                className="btn btn-warning"
-                onClick={handleExportAllValuesPDF}
-                style={{ marginLeft: '10px' }}
-              >
-                Export All Plays Charts to PDF
-              </button>
-            </>
-          )}
-        </div>
+      {/* Buttons */}
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        {hasAnyData && (
+          <div>
+            <button onClick={handleExportPDF} className="btn btn-success">
+              Export Current Charts to PDF
+            </button>
+            <button
+              onClick={handleExportAllValuesPDF}
+              className="btn btn-warning"
+              style={{ marginLeft: '10px' }}
+            >
+              Export All Plays Charts to PDF
+            </button>
+          </div>
+        )}
 
-        {/* The dropdown to select Overall or a specific play */}
+        {/* "Live" dropdown */}
         <div>
-          <label style={{ marginRight: '10px' }}>Select a Play:</label>
+          <label>Select a Play: </label>
           <select
             value={filterValue}
             onChange={(e) => {
@@ -286,32 +223,37 @@ const SessionPlaysCharts = ({ sessionId }) => {
               setFilterValue(val === 'All' ? 'All' : Number(val));
             }}
           >
-            {dropdownOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {dropdownOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Player visibility checkboxes */}
-      <div className="player-checkbox-container" style={{ marginTop: '1rem' }}>
+      {/* "Live" player checkboxes */}
+      <div style={{ marginTop: '1rem' }}>
         {allPlayerNames.map((name) => (
-          <label key={name} style={{ marginRight: '1rem', display: 'inline-block' }}>
+          <label key={name} style={{ marginRight: '1rem' }}>
             <input
               type="checkbox"
               checked={visiblePlayers[name] || false}
-              onChange={() => togglePlayerVisibility(name)}
+              onChange={() => {
+                setVisiblePlayers((prev) => ({
+                  ...prev,
+                  [name]: !prev[name],
+                }));
+              }}
             />
             {name}
           </label>
         ))}
       </div>
 
-      {/* Chart container */}
-      <div className="chart-container" ref={chartRef} style={{ marginTop: '2rem' }}>
-        {/* Distance Chart */}
+      {/* "Live" chart container */}
+      <div ref={chartRef} style={{ marginTop: '2rem' }}>
+        {/* Distance */}
         {filteredDistanceData.length > 1 ? (
           <div className="chart-wrapper" style={{ marginBottom: '2rem' }}>
             <Chart
@@ -323,10 +265,10 @@ const SessionPlaysCharts = ({ sessionId }) => {
             />
           </div>
         ) : (
-          <div className="no-data">No distance data available</div>
+          <div>No distance data available</div>
         )}
 
-        {/* Top Speed Chart */}
+        {/* Top Speed */}
         {filteredTopSpeedData.length > 1 ? (
           <div className="chart-wrapper" style={{ marginBottom: '2rem' }}>
             <Chart
@@ -338,10 +280,10 @@ const SessionPlaysCharts = ({ sessionId }) => {
             />
           </div>
         ) : (
-          <div className="no-data">No top speed data available</div>
+          <div>No top speed data available</div>
         )}
 
-        {/* High Speed Running Chart */}
+        {/* HSR */}
         {filteredHSRData.length > 1 ? (
           <div className="chart-wrapper" style={{ marginBottom: '2rem' }}>
             <Chart
@@ -353,10 +295,10 @@ const SessionPlaysCharts = ({ sessionId }) => {
             />
           </div>
         ) : (
-          <div className="no-data">No high speed running data available</div>
+          <div>No HSR data available</div>
         )}
 
-        {/* Sprinting Chart */}
+        {/* Sprinting */}
         {filteredSprintData.length > 1 ? (
           <div className="chart-wrapper" style={{ marginBottom: '2rem' }}>
             <Chart
@@ -368,8 +310,179 @@ const SessionPlaysCharts = ({ sessionId }) => {
             />
           </div>
         ) : (
-          <div className="no-data">No sprinting data available</div>
+          <div>No sprinting data available</div>
         )}
+      </div>
+
+      {/* Hidden container for "Export All" */}
+      <div
+        ref={allChartsRef}
+        style={{
+          display: showAllCharts ? 'block' : 'none',
+          position: 'absolute',
+          left: '-99999px',
+          top: 0,
+        }}
+      >
+        {/* COVER SHEET */}
+        <div
+          className="chart-wrapper"
+          style={{ marginBottom: '2rem', textAlign: 'center', padding: '100px 0' }}
+        >
+          <h1>{sessionName || 'Session'}</h1>
+          <h2>{teamName || 'Team'}</h2>
+          <h2>
+            Date: {sessionDate ? new Date(sessionDate).toLocaleDateString() : 'N/A'}
+          </h2>
+          <h2>Type: {sessionType || 'N/A'}</h2>
+          <h2 style={{ marginTop: '2rem' }}>
+  
+          </h2>
+        </div>
+
+        {/* Table of all plays */}
+        <div className="chart-wrapper" style={{ marginBottom: '2rem' }}>
+          <h3>All Plays</h3>
+          <table className="table table-striped table-bordered">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Play</th>
+                <th>Half</th>
+                <th>Duration (s)</th>
+                <th>Numb Sprints</th>
+                <th>Avg Distance</th>
+                <th>Team Start Possession</th>
+                <th>Team End Possession</th>
+                <th>Turnovers</th>
+                <th>Start Action</th>
+                <th>End Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {playsArray.map((p) => (
+                <tr key={p._id}>
+                  <td>{p.title}</td>
+                  <td>{p.playNumber}</td>
+                  <td>{p.half}</td>
+                  <td>{p.duration}</td>
+                  <td>{p.numbsprints}</td>
+                  <td>{p.avgdistance}</td>
+                  <td>{p.teamStartPossession}</td>
+                  <td>{p.teamEndPossession}</td>
+                  <td>{p.turnovers}</td>
+                  <td>{p.startAction}</td>
+                  <td>{p.endAction}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 4 charts per play */}
+        {playsArray.map((play) => {
+          const distanceData = [['Player', 'Distance (km)']];
+          const topSpeedData = [['Player', 'Top Speed (m/s)']];
+          const hsrData = [['Player', 'High Speed Running (km)']];
+          const sprintData = [['Player', 'Sprinting (km)']];
+
+          // Metric for a single player in this play
+          const getPlayMetric = (player, metricName) => {
+            const foundPlay = player.playPlayerMetrics?.find(
+              (pm) => pm.PlayNumber === play.playNumber
+            );
+            if (!foundPlay) return NaN;
+            const foundMetric = foundPlay.PlayMetrics.find(
+              (m) => m.MetricName === metricName
+            );
+            return foundMetric ? Number(foundMetric.Value) : NaN;
+          };
+
+          // Populate
+          playerDataArray.forEach((pl) => {
+            distanceData.push([pl.playerName, getPlayMetric(pl, 'Distance')]);
+            topSpeedData.push([pl.playerName, getPlayMetric(pl, 'TopSpeed')]);
+            hsrData.push([pl.playerName, getPlayMetric(pl, 'HighSpeedRunning')]);
+            sprintData.push([pl.playerName, getPlayMetric(pl, 'Sprinting')]);
+          });
+
+          const filterData = (arr) => [
+            arr[0],
+            ...arr.slice(1).filter((r) => typeof r[1] === 'number' && !isNaN(r[1])),
+          ];
+          const dist = filterData(distanceData);
+          const tops = filterData(topSpeedData);
+          const hsr = filterData(hsrData);
+          const sprint = filterData(sprintData);
+
+          // If there's no data, skip
+          if (
+            dist.length <= 1 &&
+            tops.length <= 1 &&
+            hsr.length <= 1 &&
+            sprint.length <= 1
+          ) {
+            return null;
+          }
+
+          return (
+            <div className="chart-wrapper" key={play._id} style={{ marginBottom: '3rem' }}>
+              <h2>Play {play.playNumber}</h2>
+
+              {dist.length > 1 && (
+                <Chart
+                  chartType="ColumnChart"
+                  width="100%"
+                  height="400px"
+                  data={dist}
+                  options={{
+                    ...distanceOptions,
+                    title: `Distance`,
+                  }}
+                />
+              )}
+
+              {tops.length > 1 && (
+                <Chart
+                  chartType="ColumnChart"
+                  width="100%"
+                  height="400px"
+                  data={tops}
+                  options={{
+                    ...topSpeedOptions,
+                    title: `Top Speed`,
+                  }}
+                />
+              )}
+
+              {hsr.length > 1 && (
+                <Chart
+                  chartType="ColumnChart"
+                  width="100%"
+                  height="400px"
+                  data={hsr}
+                  options={{
+                    ...hsrOptions,
+                    title: `High Speed Running`,
+                  }}
+                />
+              )}
+
+              {sprint.length > 1 && (
+                <Chart
+                  chartType="ColumnChart"
+                  width="100%"
+                  height="400px"
+                  data={sprint}
+                  options={{
+                    ...sprintOptions,
+                    title: `Sprinting`,
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

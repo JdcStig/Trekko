@@ -1,4 +1,3 @@
-// src/screens/PlayByPlayAnalysisScreen.jsx
 import React, { useState } from 'react';
 import {
   Table,
@@ -13,7 +12,6 @@ import {
 import {
   FaEdit,
   FaTrash,
-  FaPlus,
   FaSortUp,
   FaSortDown,
 } from 'react-icons/fa';
@@ -413,8 +411,7 @@ export default function PlayByPlayAnalysisScreen() {
                     </td>
                   </tr>
 
-                  {/* Plays first, then charts */}
-                  {/* If playsSessionId === session._id, expand row with plays table + filters */}
+                  {/* Plays row */}
                   {playsSessionId === session._id && (
                     <tr>
                       <td colSpan={13}>
@@ -535,11 +532,17 @@ export default function PlayByPlayAnalysisScreen() {
                     </tr>
                   )}
 
-                  {/* If chartSessionId === session._id, expand row with SessionPlaysCharts */}
+                  {/* Charts row */}
                   {chartSessionId === session._id && (
                     <tr>
                       <td colSpan={13}>
-                        <SessionPlaysCharts sessionId={session._id} />
+                        <SessionPlaysCharts
+                          sessionId={session._id}
+                          sessionName={session.sessionName}
+                          sessionDate={session.date}
+                          sessionType={session.type}
+                          teamName={session.teamName}
+                        />
                       </td>
                     </tr>
                   )}
