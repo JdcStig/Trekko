@@ -14,7 +14,6 @@ import Team from '../models/teamModel.js';
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
 import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; // Import if needed
-import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js'; // New helper
 
 // ====================== Metrics Calculation Helpers ======================
 // (Not used directly here, but kept if needed elsewhere)
@@ -85,8 +84,8 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     return {
       userId,
       sessionId,
-      timeStart: moment().startOf('day').add(startTime, 'hours').unix(),
-      timeEnd: moment().startOf('day').add(endTime, 'hours').unix(),
+      timeStart: moment.unix(session.date / 1000).add(startTime, 'hours').unix(),
+      timeEnd: moment.unix(session.date / 1000).add(endTime, 'hours').unix(),      
       duration: parseFloat(row['Duration']) || 0,
       half: parseInt(row['Half']) || 1,
       teamStartPossession: row['StartPossession'] || 'Unknown',

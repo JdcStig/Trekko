@@ -168,21 +168,18 @@ console.log("📊 [parseCSV] Computed Play Metrics Results:", JSON.stringify(pla
     // Assign avgDistance and numSprint to the plays array
     session.plays = session.plays.map((play) => {
       const playMetrics = playMetricsResults.find(m => m.PlayNumber === play.playNumber);
-
-  console.log(`🔹 [parseCSV] Updating Play #${play.playNumber}`);
-    console.log(`   - Found Metrics? ${!!playMetrics}`);
-    if (playMetrics) {
-        console.log(`   - Total Distance: ${playMetrics.TotalDistance} km`);
-        console.log(`   - Top Speed: ${playMetrics.TopSpeed} m/s`);
-        console.log(`   - Duration: ${play.duration} seconds`);
-    }
-
-    return {
-      ...play,
-      avgDistance: playMetrics ? playMetrics.AvgDistance : 0,
-      numSprint: playMetrics ? playMetrics.NumSprint : 0,
-  };
-});
+      return {
+        ...play,
+        avgDistance: playMetrics ? playMetrics.AvgDistance : 0,
+        numSprint: playMetrics ? playMetrics.NumSprint : 0,
+      };
+    });
+    
+    session.sessionPlayerData.forEach((player) => {
+      const speeds = player.speeds || [];
+      player.playPlayerMetrics = calculatePlayPlayerMetrics(speeds, session.plays);
+    });
+    
 
 console.log("✅ [parseCSV] Updated Session Plays:", JSON.stringify(session.plays, null, 2));
 
