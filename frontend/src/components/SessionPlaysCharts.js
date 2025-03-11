@@ -19,44 +19,48 @@ function SessionPlaysCharts({
   sessionType,
   teamName,
 }) {
- // console.log('Rendering SessionPlaysCharts...');
+  const chartRef = useRef(null);
+  const allChartsRef = useRef(null);
 
-  // 1) HOOKS & INITIAL STATE
-  const chartRef = useRef(null); // For current visible charts
-  const allChartsRef = useRef(null); // For hidden container
-
+  // --------------------------------
+  // 1) State
+  // --------------------------------
   const [showAllCharts, setShowAllCharts] = useState(false);
   const [exportingAll, setExportingAll] = useState(false);
+  const [exportingCurrent, setExportingCurrent] = useState(false); // NEW for current-charts export
   const [chartImages, setChartImages] = useState({}); // { [playValue]: { [metricKey]: URI } }
   const [exportStatus, setExportStatus] = useState([]); // For progress messages
   const [filterValue, setFilterValue] = useState('All'); // "All" or numeric
   const [visiblePlayers, setVisiblePlayers] = useState({});
 
-  // 2) Data fetch
+  // --------------------------------
+  // 2) Data Fetch
+  // --------------------------------
   const { data, isLoading, error } = useGetSessionCSVsQuery(sessionId);
   const playerDataArray = data?.sessionPlayerDataArray || [];
   const playsArray = data?.plays || [];
 
-  // 3) Build play options array ("Overall" + each play)
+  // --------------------------------
+  // 3) Build Play Options
+  // --------------------------------
   const allPlayOptions = useMemo(() => {
     const result = [{ label: 'Overall', value: 'All' }];
     playsArray.forEach((play) => {
       result.push({ label: `Play ${play.playNumber}`, value: play.playNumber });
     });
-   // console.log('allPlayOptions:', result);
     return result;
   }, [playsArray]);
 
   const dropdownOptions = useMemo(() => allPlayOptions, [allPlayOptions]);
 
-  // Gather unique player names
+  // --------------------------------
+  // 4) Player Names & Visibility
+  // --------------------------------
   const allPlayerNames = useMemo(() => {
     const names = Array.from(new Set(playerDataArray.map((p) => p.playerName)));
-    //console.log('allPlayerNames:', names);
     return names;
   }, [playerDataArray]);
 
-  // 4) Initialize visiblePlayers once data is loaded
   useEffect(() => {
     if (!isLoading && allPlayerNames.length > 0) {
       const initial = {};
@@ -67,16 +71,11 @@ function SessionPlaysCharts({
     }
   }, [isLoading, allPlayerNames]);
 
-  // ===========================================================================
-  // 5) PDF GENERATION: Cover page -> Full Plays table -> each play 2-charts/page
-  // ===========================================================================
+  // --------------------------------
+  // 5) PDF Generation for ALL Plays
+  // --------------------------------
   const generateAllPlaysPDF = useCallback(() => {
-    //console.log('Generating PDF for all plays...');
-    setExportStatus((prev) => [
-      ...prev,
-      '',
-    ]);
-
+    setExportStatus((prev) => [...prev, '']);
     const pdf = new jsPDF('p', 'pt', 'a4');
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -87,7 +86,9 @@ function SessionPlaysCharts({
     pdf.setFontSize(16);
     pdf.text(teamName || 'Team', pdfWidth / 2, 80, { align: 'center' });
     pdf.text(
-      `Date: ${sessionDate ? new Date(sessionDate).toLocaleDateString() : 'N/A'}`,
+      `Date: ${
+        sessionDate ? new Date(sessionDate).toLocaleDateString() : 'N/A'
+      }`,
       pdfWidth / 2,
       110,
       { align: 'center' }
@@ -97,37 +98,14 @@ function SessionPlaysCharts({
     });
     pdf.addPage();
 
-    // --- FULL PLAYS TABLE PAGE ---
-    pdf.setFontSize(16);
-    pdf.text('Full Plays', pdfWidth / 2, 30, { align: 'center' });
-    pdf.setFontSize(10);
-
-    let yPos = 50;
-    playsArray.forEach((play, idx) => {
-      const line = `Play ${play.playNumber}: ${play.title} | Duration: ${play.duration}s | Half: ${play.half}`;
-      pdf.text(line, 40, yPos);
-      yPos += 14;
-      // If we exceed page height, add new page
-      if (yPos > pdfHeight - 40 && idx < playsArray.length - 1) {
-        pdf.addPage();
-        pdf.setFontSize(10);
-        yPos = 50;
-      }
-    });
-    pdf.addPage();
-
-    // --- For each play, 2-charts/page (stacked vertically) ---
+    // --- For each play, 2-charts/page ---
     dropdownOptions.forEach((playObj) => {
       const playVal = playObj.value;
       const label = playObj.label;
       const imagesForPlay = chartImages[playVal];
-      if (!imagesForPlay) {
-        //console.log(`No images for ${label}`);
-        return;
-      }
+      if (!imagesForPlay) return;
 
-      // We have 4 metrics total. We'll group them in pairs: [0,1], [2,3].
-      // That means 2 charts per page, stacked vertically
+      // Group metrics in pairs: [0,1] and [2,3]
       const pairs = [];
       for (let i = 0; i < METRIC_KEYS.length; i += 2) {
         pairs.push(METRIC_KEYS.slice(i, i + 2));
@@ -150,28 +128,20 @@ function SessionPlaysCharts({
 
         pair.forEach((metric, idx) => {
           const uri = imagesForPlay[metric];
-          if (!uri) {
-            //console.log(`Missing image for ${label} - ${metric}`);
-            return;
-          }
-          // top chart => y = headerHeight
-          // bottom chart => y = headerHeight + chartHeight + gap
+          if (!uri) return;
           const yPos = headerHeight + idx * (chartHeight + gap);
           pdf.addImage(uri, 'PNG', margin, yPos, chartWidth, chartHeight);
         });
-
-        // add new page for the next pair (if any)
         pdf.addPage();
       });
     });
 
-    // remove trailing blank page if it exists
+    // Remove trailing blank page if it exists
     if (pdf.getNumberOfPages() > 1) {
       pdf.deletePage(pdf.getNumberOfPages());
     }
 
-    pdf.save('all_plays_charts.pdf');
-    //console.log('All plays PDF saved');
+    pdf.save(`${sessionName || 'Session'}_plays.pdf`);
     setShowAllCharts(false);
     setExportingAll(false);
     setChartImages({});
@@ -186,7 +156,9 @@ function SessionPlaysCharts({
     teamName,
   ]);
 
-  // 6) MONITOR HIDDEN CHARTS READINESS
+  // --------------------------------
+  // 6) Monitor Hidden Charts Readiness
+  // --------------------------------
   useEffect(() => {
     if (!showAllCharts) return;
     const allReady = dropdownOptions.every((playObj) => {
@@ -194,13 +166,14 @@ function SessionPlaysCharts({
       if (!chartImages[val]) return false;
       return METRIC_KEYS.every((key) => chartImages[val][key]);
     });
-   // console.log('Readiness status:', allReady, chartImages);
     if (allReady) {
       generateAllPlaysPDF();
     }
   }, [showAllCharts, dropdownOptions, chartImages, generateAllPlaysPDF]);
 
-  // 7) EARLY RETURNS FOR LOADING/ERROR
+  // --------------------------------
+  // 7) Early Returns (loading/error)
+  // --------------------------------
   if (isLoading) {
     return <p>Loading chart data...</p>;
   }
@@ -208,7 +181,9 @@ function SessionPlaysCharts({
     return <p>Error loading chart data.</p>;
   }
 
-  // 8) BUILD DATA ARRAYS FOR CURRENT FILTER (VISIBLE CHARTS)
+  // --------------------------------
+  // 8) Build Data Arrays for Current Filter
+  // --------------------------------
   const distanceDataArr = [['Player', 'Distance (km)']];
   const topSpeedDataArr = [['Player', 'Top Speed (m/s)']];
   const hsrDataArr = [['Player', 'High Speed Running (km)']];
@@ -254,7 +229,9 @@ function SessionPlaysCharts({
   const filteredHSRData = filterChartData(hsrDataArr);
   const filteredSprintData = filterChartData(sprintDataArr);
 
-  // 9) CHART OPTIONS
+  // --------------------------------
+  // 9) Chart Options
+  // --------------------------------
   const baseOptions = {
     hAxis: {
       title: 'Player',
@@ -294,9 +271,12 @@ function SessionPlaysCharts({
     vAxis: { ...baseOptions.vAxis, title: 'Distance (km)' },
   };
 
-  // 10) EXPORT CURRENT CHARTS => single snapshot with html2canvas
+  // --------------------------------
+  // 10) Export Current Charts -> PDF
+  // --------------------------------
   const handleExportPDF = async () => {
     if (!chartRef.current) return;
+    setExportingCurrent(true); // show "Please Wait..." for current charts
     try {
       const canvas = await html2canvas(chartRef.current);
       const imgData = canvas.toDataURL('image/png');
@@ -314,29 +294,34 @@ function SessionPlaysCharts({
         newImgWidth = pdfHeight * ratio;
       }
       pdf.addImage(imgData, 'PNG', 0, 0, newImgWidth, newImgHeight);
-      pdf.save('current_charts.pdf');
+
+      // Name the PDF after the session
+      pdf.save(`${sessionName || 'Session'}_current_charts.pdf`);
     } catch (err) {
-      //console.error('Error exporting current PDF:', err);
+      // handle error if needed
+    } finally {
+      setExportingCurrent(false);
     }
   };
 
-  // 11) EXPORT ALL => concurrency approach
+  // --------------------------------
+  // 11) Export ALL Charts
+  // --------------------------------
   const handleExportAllValuesPDF = () => {
     setChartImages({});
     setExportStatus([]);
     setShowAllCharts(true);
-    setExportingAll(true);
-    setExportStatus((prev) => [...prev]);
+    setExportingAll(true); // show "Please Wait..." for all charts
+    // optionally add any status messages
+    setExportStatus((prev) => [...prev, 'Preparing all charts...']);
   };
 
-  // 12) CHART READY CALLBACK => store each chart's image
+  // --------------------------------
+  // 12) Chart Ready Callback
+  // --------------------------------
   const handleChartReady = (playVal, metricKey, chartWrapper) => {
-    if (!chartWrapper || !chartWrapper.getChart) {
-      //console.log('No valid chartWrapper in ready event for', playVal, metricKey);
-      return;
-    }
+    if (!chartWrapper || !chartWrapper.getChart) return;
     const uri = chartWrapper.getChart().getImageURI();
-    //console.log(`Captured image for ${playVal} - ${metricKey}`);
     setChartImages((prev) => ({
       ...prev,
       [playVal]: {
@@ -344,13 +329,9 @@ function SessionPlaysCharts({
         [metricKey]: uri,
       },
     }));
-    setExportStatus((prev) => [
-      ...prev,
-      // `Captured image for ${playVal} - ${metricKey}`,
-    ]);
+    setExportStatus((prev) => [...prev]); // you can add messages if desired
   };
 
-  // 13) EVENT GENERATOR
   const generateChartEvents = (playVal, metricKey) => [
     {
       eventName: 'ready',
@@ -360,7 +341,9 @@ function SessionPlaysCharts({
     },
   ];
 
-  // 14) Toggle player visibility
+  // --------------------------------
+  // 13) Toggle Player Visibility
+  // --------------------------------
   const toggleVisibility = (playerName) => {
     setVisiblePlayers((prev) => ({
       ...prev,
@@ -368,19 +351,26 @@ function SessionPlaysCharts({
     }));
   };
 
-  // 15) Check if current filter has any data
+  // --------------------------------
+  // 14) Data Check
+  // --------------------------------
   const hasAnyData =
     filteredDistanceData.length > 1 ||
     filteredTopSpeedData.length > 1 ||
     filteredHSRData.length > 1 ||
     filteredSprintData.length > 1;
 
-  // 16) RENDER
+  // --------------------------------
+  // 15) Render
+  // --------------------------------
   return (
     <div>
-      {exportingAll && (
+      {/* Show "Please Wait..." + any status messages if exporting */}
+      {(exportingAll || exportingCurrent) && (
         <div style={{ marginBottom: '1rem' }}>
-         
+          <div style={{ fontWeight: 'bold', color: 'blue' }}>
+            Please Wait...
+          </div>
           {exportStatus.map((msg, idx) => (
             <p key={idx} style={{ fontSize: '0.9rem', margin: '2px 0' }}>
               {msg}
@@ -388,6 +378,7 @@ function SessionPlaysCharts({
           ))}
         </div>
       )}
+
       {/* Top bar: Export buttons & dropdown */}
       <div
         style={{
@@ -549,47 +540,6 @@ function SessionPlaysCharts({
             <h2>Type: {sessionType || 'N/A'}</h2>
           </div>
 
-          {/* Full Plays Table */}
-          {playsArray.length > 0 && (
-            <div style={{ marginBottom: '2rem' }}>
-              <h3>All Plays</h3>
-              <table className="table table-striped table-bordered">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Play</th>
-                    <th>Half</th>
-                    <th>Duration (seconds)</th>
-                    <th>Num Sprints</th>
-                    <th>Avg Distance</th>
-                    <th>Team Start Possession</th>
-                    <th>Team End Possession</th>
-                    <th>Turnovers</th>
-                    <th>Start Action</th>
-                    <th>End Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {playsArray.map((play) => (
-                    <tr key={play._id}>
-                      <td>{play.title}</td>
-                      <td>{play.playNumber}</td>
-                      <td>{play.half}</td>
-                      <td>{play.duration}</td>
-                      <td>{play.numSprint}</td>
-                      <td>{play.avgDistance}</td>
-                      <td>{play.teamStartPossession}</td>
-                      <td>{play.teamEndPossession}</td>
-                      <td>{play.turnovers}</td>
-                      <td>{play.startAction}</td>
-                      <td>{play.endAction}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
           {/* Render hidden charts for "Overall" plus each play */}
           {dropdownOptions.map((playObj, idx) => {
             const playVal = playObj.value;
@@ -627,6 +577,7 @@ function SessionPlaysCharts({
                   (r) => typeof r[1] === 'number' && !isNaN(r[1])
                 ),
               ];
+              // Ensure at least one data row for the chart to render
               if (filtered.length === 1) {
                 filtered.push(['Dummy', 0]);
               }
@@ -638,7 +589,6 @@ function SessionPlaysCharts({
             const hsrData = buildHiddenMetricData('HighSpeedRunning');
             const sprintData = buildHiddenMetricData('Sprinting');
 
-            // Render hidden charts at 800x400; they will be captured in the PDF export
             return (
               <div key={idx} style={{ marginBottom: '3rem' }}>
                 <h3>{label}</h3>
@@ -685,7 +635,10 @@ function SessionPlaysCharts({
                         : `HSR (Play ${playVal})`,
                   }}
                   loader={<div>Loading Chart...</div>}
-                  chartEvents={generateChartEvents(playVal, 'HighSpeedRunning')}
+                  chartEvents={generateChartEvents(
+                    playVal,
+                    'HighSpeedRunning'
+                  )}
                 />
                 <Chart
                   chartType="ColumnChart"
