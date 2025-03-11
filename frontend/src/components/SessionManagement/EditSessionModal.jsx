@@ -4,19 +4,18 @@ import EditCSVModal from './EditCSVModal';
 import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
 import { useSelector } from 'react-redux';
 
-// Convert numeric seconds into "HH:mm:ss" (or "HH:mm" if you prefer)
+// Convert numeric seconds to "HH:mm:ss"
 const formatTime = (value) => {
   if (!value) return '';
   const totalSeconds = Number(value);
   if (isNaN(totalSeconds)) return '';
-
   const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const secs = String(totalSeconds % 60).padStart(2, '0');
-  return `${hrs}:${mins}:${secs}`; // For step="1", we include seconds
+  return `${hrs}:${mins}:${secs}`;
 };
 
-// Convert "HH:mm" or "HH:mm:ss" back into numeric seconds
+// Convert "HH:mm:ss" to numeric seconds
 const timeStringToSeconds = (timeStr) => {
   if (!timeStr) return 0;
   const parts = timeStr.split(':');
@@ -27,7 +26,9 @@ const timeStringToSeconds = (timeStr) => {
 };
 
 const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session }) => {
+  // --- We add _id here so we keep it in local state
   const [localSessionData, setLocalSessionData] = useState({
+    _id: '',
     teamName: '',
     sessionName: '',
     date: '',
@@ -36,6 +37,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
     notes: '',
     splits: [],
   });
+
   const [csvUpdates, setCsvUpdates] = useState(null);
   const [showCSVModal, setShowCSVModal] = useState(false);
 
@@ -44,56 +46,47 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
   const { data: teamsData, isLoading: teamsLoading, error: teamsError } = useGetTeamsQuery();
   const filteredTeams = teamsData?.teams?.filter((team) => team.userId === userInfo?._id) || [];
 
-  /**
-   * Re-initialize local session data each time the modal opens
-   */
+  // When the modal opens, copy the session (including _id) into local state
   useEffect(() => {
     if (show && session) {
       setLocalSessionData({
+        _id: session._id || '',
         teamName: session.teamName || '',
         sessionName: session.sessionName || '',
         date: session.date
           ? new Date(session.date).toISOString().split('T')[0]
           : '',
         type: session.type || '',
-        duration: session.duration !== undefined ? session.duration.toString() : '',
+        duration: session.duration !== undefined ? String(session.duration) : '',
         notes: session.notes || '',
-        splits: session.splits || [],
+        splits: Array.isArray(session.splits) ? session.splits : [],
       });
       setCsvUpdates(null);
     }
   }, [show, session]);
 
-  // Generic input change handler
+  // Generic changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setLocalSessionData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Team dropdown change
-  const handleTeamChange = (e) => {
-    setLocalSessionData((prev) => ({ ...prev, teamName: e.target.value }));
-  };
-
   // Splits changes
   const handleSplitChange = (index, field, value) => {
     setLocalSessionData((prev) => {
-      const newSplits = prev.splits.map((split, i) =>
-        i === index ? { ...split, [field]: value } : split
-      );
+      const newSplits = [...prev.splits];
+      newSplits[index] = { ...newSplits[index], [field]: value };
       return { ...prev, splits: newSplits };
     });
   };
 
-  // Add a new split row
+  // Add / delete splits
   const handleAddSplit = () => {
     setLocalSessionData((prev) => ({
       ...prev,
-      splits: [...prev.splits, { title: '', start: '', end: '' }],
+      splits: [...prev.splits, { title: '', start: 0, end: 0 }],
     }));
   };
-
-  // Delete a split row
   const handleDeleteSplit = (index) => {
     setLocalSessionData((prev) => ({
       ...prev,
@@ -104,7 +97,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
   // CSV Modal
   const openCSVModal = () => {
     setShowCSVModal(true);
-    onHide(); // Hide the Edit Session modal
+    onHide();
   };
   const handleCSVSave = (updates) => {
     setCsvUpdates(updates);
@@ -116,12 +109,25 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
     if (onCSVCancel) onCSVCancel();
   };
 
-  // Final Save
+  // Final Submit => send data with _id
   const handleFinalSubmit = (e) => {
     e.preventDefault();
-    const finalData = { ...session, ...localSessionData, csvUpdates };
+    // Build final object, ensuring we keep the localSessionData._id
+    const finalData = {
+      _id: localSessionData._id,
+      teamName: localSessionData.teamName,
+      sessionName: localSessionData.sessionName,
+      date: localSessionData.date,
+      type: localSessionData.type,
+      duration: localSessionData.duration,
+      notes: localSessionData.notes,
+      splits: localSessionData.splits,
+      csvUpdates,
+    };
+
+    // Call parent
     onEditSession(finalData);
-    onHide(); // Close modal
+    onHide();
   };
 
   return (
@@ -144,7 +150,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
                   as="select"
                   name="teamName"
                   value={localSessionData.teamName}
-                  onChange={handleTeamChange}
+                  onChange={handleChange}
                   required
                 >
                   <option value="">Select Team</option>
@@ -197,9 +203,9 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
               </Form.Control>
             </Form.Group>
 
-            {/* Duration (in minutes) */}
+            {/* Duration */}
             <Form.Group controlId="duration" className="mb-3">
-              <Form.Label>Duration (in minutes)</Form.Label>
+              <Form.Label>Duration (minutes)</Form.Label>
               <Form.Control
                 type="number"
                 name="duration"
@@ -285,7 +291,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
             </div>
 
             {/* Notes */}
-            <Form.Group controlId="notes" className="mt-3">
+            <Form.Group controlId="notes" className="mb-3">
               <Form.Label>Notes</Form.Label>
               <Form.Control
                 as="textarea"
@@ -297,7 +303,6 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
               />
             </Form.Group>
 
-            {/* Footer Buttons */}
             <div className="d-flex justify-content-end mt-3">
               <Button variant="info" onClick={openCSVModal}>
                 Edit CSV Files
@@ -315,7 +320,7 @@ const EditSessionModal = ({ show, onHide, onCSVCancel, onEditSession, session })
         show={showCSVModal}
         onSave={handleCSVSave}
         onCancel={handleCSVCancel}
-        sessionId={session?._id}
+        sessionId={localSessionData._id} // pass the correct ID
       />
     </>
   );
