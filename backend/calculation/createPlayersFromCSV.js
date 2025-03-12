@@ -77,3 +77,4 @@ const createPlayersFromCSV = async (sessionId, userId) => {
   }
 };
 
+export default createPlayersFromCSV;
