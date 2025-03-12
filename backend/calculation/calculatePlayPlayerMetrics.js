@@ -19,7 +19,6 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
 
   // Ensure plays are sorted by timeStart for sequential processing
   const sortedPlays = [...plays].sort((a, b) => a.timeStart - b.timeStart);
-  //console.log("calculatePlayPlayerMetrics: Sorted plays:", sortedPlays);
 
   return sortedPlays.map((play, index) => {
     const playLengthSeconds = play.timeEnd - play.timeStart;
@@ -27,12 +26,9 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
 
     const startIndex = currentIndex;
     const endIndex = currentIndex + playSize;
-   // console.log(
-   //   `Play #${index + 1}: timeStart=${play.timeStart}, timeEnd=${play.timeEnd}, duration=${playLengthSeconds}s, expected readings=${playSize}, currentIndex=${currentIndex}, endIndex=${endIndex}`
-   // );
 
+    // If there's no data for this play, return zeros.
     if (startIndex >= speeds.length) {
-      // console.warn(`⚠️ Play #${index + 1} has no speed data!`);
       return {
         PlayNumber: index + 1,
         TotalDistance: 0,
@@ -49,7 +45,6 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
     }
 
     const playSpeeds = speeds.slice(startIndex, endIndex);
-    // console.log(`Play #${index + 1}: Number of speed readings: ${playSpeeds.length}`);
 
     const sumSpeeds = playSpeeds.reduce((acc, val) => acc + val, 0);
     const distanceKm = sumSpeeds / 10000;
@@ -64,10 +59,6 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
     
     const numSprint = topSpeed > 7 ? 1 : 0;
     
-    // console.log(
-    //   `Play #${index + 1}: TotalDistance=${distanceKm.toFixed(3)} km, TopSpeed=${topSpeed.toFixed(2)} m/s, AvgDistance=${avgDistance.toFixed(3)} km/15min, NumSprint=${numSprint}`
-    // );
-
     currentIndex = endIndex;
 
     return {

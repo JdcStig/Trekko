@@ -116,8 +116,8 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
   const insertArray = [];
   for (const [playerId, pdata] of Object.entries(playersData)) {
     const sortedTimes = pdata.times.sort((a, b) => a - b);
-    const startTime = sortedTimes[0] ? Math.floor(sortedTimes[0] / 1000) : Math.floor(Date.now() / 1000);
-    const endTime = sortedTimes[sortedTimes.length - 1] ? Math.floor(sortedTimes[sortedTimes.length - 1] / 1000) : Math.floor(Date.now() / 1000);
+    const startTime = Math.floor(new Date(sortedTimes[0]).getTime() / 1000) || Math.floor(Date.now() / 1000);
+    const endTime = Math.floor(new Date(sortedTimes[sortedTimes.length - 1]).getTime() / 1000) || Math.floor(Date.now() / 1000);    
     insertArray.push({
       userId,
       sessionId,
@@ -185,7 +185,7 @@ console.log("✅ [parseCSV] Updated Session Plays:", JSON.stringify(session.play
 
     session.sessionPlayerData.push({
       csvId: doc._id,
-      playerName: doc.playerId,
+      playerName: doc.playerName,
       sessionPlayerMetrics,
       splitPlayerMetrics,
       playPlayerMetrics: playMetricsResults,
