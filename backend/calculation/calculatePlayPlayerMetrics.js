@@ -22,11 +22,11 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
   return plays.map((play, index) => {
     console.log(`\n🔹 Processing Play #${index + 1}: Start=${play.timeStart}, End=${play.timeEnd}`);
 
-    const playLengthSeconds = play.timeEnd - play.timeStart;
+    const playLengthSeconds = play.timeEnd - play.timeStart; // playLengthSeconds will be playLengthMiliseconds (divide in 1000) play.timeEnd - play.timeStart / 1000
     const playSize = Math.round(playLengthSeconds * 10);
 
-    const startIndex = currentIndex;
-    const endIndex = currentIndex + playSize;
+    const startIndex = currentIndex; // Going to be the (playstartTime - sessionstartTimeplayer) / 100
+    const endIndex = currentIndex + playSize; // Change to startIndex + playSize
 
     if (startIndex >= speeds.length) {
       console.warn(`⚠️ Play #${index + 1} has no speed data!`);
@@ -45,6 +45,7 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
       };
     }
 
+
     const playSpeeds = speeds.slice(startIndex, endIndex);
     const sumSpeeds = playSpeeds.reduce((acc, val) => acc + val, 0);
     const distanceKm = sumSpeeds / 10000;
@@ -56,10 +57,10 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
 
     let avgDistance = 0;
     if (playLengthSeconds > 0) {
-      avgDistance = (distanceKm / playLengthSeconds) * 60 / 15; // Scale distance per 15-minute interval
+      avgDistance = (distanceKm / playLengthSeconds) * 60 / 15; 
     }
 
-    const numSprint = topSpeed > 7 ? 1 : 0;
+    const numSprint = topSpeed > 7 ? 1 : 0; // Calculate all the players (total number of players who sprint)
     currentIndex = endIndex;
 
     return {

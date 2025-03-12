@@ -5,15 +5,14 @@ import { Readable } from 'stream';
 
 import Session from '../models/sessionModel.js';
 import SessionPlayerData from '../models/sessionPlayerDataModel.js';
-import Team from '../models/teamModel.js';
+import Player from '../models/playerModel.js';
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
-import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js'; // <-- Import the new helper
+import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js';
 
 // ========== Overall Metrics Calculation Helpers (for non-split metrics) ==========
 const metricsCalculations = {
-  // Summation-based distance: sum(speeds) / 10 / 1000 => speeds are 10/s
   Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000,
   TopSpeed: (values) => Math.max(...values),
   HighSpeedRunning: (values) =>
@@ -33,7 +32,6 @@ const metricsCalculations = {
 const parseCSV = async (fileBuffer, sessionId, userId) => {
   console.log(`\n📌 [parseCSV] Start for session=${sessionId} | user=${userId}`);
 
-  // 0) Basic checks
   if (!fileBuffer || fileBuffer.length === 0) {
     throw new Error("Uploaded file is empty.");
   }
@@ -44,7 +42,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
     throw new Error("Invalid user ID.");
   }
 
-  // 1) Convert buffer to string & detect delimiter
+  // Detect delimiter
   const fileString = fileBuffer.toString('utf-8');
   let delimiter = ',';
   if (fileString.includes('\t')) delimiter = '\t';
@@ -52,7 +50,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
   else if (fileString.includes('  ')) delimiter = ' ';
   console.log(`🔍 [parseCSV] Detected delimiter: "${delimiter}"`);
 
-  // 2) Parse CSV rows into an array of objects
+  // Parse CSV into an array of objects
   const rows = [];
   await new Promise((resolve, reject) => {
     Readable.from(fileString)
@@ -62,40 +60,40 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       .on('error', reject);
   });
   console.log(`✅ [parseCSV] CSV parsed. Total rows: ${rows.length}`);
+
   if (!rows.length) {
     throw new Error("CSV is empty or could not be parsed.");
   }
 
-  // 3) Fetch the session
   const session = await Session.findById(sessionId);
   if (!session) {
     throw new Error(`Session not found: ${sessionId}`);
   }
 
-  // 4) Build in-memory data for each player
+  // Build in-memory data for each player
   console.log("🔄 [parseCSV] Building in-memory data for each player...");
-  const playersData = {}; // key: playerId
+  const playersData = {}; // key: playerName
   const sessionDate = new Date(session.date);
-  rows.forEach((row) => {
-    const playerId = row['Player Display Name'] || 'Unknown Player';
+
+  for (const row of rows) {
+    const playerName = row['Player Display Name'] || 'Unknown Player';
     const speed = parseFloat(row['Speed (m/s)']) || 0;
     const lat = parseFloat(row['Latitude']) || 0;
     const lon = parseFloat(row['Longitude']) || 0;
     const hr = parseFloat(row['Heart Rate']) || 0;
     const accel = parseFloat(row['Acceleration (m/s^2)']) || 0;
-    // const dateStr = row['UTC Date'];
     const timeStr = row['Time'];
-    // const combinedDateTime = dateStr && timeStr ? new Date(`${dateStr}T${timeStr}Z`) : new Date();
+
     const timeParts = timeStr.split(':').map(Number);
     const combinedDateTime = new Date(sessionDate);
     combinedDateTime.setUTCHours(timeParts[0], timeParts[1], timeParts[2] || 0, 0);
-    const unixTimestamp = Math.floor(combinedDateTime.getTime() / 1000); //Converts into Unix
+    const unixTimestamp = Math.floor(combinedDateTime.getTime() / 1000);
 
-    if (!playersData[playerId]) {
-      playersData[playerId] = {
+    if (!playersData[playerName]) {
+      playersData[playerName] = {
         userId,
         sessionId,
-        playerId,
+        playerId: playerName, // Temporary, will be replaced with actual playerId
         times: [],
         lats: [],
         lons: [],
@@ -104,26 +102,38 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
         accelerations: [],
       };
     }
-    // Push data
-    playersData[playerId].times.push(unixTimestamp);
-    playersData[playerId].lats.push(lat);
-    playersData[playerId].lons.push(lon);
-    playersData[playerId].speeds.push(speed);
-    playersData[playerId].heartRates.push(hr);
-    playersData[playerId].accelerations.push(accel);
-  });
 
-  // 5) Prepare documents for insertion
+    playersData[playerName].times.push(unixTimestamp);
+    playersData[playerName].lats.push(lat);
+    playersData[playerName].lons.push(lon);
+    playersData[playerName].speeds.push(speed);
+    playersData[playerName].heartRates.push(hr);
+    playersData[playerName].accelerations.push(accel);
+  }
+
+  console.log("🔄 [parseCSV] Checking existing players and assigning playerId...");
+  const playerNames = Object.keys(playersData);
+  const existingPlayers = await Player.find({ userId, name: { $in: playerNames } });
+  const playerMap = new Map(existingPlayers.map(player => [player.name, player.playerId]));
+
+  for (const [playerName, data] of Object.entries(playersData)) {
+    if (playerMap.has(playerName)) {
+      data.playerId = playerMap.get(playerName);
+    }
+  }
+
   console.log("💾 [parseCSV] Preparing SessionPlayerData documents for insertion...");
   const insertArray = [];
-  for (const [playerId, pdata] of Object.entries(playersData)) {
+  for (const [playerName, pdata] of Object.entries(playersData)) {
     const sortedTimes = pdata.times.sort((a, b) => a - b);
     const startTime = sortedTimes[0] || Math.floor(Date.now() / 1000);
     const endTime = sortedTimes[sortedTimes.length - 1] || Math.floor(Date.now() / 1000);
+
     insertArray.push({
       userId,
       sessionId,
-      playerId,
+      playerId: pdata.playerId,
+      playerName,
       startTime,
       endTime,
       lats: pdata.lats,
@@ -134,77 +144,17 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
     });
   }
 
-  if (!insertArray.length) {
-    console.log("✅ [parseCSV] Inserted 0 SessionPlayerData documents. (No data?)");
-  }
-  const insertedDocs = await SessionPlayerData.insertMany(insertArray, { ordered: false });
-  console.log(`✅ [parseCSV] Inserted ${insertedDocs.length} SessionPlayerData documents.`);
-
-  // 6) Calculate metrics for each inserted doc & attach to session.sessionPlayerData
-  console.log("📊 [parseCSV] Generating overall and per-split metrics...");
-  session.sessionPlayerData = []; // Clear existing
-
-  const allPlayerDocs = await SessionPlayerData.find({ sessionId });
-  for (const doc of allPlayerDocs) {
-    const speeds = doc.speeds.length ? doc.speeds : [0];
-
-    // --- Overall metrics (distance, topSpeed, etc.) ---
-    const sessionPlayerMetrics = [
-      {
-        MetricName: 'Distance',
-        Value: metricsCalculations.Distance(speeds),
-        Unit: 'km',
-      },
-      {
-        MetricName: 'TopSpeed',
-        Value: metricsCalculations.TopSpeed(speeds),
-        Unit: 'm/s',
-      },
-      {
-        MetricName: 'HighSpeedRunning',
-        Value: metricsCalculations.HighSpeedRunning(speeds),
-        Unit: 'km',
-      },
-      {
-        MetricName: 'Sprinting',
-        Value: metricsCalculations.Sprinting(speeds),
-        Unit: 'km',
-      },
-    ];
-
-    // --- NEW: per-split metrics using the helper (with console logs) ---
-    console.log(
-      `\n[parseCSV] Calculating split metrics for playerId="${doc.playerId}"`
-    );
-    const splitPlayerMetrics = calculateSplitPlayerMetrics(
-      speeds,
-      session.splits || []
-    );
-
-    // Attach to session
-    session.sessionPlayerData.push({
-      csvId: doc._id,
-      playerName: doc.playerId,
-      sessionPlayerMetrics,
-      splitPlayerMetrics,
-    });
+  if (insertArray.length) {
+    await SessionPlayerData.insertMany(insertArray, { ordered: false });
+    console.log(`✅ [parseCSV] Inserted ${insertArray.length} SessionPlayerData records.`);
   }
 
-  // Save updated session
-  await session.save();
-  console.log("✅ [parseCSV] Session updated with new CSV metrics.");
-
-  // 7) Create any missing players
   console.log("🛠️ [parseCSV] Creating any missing players...");
   await createPlayersFromCSV(sessionId, userId);
-  console.log("✅ [parseCSV] createPlayersFromCSV done.");
 
-  // 8) Recalculate average distance for the session
   console.log("🔄 [parseCSV] Recalculating average distance...");
   await calculateAverageDistance(sessionId);
-  console.log("✅ [parseCSV] Average distance updated.");
 
-  // 9) Return the updated session (populated)
   const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
   console.log("🚀 [parseCSV] Done. Returning updated session.");
   return updatedSession;
@@ -217,6 +167,7 @@ export default parseCSV;
 export const uploadSessionCSV = asyncHandler(async (req, res) => {
   console.log('📌 Received CSV upload request for session:', req.body.sessionId);
   const { sessionId } = req.body;
+
   if (!sessionId) {
     console.error('🚨 No session ID provided!');
     return res.status(400).json({ message: 'Session ID is required.' });
@@ -225,16 +176,9 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
     console.error('🚨 No file uploaded!');
     return res.status(400).json({ message: 'No file uploaded.' });
   }
-  console.log(`✅ File received: ${req.file.originalname} | Size: ${req.file.size} bytes`);
-
-  if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-    console.error('🚨 Invalid sessionId:', sessionId);
-    return res.status(400).json({ message: 'Invalid session ID.' });
-  }
 
   try {
     const updatedSession = await parseCSV(req.file.buffer, sessionId, req.user._id);
-    console.log('🚀 CSV processing complete! Returning updated session.');
     return res.status(201).json(updatedSession);
   } catch (error) {
     console.error('🚨 Error processing CSV:', error.message);
