@@ -393,19 +393,34 @@ function SessionCharts({
         </div>
       </div>
 
-      {/* Player Visibility Checkboxes */}
-      <div style={{ marginTop: '1rem' }}>
-        {allPlayerNames.map((name) => (
-          <label key={name} style={{ marginRight: '1rem', display: 'inline-block' }}>
-            <input
-              type="checkbox"
-              checked={visiblePlayers[name] || false}
-              onChange={() => toggleVisibility(name)}
-            />
-            {name}
-          </label>
-        ))}
+      <div
+  style={{
+    marginTop: '1rem',
+    display: 'flex',
+    justifyContent: 'center',   // Centers items horizontally
+    alignItems: 'center',       // Centers items vertically within each row
+    flexWrap: 'wrap',           // Wraps items to next line if needed
+    gap: '1rem',                // Adds spacing between items
+  }}
+>
+  {allPlayerNames.map((name) => {
+    const inputId = `checkbox-${name}`;
+    return (
+      <div key={name}>
+        <input
+          type="checkbox"
+          id={inputId}
+          name={inputId}
+          checked={visiblePlayers[name] || false}
+          onChange={() => toggleVisibility(name)}
+        />
+        <label htmlFor={inputId}>{name}</label>
       </div>
+    );
+  })}
+</div>
+
+
 
       {/* Chart Container for CURRENT visible charts */}
       <div ref={chartRef} style={{ marginTop: '2rem' }}>
