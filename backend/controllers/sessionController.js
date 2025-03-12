@@ -151,15 +151,15 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
     ];
 
     // --- NEW: per-split metrics using the helper (with console logs) ---
-    console.log(
-      `\n[parseCSV] Calculating split metrics for playerId="${doc.playerId}"`
-    );
+    // console.log(
+    //   `\n[parseCSV] Calculating split metrics for playerId="${doc.playerId}"`
+    // );
     const splitPlayerMetrics = calculateSplitPlayerMetrics(
       speeds,
       session.splits || []
     );
 
-    console.log(`\n[parseCSV] Calculating play metrics for sessionId="${session._id}"`);
+    //console.log(`\n[parseCSV] Calculating play metrics for sessionId="${session._id}"`);
     const playMetricsResults = calculatePlayPlayerMetrics(speeds, session.plays || []);
 
     // ✅ Log the computed playPlayerMetrics to verify output
@@ -437,10 +437,10 @@ export const updateSession = asyncHandler(async (req, res) => {
       ];
 
       // Per-split/play metrics (distance, HSR, sprinting, topSpeed) for each split
-      console.log(`\n[parseCSV] Calculating split metrics for playerId="${doc.playerId}"`);
+     // console.log(`\n[parseCSV] Calculating split metrics for playerId="${doc.playerId}"`);
       const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits);
 
-      console.log(`\n[parseCSV] Calculating play metrics for playerId="${doc.playerId}"`);
+      //console.log(`\n[parseCSV] Calculating play metrics for playerId="${doc.playerId}"`);
       const playPlayerMetrics = calculatePlayPlayerMetrics(speeds, session.plays || []);
 
       session.sessionPlayerData.push({

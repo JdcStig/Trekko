@@ -11,25 +11,24 @@ import mongoose from "mongoose";
  *   2) HighSpeedRunning (km): sum of speeds > 5.5 m/s, / 10000
  *   3) Sprinting (km): sum of speeds > 7 m/s, / 10000
  *   4) TopSpeed (m/s): max value in the slice
- *   5) AvgDistance (km per 15-minute interval)
+ *   5) AvgDistance (km per 15-minute interval): (distanceKm / playLengthSeconds) * 900
  *   6) NumSprint (increments if top speed > 7 m/s)
  */
 const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
-  console.log(`[calculatePlayPlayerMetrics] Processing ${plays.length} plays`);
-
   let currentIndex = 0; // Tracks position in speeds array
 
-  return plays.map((play, index) => {
-    console.log(`\n🔹 Processing Play #${index + 1}: Start=${play.timeStart}, End=${play.timeEnd}`);
+  // Ensure plays are sorted by timeStart for sequential processing
+  const sortedPlays = [...plays].sort((a, b) => a.timeStart - b.timeStart);
 
-    const playLengthSeconds = play.timeEnd - play.timeStart; // playLengthSeconds will be playLengthMiliseconds (divide in 1000) play.timeEnd - play.timeStart / 1000
-    const playSize = Math.round(playLengthSeconds * 10);
+  return sortedPlays.map((play, index) => {
+    const playLengthSeconds = play.timeEnd - play.timeStart;
+    const playSize = Math.round(playLengthSeconds * 10); // number of readings expected
 
-    const startIndex = currentIndex; // Going to be the (playstartTime - sessionstartTimeplayer) / 100
-    const endIndex = currentIndex + playSize; // Change to startIndex + playSize
+    const startIndex = currentIndex;
+    const endIndex = currentIndex + playSize;
 
+    // If there's no data for this play, return zeros.
     if (startIndex >= speeds.length) {
-      console.warn(`⚠️ Play #${index + 1} has no speed data!`);
       return {
         PlayNumber: index + 1,
         TotalDistance: 0,
@@ -37,16 +36,16 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
         AvgDistance: 0,
         NumSprint: 0,
         PlayMetrics: [
-          { MetricName: 'Distance', Value: 0, Unit: 'km' },
-          { MetricName: 'HighSpeedRunning', Value: 0, Unit: 'km' },
-          { MetricName: 'Sprinting', Value: 0, Unit: 'km' },
-          { MetricName: 'TopSpeed', Value: 0, Unit: 'm/s' },
+          { MetricName: "Distance", Value: 0, Unit: "km" },
+          { MetricName: "HighSpeedRunning", Value: 0, Unit: "km" },
+          { MetricName: "Sprinting", Value: 0, Unit: "km" },
+          { MetricName: "TopSpeed", Value: 0, Unit: "m/s" },
         ],
       };
     }
 
-
     const playSpeeds = speeds.slice(startIndex, endIndex);
+
     const sumSpeeds = playSpeeds.reduce((acc, val) => acc + val, 0);
     const distanceKm = sumSpeeds / 10000;
     const sumHSR = playSpeeds.filter((val) => val > 5.5).reduce((acc, val) => acc + val, 0);
@@ -54,13 +53,12 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
     const sumSprinting = playSpeeds.filter((val) => val > 7).reduce((acc, val) => acc + val, 0);
     const sprintKm = sumSprinting / 10000;
     const topSpeed = playSpeeds.length ? Math.max(...playSpeeds) : 0;
-
-    let avgDistance = 0;
-    if (playLengthSeconds > 0) {
-      avgDistance = (distanceKm / playLengthSeconds) * 60 / 15; 
-    }
-
-    const numSprint = topSpeed > 7 ? 1 : 0; // Calculate all the players (total number of players who sprint)
+    
+    // Calculate average distance per 15-minute interval (900 seconds)
+    const avgDistance = playLengthSeconds > 0 ? (distanceKm / playLengthSeconds) * 900 : 0;
+    
+    const numSprint = topSpeed > 7 ? 1 : 0;
+    
     currentIndex = endIndex;
 
     return {
@@ -70,10 +68,10 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
       AvgDistance: avgDistance,
       NumSprint: numSprint,
       PlayMetrics: [
-        { MetricName: 'Distance', Value: distanceKm, Unit: 'km' },
-        { MetricName: 'HighSpeedRunning', Value: hsrKm, Unit: 'km' },
-        { MetricName: 'Sprinting', Value: sprintKm, Unit: 'km' },
-        { MetricName: 'TopSpeed', Value: topSpeed, Unit: 'm/s' },
+        { MetricName: "Distance", Value: distanceKm, Unit: "km" },
+        { MetricName: "HighSpeedRunning", Value: hsrKm, Unit: "km" },
+        { MetricName: "Sprinting", Value: sprintKm, Unit: "km" },
+        { MetricName: "TopSpeed", Value: topSpeed, Unit: "m/s" },
       ],
     };
   });
