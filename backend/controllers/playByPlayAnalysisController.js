@@ -74,15 +74,18 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
 
   // Build array of plays from CSV
   const playData = rows.map((row, index) => {
-    // If StartTime/EndTime in CSV are "hours from session start", multiply by 24
-    const startTime = parseFloat(row['StartTime']) * 24 || 0;
-    const endTime = parseFloat(row['EndTime']) * 24 || 0;
+    // Convert fraction-of-day => hours => add to session date => store in ms
+    const fractionStart = parseFloat(row['StartTime']) || 0;
+    const fractionEnd   = parseFloat(row['EndTime']) || 0;
+
+    const startTimeMs = moment(session.date).add(fractionStart * 24, 'hours').valueOf();
+    const endTimeMs   = moment(session.date).add(fractionEnd * 24, 'hours').valueOf();
 
     return {
       userId,
       sessionId,
-      timeStart: moment.unix(session.date / 1000).add(startTime, 'hours').unix(),
-      timeEnd: moment.unix(session.date / 1000).add(endTime, 'hours').unix(),
+      timeStart: startTimeMs,
+      timeEnd: endTimeMs,
       duration: parseFloat(row['Duration']) || 0,
       half: parseInt(row['Half']) || 1,
       teamStartPossession: row['StartPossession'] || 'Unknown',
