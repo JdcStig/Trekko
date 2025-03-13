@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Container, Alert, Row, Col, Form, Pagination } from 'react-bootstrap';
 import { FaEdit, FaTrash, FaPlus, FaSortUp, FaSortDown } from 'react-icons/fa';
 import ConfirmDeletion from '../components/ConfirmDeletion';
@@ -13,18 +13,15 @@ import {
 } from '../slices/playersApiSlice';
 import AddPlayerModal from '../components/Player/AddPlayerModal';
 import EditPlayerModal from '../components/Player/EditPlayerModal';
+import { toast } from 'react-toastify';
 
 const PlayerManagementScreen = () => {
   const { userInfo } = useSelector((state) => state.auth);
 
-  // RTK Query hook with refetch option
-  const { data, isLoading, error, refetch } = useGetPlayersQuery(undefined, {
-    refetchOnMountOrArgChange: true,
-  });
-
-  const [deletePlayer, { isLoading: loadingDelete }] = useDeletePlayerMutation();
-  const [createPlayer, { isLoading: loadingCreate }] = useCreatePlayerMutation();
-  const [updatePlayer, { isLoading: loadingUpdate }] = useUpdatePlayerMutation();
+  const { data, isLoading, error } = useGetPlayersQuery();
+  const [deletePlayer] = useDeletePlayerMutation();
+  const [createPlayer] = useCreatePlayerMutation();
+  const [updatePlayer] = useUpdatePlayerMutation();
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -35,15 +32,8 @@ const PlayerManagementScreen = () => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [filterPosition, setFilterPosition] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  // Refetch players when userInfo changes (e.g., on login/logout)
-  useEffect(() => {
-    refetch();
-  }, [userInfo, refetch]);
 
   // Function to handle sorting when a header is clicked
   const handleSort = (key) => {
@@ -54,63 +44,60 @@ const PlayerManagementScreen = () => {
     setSortConfig({ key, direction });
   };
 
-  // When trash icon is clicked, open the confirm deletion modal
+  // Delete a player with toast notification
   const handleDeleteClick = (player) => {
     setSelectedPlayer(player);
     setShowConfirm(true);
   };
 
-  // Called when the user confirms deletion
   const handleConfirmDeletion = async () => {
     if (!selectedPlayer) return;
     try {
       await deletePlayer(selectedPlayer._id).unwrap();
-      refetch();
+      // Toast on success
+      toast.success(`Player "${selectedPlayer.name}" deleted successfully`);
     } catch (err) {
-      // Handle error
+      toast.error('Failed to delete player');
     } finally {
       setShowConfirm(false);
       setSelectedPlayer(null);
     }
   };
 
-  // Called when the user cancels deletion
   const handleCancelDeletion = () => {
     setShowConfirm(false);
     setSelectedPlayer(null);
   };
 
-  // Called when a new player is submitted via the Add modal
+  // Add a player with toast notification
   const handleAddPlayer = async (playerData) => {
     try {
       await createPlayer(playerData).unwrap();
-      refetch();
+      toast.success(`Player "${playerData.name}" added successfully`);
       setShowAddModal(false);
     } catch (err) {
-      // Handle error
+      toast.error('Failed to add player');
     }
   };
 
-  // When edit icon is clicked open the edit modal
+  // Edit a player (toast could be added similarly if desired)
   const handleEditClick = (player) => {
     setSelectedEditPlayer(player);
     setShowEditModal(true);
   };
 
-  // Called when the user submits the edit form in the edit modal
   const handleEditPlayer = async (playerData) => {
     try {
-      console.log('Sending update:', playerData); // Debugging
       await updatePlayer({ id: playerData.id, name: playerData.name, position: playerData.position, teamName: playerData.teamName }).unwrap();
-      refetch();
+      toast.success(`Player "${playerData.name}" updated successfully`);
       setShowEditModal(false);
       setSelectedEditPlayer(null);
     } catch (err) {
-      console.error("Error updating player:", err);
+      toast.error('Failed to update player');
     }
   };
 
-  // Sort players if data is available
+  // Sorting and filtering logic...
   let sortedPlayers = [];
   if (data && data.players) {
     sortedPlayers = [...data.players];
@@ -127,7 +114,6 @@ const PlayerManagementScreen = () => {
     }
   }
 
-  // Create an array of unique player positions for filtering
   const uniquePositions = sortedPlayers.reduce((acc, player) => {
     if (!acc.includes(player.position)) {
       acc.push(player.position);
@@ -135,7 +121,6 @@ const PlayerManagementScreen = () => {
     return acc;
   }, []);
 
-  // Filter the sorted players by the selected filter and search term
   let filteredPlayers = sortedPlayers;
   if (filterPosition !== 'All') {
     filteredPlayers = filteredPlayers.filter(
@@ -148,7 +133,6 @@ const PlayerManagementScreen = () => {
     );
   }
 
-  // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentPlayers = filteredPlayers.slice(indexOfFirstItem, indexOfLastItem);
@@ -200,12 +184,10 @@ const PlayerManagementScreen = () => {
         </Col>
       </Row>
 
-      {isLoading || loadingDelete || loadingCreate || loadingUpdate ? (
+      {isLoading ? (
         <Loader />
       ) : error ? (
-        <Message variant="danger">
-          {error.data?.message || error.error}
-        </Message>
+        <Message variant="danger">{error.data?.message || error.error}</Message>
       ) : filteredPlayers && filteredPlayers.length > 0 ? (
         <>
           <Table striped bordered hover responsive className="table-sm">
@@ -245,22 +227,15 @@ const PlayerManagementScreen = () => {
             </tbody>
           </Table>
 
-          {/* Pagination Controls */}
           {totalPages > 1 && (
             <Pagination className="justify-content-center">
-              {/* <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} /> */}
               <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
               {[...Array(totalPages).keys()].map((num) => (
-                <Pagination.Item
-                  key={num + 1}
-                  active={num + 1 === currentPage}
-                  onClick={() => paginate(num + 1)}
-                >
+                <Pagination.Item key={num + 1} active={num + 1 === currentPage} onClick={() => paginate(num + 1)}>
                   {num + 1}
                 </Pagination.Item>
               ))}
               <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
-              {/* <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} /> */}
             </Pagination>
           )}
         </>
@@ -274,7 +249,6 @@ const PlayerManagementScreen = () => {
         show={showConfirm}
         onConfirm={handleConfirmDeletion}
         onCancel={handleCancelDeletion}
-        title="Confirm Deletion"
         message={`Are you sure you want to delete ${selectedPlayer ? selectedPlayer.name : 'this player'}?`}
       />
 

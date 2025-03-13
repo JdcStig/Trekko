@@ -4,76 +4,79 @@ import Session from '../models/sessionModel.js';
 import { getIO } from '../socket.js';
 
 const sportPositions = {
-  "Soccer": ["FullBack", "CentreDefender", "Midfield", "Forward"],
+  Soccer: ["FullBack", "CentreDefender", "Midfield", "Forward"],
   "GAA Football": ["GoalKeeper", "Defender", "Midfielder", "Forward"],
   "GAA Hurling": ["GoalKeeper", "Defender", "Midfielder", "Forward"],
-  "Rugby": ["Forward", "Back"],
-  "Other": ["Other"]
+  Rugby: ["Forward", "Back"],
+  Other: ["Other"],
 };
 
 /**
  * Creates missing players from CSV by:
- *  1) Distinctly gathering player names from SessionPlayerData.
- *  2) Checking which players already exist.
- *  3) Inserting any missing ones in a single bulk insert.
+ *  1) Gathering distinct 'playerName' from SessionPlayerData for this session.
+ *  2) Checking which are already in the Player collection (by playerId).
+ *  3) Inserting the missing ones with position=some random pick.
  */
 const createPlayersFromCSV = async (sessionId, userId) => {
-  console.log(`🛠️ createPlayersFromCSV: Processing for sessionId=${sessionId}`);
+  console.log(`\n🛠️ [createPlayersFromCSV] Starting. sessionId=${sessionId}, userId=${userId}`);
   try {
+    // 1) Find the session
     const session = await Session.findById(sessionId);
     if (!session) {
-      console.log(`❌ Session ${sessionId} not found.`);
+      console.log(`❌ [createPlayersFromCSV] No session found for id=${sessionId}`);
       return;
     }
     if (session.userId.toString() !== userId.toString()) {
-      console.log("❌ User not authorized to create players for this session.");
+      console.log("❌ [createPlayersFromCSV] User is not authorized for this session.");
       return;
     }
 
-    // Use distinct to get only unique player names from SessionPlayerData
+    // 2) Distinct playerName from SessionPlayerData
     const playerNames = await SessionPlayerData.distinct('playerName', { sessionId });
     if (!playerNames.length) {
-      console.log(`❌ No player names found for session ${sessionId}`);
+      console.log(`❌ [createPlayersFromCSV] No player names in sessionPlayerData for sessionId=${sessionId}`);
       return;
     }
+    console.log(`[createPlayersFromCSV] Found these distinct playerNames:`, playerNames);
 
-    // Query existing players in one go
-    // In your Player model, the CSV display name is stored in the "playerId" field.
+    // 3) Which players do we already have in the Player collection?
     const existingPlayers = await Player.find({
       userId,
       teamName: session.teamName,
-      playerId: { $in: playerNames }
+      playerId: { $in: playerNames },
     });
-    const existingPlayerNames = new Set(existingPlayers.map(p => p.playerId));
+    const existingPlayerIds = new Set(existingPlayers.map((p) => p.playerId));
+    console.log(`[createPlayersFromCSV] existingPlayers count=${existingPlayers.length}`);
 
-    // Filter out missing players
-    const missingPlayers = playerNames.filter(name => !existingPlayerNames.has(name));
-    if (missingPlayers.length === 0) {
-      console.log(`✅ All players already exist for session ${sessionId}.`);
+    // 4) Filter out missing
+    const missing = playerNames.filter((nm) => !existingPlayerIds.has(nm));
+    if (!missing.length) {
+      console.log(`[createPlayersFromCSV] All players exist. No new players needed.`);
       return;
     }
+    console.log(`[createPlayersFromCSV] Missing players:`, missing);
 
-    const positions = sportPositions[session.type] || sportPositions["Other"];
-    const newPlayers = missingPlayers.map(name => {
-      const randomPosition = positions[Math.floor(Math.random() * positions.length)];
+    // 5) Insert missing as new Player docs
+    const positions = sportPositions[session.type] || sportPositions.Other;
+    const newPlayers = missing.map((name) => {
+      const randPos = positions[Math.floor(Math.random() * positions.length)];
       return {
         userId,
-        name: name,       // Use the CSV display name as the player's name
-        playerId: name,   // Store the CSV name in "playerId"
-        position: randomPosition,
+        name,       // store CSV name
+        playerId: name, // same string
+        position: randPos,
         teamName: session.teamName,
       };
     });
 
-    // Insert all missing players concurrently
-    const insertedPlayers = await Player.insertMany(newPlayers, { ordered: false });
-    console.log(`✅ Created ${insertedPlayers.length} new players.`);
-    insertedPlayers.forEach(newPlayer => {
-      console.log(`✅ Created new player: ${newPlayer.name} (${newPlayer.position})`);
-      getIO().emit('playerCreated', { playerName: newPlayer.name });
+    const inserted = await Player.insertMany(newPlayers, { ordered: false });
+    console.log(`[createPlayersFromCSV] Inserted ${inserted.length} new Player docs.`);
+    inserted.forEach((p) => {
+      console.log(`✅ [createPlayersFromCSV] Created player: ${p.name} (id=${p._id})`);
+      getIO().emit('playerCreated', { playerName: p.name });
     });
-  } catch (error) {
-    console.error(`🚨 Error in createPlayersFromCSV: ${error.message}`);
+  } catch (err) {
+    console.error(`🚨 [createPlayersFromCSV] ERROR: ${err.message}`);
   }
 };
 
