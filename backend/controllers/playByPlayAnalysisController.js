@@ -7,6 +7,7 @@ import moment from 'moment';
 import PlayByPlayAnalysis from '../models/playByPlayAnalysisModel.js';
 import Session from '../models/sessionModel.js';
 import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Player from '../models/playerModel.js'; // Needed for patching the real name
 
 import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js';
@@ -16,7 +17,7 @@ import calculateAverageDistance from '../calculation/calculateAverageDistance.js
 // ====================== Overall Metrics Helper ======================
 // For each player's 'sessionPlayerMetrics'
 const metricsCalculations = {
-  Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000, 
+  Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000,
   TopSpeed: (values) => Math.max(...values, 0),
   HighSpeedRunning: (values) =>
     (values.filter((v) => v > 5.5).reduce((acc, val) => acc + val, 0) / 10) / 1000,
@@ -25,14 +26,15 @@ const metricsCalculations = {
 };
 
 // ====================== parsePlayByPlayCSV ======================
-// 1) Parse CSV rows into new plays
-// 2) Insert them into PlayByPlayAnalysis + session.plays
-// 3) Create missing players
-// 4) Calculate overall, per-play, and per-split metrics for each player
-// 5) Also aggregate each play's avgDistance and numSprint into session.plays
-// 6) Recalculate session.avgDistance
-// 7) Return updated session
-const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
+//  1) Parse CSV rows into new plays
+//  2) Insert them into PlayByPlayAnalysis + session.plays
+//  3) Create missing players from CSV
+//  4) Patch SessionPlayerData docs so playerName is the real name (fixes ID-issue)
+//  5) Calculate overall/per-play/per-split metrics
+//  6) Update each play's avgDistance + numSprint
+//  7) Recalculate session.avgDistance
+//  8) Return updated session
+export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   if (!fileBuffer || fileBuffer.length === 0) {
     throw new Error('Uploaded file is empty.');
   }
@@ -50,7 +52,7 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   else if (fileString.includes(';')) delimiter = ';';
   else if (fileString.includes('  ')) delimiter = ' ';
 
-  // Parse CSV
+  // Parse CSV rows
   const rows = [];
   await new Promise((resolve, reject) => {
     Readable.from(fileString)
@@ -72,9 +74,10 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
 
   // Build array of plays from CSV
   const playData = rows.map((row, index) => {
-    // If your StartTime/EndTime in CSV are "hours from session start", multiply by 24
+    // If StartTime/EndTime in CSV are "hours from session start", multiply by 24
     const startTime = parseFloat(row['StartTime']) * 24 || 0;
     const endTime = parseFloat(row['EndTime']) * 24 || 0;
+
     return {
       userId,
       sessionId,
@@ -90,7 +93,7 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     };
   });
 
-  // Insert new play data into DB
+  // Insert new plays into PlayByPlayAnalysis
   await PlayByPlayAnalysis.insertMany(playData, { ordered: false });
 
   // Append new plays to session.plays
@@ -102,25 +105,39 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   }));
   session.plays = existingPlays.concat(newPlays);
 
-  // Save so the session now has these new plays
+  // Save updated session with new plays
   await session.save();
 
-  // Create any missing players from the CSV
+  // Create any missing players from CSV
   await createPlayersFromCSV(sessionId, userId);
 
-  // Fetch all SessionPlayerData docs for this session
+  // ====================== FIX: patch each SessionPlayerData doc with real name ======================
+  const allDocs = await SessionPlayerData.find({ sessionId });
+  for (const doc of allDocs) {
+    // doc.playerName is still the CSV name
+    // But Player has .playerId set to that same CSV name
+    const playerDoc = await Player.findOne({
+      userId,
+      playerId: doc.playerName, // we used doc.playerName as the "playerId" in createPlayersFromCSV
+    });
+    if (playerDoc) {
+      doc.playerId = playerDoc._id;   // link the actual Player doc
+      doc.playerName = playerDoc.name; // store the real name
+      await doc.save();
+    }
+  }
+  // =================================================================================================
+
+  // Now fetch updated SessionPlayerData
   const playerDocs = await SessionPlayerData.find({ sessionId });
   if (!playerDocs.length) {
     console.warn('⚠️ No SessionPlayerData found. Skipping metrics calculation.');
   } else {
-    //
     // 1) AGGREGATE each play's avgDistance + numSprint for the entire session
-    //    so you can display them in your "Plays" table
-    //
     const combinedSpeeds = playerDocs.flatMap(doc => doc.speeds || []);
     const combinedPlayMetrics = calculatePlayPlayerMetrics(combinedSpeeds, session.plays || []);
 
-    // Update each play in session.plays
+    // Patch each play in session.plays with avgDistance, numSprint
     session.plays = session.plays.map((play) => {
       const pm = combinedPlayMetrics.find((m) => m.PlayNumber === play.playNumber);
       return {
@@ -130,34 +147,16 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
       };
     });
 
-    //
-    // 2) FOR EACH PLAYER: overall + per-play + per-split
-    //
+    // 2) FOR EACH PLAYER: overall + per-play + per-split metrics
     session.sessionPlayerData = playerDocs.map((doc) => {
       const speeds = doc.speeds || [];
 
       // Overall metrics
       const sessionPlayerMetrics = [
-        {
-          MetricName: 'Distance',
-          Value: metricsCalculations.Distance(speeds),
-          Unit: 'km',
-        },
-        {
-          MetricName: 'TopSpeed',
-          Value: metricsCalculations.TopSpeed(speeds),
-          Unit: 'm/s',
-        },
-        {
-          MetricName: 'HighSpeedRunning',
-          Value: metricsCalculations.HighSpeedRunning(speeds),
-          Unit: 'km',
-        },
-        {
-          MetricName: 'Sprinting',
-          Value: metricsCalculations.Sprinting(speeds),
-          Unit: 'km',
-        },
+        { MetricName: 'Distance', Value: metricsCalculations.Distance(speeds), Unit: 'km' },
+        { MetricName: 'TopSpeed', Value: metricsCalculations.TopSpeed(speeds), Unit: 'm/s' },
+        { MetricName: 'HighSpeedRunning', Value: metricsCalculations.HighSpeedRunning(speeds), Unit: 'km' },
+        { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
       ];
 
       // Per-play metrics
@@ -168,7 +167,8 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
 
       return {
         csvId: doc._id,
-        playerName: doc.playerId,
+        playerId: doc.playerId,         // actual Player _id
+        playerName: doc.playerName,     // real Player name
         sessionPlayerMetrics,
         playPlayerMetrics,
         splitPlayerMetrics,
@@ -179,10 +179,10 @@ const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     await session.save();
   }
 
-  // Finally, recalc average distance for the entire session
+  // Recalculate average distance for the entire session
   await calculateAverageDistance(sessionId);
 
-  // Return the updated session (with sessionPlayerData populated)
+  // Return the updated session
   const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
   return updatedSession;
 };
@@ -201,7 +201,7 @@ export const uploadPlayByPlayAnalysisCSV = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Process the CSV: parse, create players, compute metrics
+    // Process the CSV
     const updatedSession = await parsePlayByPlayCSV(
       req.file.buffer,
       playByPlayAnalysisId,
@@ -216,7 +216,16 @@ export const uploadPlayByPlayAnalysisCSV = asyncHandler(async (req, res) => {
 
 // ====================== Other CRUD Methods ======================
 export const registerPlayByPlayAnalysis = asyncHandler(async (req, res) => {
-  const { timeStart, timeEnd, duration, teamStartPosession, teamEndPosession, turnovers, startAction, endAction } = req.body;
+  const {
+    timeStart,
+    timeEnd,
+    duration,
+    teamStartPosession,
+    teamEndPosession,
+    turnovers,
+    startAction,
+    endAction
+  } = req.body;
   const userId = req.user._id;
 
   const playByPlayAnalysis = await PlayByPlayAnalysis.create({
@@ -294,7 +303,7 @@ export const updatePlayByPlayAnalysis = asyncHandler(async (req, res) => {
 
   // Handle splits if provided
   if (splits && Array.isArray(splits)) {
-    // e.g. convert HH:mm:ss to numeric seconds
+    // convert HH:mm:ss to numeric seconds
     playByPlayAnalysis.splits = splits.map((split, i) => {
       if (!split.title) {
         throw new Error('Split title is required.');
@@ -324,7 +333,7 @@ export const deleteAllPlayByPlayAnalysisCSVs = asyncHandler(async (req, res) => 
     res.status(400);
     throw new Error('PlayByPlayAnalysis ID is required.');
   }
-  // e.g. if there's a "PlayByPlayAnalysisPlayerData" model, remove them:
+  // If there's a "PlayByPlayAnalysisPlayerData" model, remove them:
   // await PlayByPlayAnalysisPlayerData.deleteMany({ playByPlayAnalysisId });
   const playByPlayAnalysis = await PlayByPlayAnalysis.findByIdAndUpdate(
     playByPlayAnalysisId,
@@ -337,4 +346,3 @@ export const deleteAllPlayByPlayAnalysisCSVs = asyncHandler(async (req, res) => 
   }
   res.status(200).json({ message: 'All CSV data deleted', playByPlayAnalysis });
 });
-export { parsePlayByPlayCSV };
