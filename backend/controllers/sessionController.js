@@ -372,13 +372,14 @@ export const updateSession = asyncHandler(async (req, res) => {
     throw new Error('Session not found');
   }
 
+  // Replace existing fields with new ones
   if (teamName) session.teamName = teamName;
   if (sessionName) session.sessionName = sessionName;
 
   if (date) {
     const parsedDate = new Date(date).getTime();
     if (!isNaN(parsedDate)) {
-      session.date = parsedDate;
+      session.date = parsedDate;  // store new session date
     }
   }
 
@@ -386,35 +387,32 @@ export const updateSession = asyncHandler(async (req, res) => {
   if (duration) session.duration = Number(duration);
   if (notes) session.notes = notes;
 
-  // Convert splits => add offset to session.date
+  // ----- Here’s the key fix: We do NOT add old offset + new offset. -----
+  // We simply REPLACE the old splits array with brand-new splits from req.body.
   if (splits && Array.isArray(splits)) {
-    const dateMs = session.date; // already updated
-    const convertedSplits = splits.map((split, index) => {
+    session.splits = splits.map((split, index) => {
       if (!split.title) {
         res.status(400);
         throw new Error('Split title is required.');
       }
 
-      const startOffset = typeof split.start === 'number'
-        ? split.start
-        : new Date(`1970-01-01T${split.start}`).getTime();
-      const endOffset = typeof split.end === 'number'
-        ? split.end
-        : new Date(`1970-01-01T${split.end}`).getTime();
+      // If your front-end sends the final absolute ms, store it as is:
+      const newStart = Number(split.start) || 0;
+      const newEnd   = Number(split.end)   || 0;
 
       return {
         title: split.title,
         splitNumber: index + 1,
-        start: dateMs + startOffset,
-        end: dateMs + endOffset,
+        start: newStart,  // REPLACE old start
+        end: newEnd,      // REPLACE old end
       };
     });
-    session.splits = convertedSplits;
   }
 
+  // Save the updated session
   await session.save();
 
-  // If splits changed, recalc metrics
+  // If splits changed, re-run metrics
   if (splits && Array.isArray(splits)) {
     const allPlayerDocs = await SessionPlayerData.find({ sessionId: session._id });
     session.sessionPlayerData = [];
@@ -433,6 +431,7 @@ export const updateSession = asyncHandler(async (req, res) => {
         realName = playerDoc.name;
       }
 
+      // Recompute metrics
       const sessionPlayerMetrics = [
         { MetricName: 'Distance', Value: metricsCalculations.Distance(speeds), Unit: 'km' },
         { MetricName: 'TopSpeed', Value: metricsCalculations.TopSpeed(speeds), Unit: 'm/s' },
@@ -458,6 +457,7 @@ export const updateSession = asyncHandler(async (req, res) => {
 
   res.status(200).json(session);
 });
+
 
 /**
  * ===========================
