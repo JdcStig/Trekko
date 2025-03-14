@@ -81,8 +81,8 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     return {
       userId,
       sessionId,
-      timeStart: moment.unix(session.date / 1000).add(startTime, 'hours').unix(),
-      timeEnd: moment.unix(session.date / 1000).add(endTime, 'hours').unix(),
+      timeStart: moment.unix(session.date ).add(startTime, 'hours').unix(),
+      timeEnd: moment.unix(session.date ).add(endTime, 'hours').unix(),
       duration: parseFloat(row['Duration']) || 0,
       half: parseInt(row['Half']) || 1,
       teamStartPossession: row['StartPossession'] || 'Unknown',

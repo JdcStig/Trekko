@@ -12,7 +12,7 @@ import createPlayersFromCSV from '../calculation/createPlayersFromCSV.js';
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
 import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js';
 import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js';
-import { parsePlayByPlayCSV } from './playByPlayAnalysisController.js'; // if needed
+import { parsePlayByPlayCSV } from './playByPlayAnalysisController.js'; // if you need it
 
 // Basic distance-based metrics
 const metricsCalculations = {
@@ -25,33 +25,27 @@ const metricsCalculations = {
 };
 
 /**
+ * ==============================
  * parseCSV:
- *  1) Reads CSV from fileBuffer.
- *  2) Inserts data into SessionPlayerData with the CSV’s “Player Display Name” stored in playerName.
- *  3) Calls createPlayersFromCSV (which creates missing Player docs).
- *  4) Links each SessionPlayerData doc to the corresponding Player doc and forces playerName to the real name.
- *  5) Recomputes metrics and rebuilds session.sessionPlayerData.
- *  6) Recalculates average distance.
- *  7) Returns the updated session.
+ *  Reads CSV rows, inserts data,
+ *  updates sessionPlayerData
+ * ==============================
  */
-const parseCSV = async (fileBuffer, sessionId, userId) => {
-  console.log(`\n📌 [parseCSV] Starting for sessionId=${sessionId}, userId=${userId}`);
-  
-  // Validate inputs
+export const parseCSV = async (fileBuffer, sessionId, userId) => {
+  console.log(`\n[parseCSV] sessionId=${sessionId}, userId=${userId}`);
+
+  // 0) Validate
   if (!fileBuffer || fileBuffer.length === 0) {
-    console.log("[parseCSV] Error: File buffer is empty.");
-    throw new Error("Uploaded file is empty.");
+    throw new Error('Uploaded file is empty.');
   }
   if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-    console.log("[parseCSV] Error: Invalid session ID.");
-    throw new Error("Invalid session ID.");
+    throw new Error('Invalid session ID.');
   }
   if (!mongoose.Types.ObjectId.isValid(userId)) {
-    console.log("[parseCSV] Error: Invalid user ID.");
-    throw new Error("Invalid user ID.");
+    throw new Error('Invalid user ID.');
   }
 
-  // Convert buffer to string and detect delimiter
+  // 1) Detect CSV delimiter
   const fileString = fileBuffer.toString('utf-8');
   let delimiter = ',';
   if (fileString.includes('\t')) delimiter = '\t';
@@ -59,7 +53,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
   else if (fileString.includes('  ')) delimiter = ' ';
   console.log(`[parseCSV] Detected delimiter: "${delimiter}"`);
 
-  // Parse CSV into rows
+  // 2) Parse CSV rows
   const rows = [];
   await new Promise((resolve, reject) => {
     Readable.from(fileString)
@@ -68,23 +62,21 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       .on('end', resolve)
       .on('error', reject);
   });
-  console.log(`[parseCSV] Completed CSV parsing. Total rows: ${rows.length}`);
   if (!rows.length) {
-    console.log("[parseCSV] No rows found in CSV.");
-    throw new Error("CSV is empty or could not be parsed.");
+    throw new Error('CSV is empty or could not be parsed.');
   }
+  console.log(`[parseCSV] CSV parse complete. Total rows: ${rows.length}`);
 
-  // Fetch the session document
+  // 3) Fetch the session
   const session = await Session.findById(sessionId);
   if (!session) {
-    console.log(`[parseCSV] Session not found: ${sessionId}`);
     throw new Error(`Session not found: ${sessionId}`);
   }
-  const sessionDate = new Date(session.date);
 
-  // Build an object keyed by CSV's player name
+  // 4) Build data for each distinct player
+  const sessionDate = new Date(session.date); // session.date is in ms
   const playersData = {};
-  console.log("[parseCSV] Processing CSV rows to build playersData...");
+
   for (const row of rows) {
     const csvName = row['Player Display Name'] || 'Unknown Player';
     const speed = parseFloat(row['Speed (m/s)']) || 0;
@@ -92,9 +84,12 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
     const lon = parseFloat(row['Longitude']) || 0;
     const hr = parseFloat(row['Heart Rate']) || 0;
     const accel = parseFloat(row['Acceleration (m/s^2)']) || 0;
+
+    // "Time" in HH:MM:SS
     const timeStr = row['Time'] || '00:00:00';
     const [hh, mm, ss] = timeStr.split(':').map(Number);
 
+    // Combine session date + CSV time => store in ms
     const combinedDateTime = new Date(sessionDate);
     combinedDateTime.setHours(hh, mm, ss || 0, 0);
     const unixMs = combinedDateTime.getTime();
@@ -103,7 +98,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       playersData[csvName] = {
         userId,
         sessionId,
-        playerName: csvName, // exactly what the CSV contains
+        playerName: csvName,
         times: [],
         lats: [],
         lons: [],
@@ -112,6 +107,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
         accelerations: [],
       };
     }
+
     playersData[csvName].times.push(unixMs);
     playersData[csvName].lats.push(lat);
     playersData[csvName].lons.push(lon);
@@ -119,9 +115,8 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
     playersData[csvName].heartRates.push(hr);
     playersData[csvName].accelerations.push(accel);
   }
-  console.log(`[parseCSV] Unique CSV player names: ${Object.keys(playersData)}`);
 
-  // Insert SessionPlayerData documents
+  // 5) Insert SessionPlayerData docs
   const insertArray = [];
   for (const [csvName, pdata] of Object.entries(playersData)) {
     pdata.times.sort((a, b) => a - b);
@@ -131,7 +126,7 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
     insertArray.push({
       userId,
       sessionId,
-      playerName: csvName, // keep the CSV name as-is
+      playerName: csvName,
       startTime: startMs,
       endTime: endMs,
       lats: pdata.lats,
@@ -139,43 +134,34 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       speeds: pdata.speeds,
       heartRates: pdata.heartRates,
       accelerationImpulses: pdata.accelerations,
-      playerId: null, // will update below
+      playerId: null, // set later
     });
   }
-  console.log(`[parseCSV] Inserting ${insertArray.length} SessionPlayerData docs...`);
+
   const insertedDocs = await SessionPlayerData.insertMany(insertArray, { ordered: false });
-  console.log(`[parseCSV] Inserted ${insertedDocs.length} docs into SessionPlayerData.`);
+  console.log(`[parseCSV] Inserted ${insertedDocs.length} SessionPlayerData docs.`);
 
-  // Create missing Player docs from CSV names
-  console.log("[parseCSV] Calling createPlayersFromCSV...");
+  // 6) Create any missing Player docs
   await createPlayersFromCSV(sessionId, userId);
-  console.log("[parseCSV] createPlayersFromCSV finished.");
 
-  // Link each inserted SessionPlayerData doc with the corresponding Player doc
-  console.log("[parseCSV] Linking SessionPlayerData docs with Player docs...");
+  // 7) Link each doc with the real Player doc
   for (const doc of insertedDocs) {
     const csvName = doc.playerName;
-    console.log(`   [parseCSV] Processing doc _id=${doc._id} (CSV name: "${csvName}")`);
     const playerDoc = await Player.findOne({ userId, playerId: csvName });
     if (playerDoc) {
-      console.log(`   [parseCSV] Found Player: _id=${playerDoc._id}, name="${playerDoc.name}"`);
       doc.playerId = playerDoc._id;
-      // Force the real Player name into the SessionPlayerData doc
+      // Optionally rename to real Player name
       doc.playerName = playerDoc.name;
       await doc.save();
-    } else {
-      console.log(`   [parseCSV] No Player found for CSV name "${csvName}"`);
     }
   }
 
-  // Rebuild session.sessionPlayerData from all SessionPlayerData docs
-  console.log("[parseCSV] Rebuilding session.sessionPlayerData...");
+  // 8) Rebuild session.sessionPlayerData
   session.sessionPlayerData = [];
   const allPlayerDocs = await SessionPlayerData.find({ sessionId });
-  console.log(`[parseCSV] Found ${allPlayerDocs.length} SessionPlayerData docs in DB.`);
+
   for (const doc of allPlayerDocs) {
     const speeds = doc.speeds || [];
-    let finalName = doc.playerName; // should be updated to the real Player name
 
     const sessionPlayerMetrics = [
       { MetricName: 'Distance', Value: metricsCalculations.Distance(speeds), Unit: 'km' },
@@ -183,79 +169,82 @@ const parseCSV = async (fileBuffer, sessionId, userId) => {
       { MetricName: 'HighSpeedRunning', Value: metricsCalculations.HighSpeedRunning(speeds), Unit: 'km' },
       { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
     ];
+
     const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits || []);
     const playPlayerMetrics = calculatePlayPlayerMetrics(speeds, session.plays || []);
 
     session.sessionPlayerData.push({
       csvId: doc._id,
       playerId: doc.playerId,
-      playerName: finalName,
+      playerName: doc.playerName,
       sessionPlayerMetrics,
       splitPlayerMetrics,
       playPlayerMetrics,
     });
   }
+
   await session.save();
-  console.log(`[parseCSV] Rebuilt session.sessionPlayerData. Count=${session.sessionPlayerData.length}`);
 
-  // Recalculate average distance
-  console.log("[parseCSV] Recalculating average distance...");
-  const avgDist = await calculateAverageDistance(sessionId);
-  console.log(`[parseCSV] Average distance updated to ${avgDist} km`);
+  // 9) Recalculate average distance
+  await calculateAverageDistance(sessionId);
 
-  // Return the updated session (with populated sessionPlayerData)
-  console.log("[parseCSV] Returning updated session document.");
-  const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
+  // 10) Return updated session
+  //    NOTE: Only populating sessionPlayerData (one‐way).
+  //    Then calling .lean() to avoid circular references.
+  const updatedSession = await Session
+    .findById(sessionId)
+    .populate('sessionPlayerData')
+    .lean();
+
   return updatedSession;
 };
 
-// ===================================================
-// Controller endpoint for CSV upload
-// ===================================================
+/**
+ * ===========================
+ * uploadSessionCSV
+ * ===========================
+ */
 export const uploadSessionCSV = asyncHandler(async (req, res) => {
-  console.log(`\n📌 [uploadSessionCSV] Request received. sessionId=${req.body.sessionId}, type=${req.body.type}`);
+  console.log(`[uploadSessionCSV] sessionId=${req.body.sessionId}, type=${req.body.type}`);
   const { sessionId, type } = req.body;
   if (!sessionId) {
-    console.log("[uploadSessionCSV] No session ID provided.");
-    return res.status(400).json({ message: "Session ID is required." });
+    return res.status(400).json({ message: 'Session ID is required.' });
   }
   if (!req.file) {
-    console.log("[uploadSessionCSV] No file uploaded.");
-    return res.status(400).json({ message: "No file uploaded." });
+    return res.status(400).json({ message: 'No file uploaded.' });
   }
-  console.log(`[uploadSessionCSV] Received file: ${req.file.originalname}, size=${req.file.size} bytes`);
   if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-    console.log(`[uploadSessionCSV] Invalid session ID: ${sessionId}`);
-    return res.status(400).json({ message: "Invalid session ID." });
+    return res.status(400).json({ message: 'Invalid session ID.' });
   }
+
   try {
     let updatedData;
-    if (type === "session") {
-      console.log("[uploadSessionCSV] Handling type 'session'; calling parseCSV...");
+    if (type === 'session') {
       updatedData = await parseCSV(req.file.buffer, sessionId, req.user._id);
-      console.log("[uploadSessionCSV] parseCSV completed.");
-    } else if (type === "playbyplay") {
-      console.log("[uploadSessionCSV] Handling type 'playbyplay'; calling parsePlayByPlayCSV...");
+    } else if (type === 'playbyplay') {
       updatedData = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
-      console.log("[uploadSessionCSV] parsePlayByPlayCSV completed.");
     } else {
-      console.log(`[uploadSessionCSV] Invalid CSV type: ${type}`);
-      return res.status(400).json({ message: "Invalid CSV type." });
+      return res.status(400).json({ message: 'Invalid CSV type.' });
     }
+
     return res.status(201).json(updatedData);
   } catch (error) {
-    console.error("[uploadSessionCSV] ERROR:", error.message);
+    console.error('[uploadSessionCSV] ERROR:', error.message);
     return res.status(500).json({ message: error.message });
   }
 });
+
 /**
- * POST /api/sessions
- * Create a new session
+ * ===========================
+ * registerSession
+ * (Creating new Session)
+ * ===========================
  */
 export const registerSession = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
   const userId = req.user._id;
 
+  // Convert date => ms
   let parsedDate;
   if (typeof date === 'string') {
     parsedDate = new Date(date).getTime();
@@ -263,19 +252,21 @@ export const registerSession = asyncHandler(async (req, res) => {
     parsedDate = date;
   } else {
     res.status(400);
-    throw new Error('Invalid date format. Please send a valid date.');
+    throw new Error('Invalid date format.');
   }
   if (isNaN(parsedDate)) {
     res.status(400);
     throw new Error('Invalid date format. Could not parse date.');
   }
 
+  // Validate team
   const team = await Team.findOne({ name: teamName, userId });
   if (!team) {
     res.status(400);
     throw new Error('Team does not exist. Please create a team first.');
   }
 
+  // Process splits => add offset to session.date
   let processedSplits = [];
   if (splits && Array.isArray(splits)) {
     processedSplits = splits.map((split, i) => {
@@ -283,34 +274,41 @@ export const registerSession = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('Split title is required.');
       }
-      const startSec =
-        typeof split.start === 'number'
-          ? split.start
-          : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-      const endSec =
-        typeof split.end === 'number'
-          ? split.end
-          : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+
+      // If "09:00:00", convert to offset in ms from midnight (1970-01-01)
+      const startOffset = typeof split.start === 'number'
+        ? split.start
+        : new Date(`1970-01-01T${split.start}`).getTime();
+      const endOffset = typeof split.end === 'number'
+        ? split.end
+        : new Date(`1970-01-01T${split.end}`).getTime();
+
+      // final ms = session date + offset
+      const finalStartMs = parsedDate + startOffset;
+      const finalEndMs = parsedDate + endOffset;
+
       return {
         title: split.title,
         splitNumber: i + 1,
-        start: startSec,
-        end: endSec,
+        start: finalStartMs,
+        end: finalEndMs,
       };
     });
   }
 
+  // Create session
   const session = await Session.create({
+    userId,
     teamName,
     sessionName,
-    date: parsedDate,
+    date: parsedDate, // ms
     type,
     duration,
     splits: processedSplits,
     notes,
-    userId,
     number: 0,
   });
+
   if (session) {
     return res.status(200).json(session);
   } else {
@@ -320,17 +318,19 @@ export const registerSession = asyncHandler(async (req, res) => {
 });
 
 /**
- * GET /api/sessions
- * Get all sessions for the logged-in user
- * Return an empty array with 200 if none found
+ * ===========================
+ * getSessions
+ * ===========================
  */
 export const getSessions = asyncHandler(async (req, res) => {
   const sessions = await Session.find({ userId: req.user._id });
-  return res.status(200).json(sessions); // sessions will be [] if none
+  return res.status(200).json(sessions);
 });
 
 /**
- * GET /api/sessions/:id
+ * ===========================
+ * getSessionByID
+ * ===========================
  */
 export const getSessionByID = asyncHandler(async (req, res) => {
   const session = await Session.findById(req.params.id);
@@ -342,7 +342,9 @@ export const getSessionByID = asyncHandler(async (req, res) => {
 });
 
 /**
- * DELETE /api/sessions/:id
+ * ===========================
+ * deleteSession
+ * ===========================
  */
 export const deleteSession = asyncHandler(async (req, res) => {
   const session = await Session.findById(req.params.id);
@@ -350,18 +352,21 @@ export const deleteSession = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Session not found');
   }
+  // Remove all related SessionPlayerData
   await SessionPlayerData.deleteMany({ sessionId: session._id });
   await Session.deleteOne({ _id: session._id });
   res.status(200).json({ message: 'Session deleted successfully' });
 });
 
 /**
- * PUT /api/sessions/:id
+ * ===========================
+ * updateSession
+ * ===========================
  */
 export const updateSession = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
-
   const session = await Session.findById(req.params.id);
+
   if (!session) {
     res.status(404);
     throw new Error('Session not found');
@@ -369,36 +374,39 @@ export const updateSession = asyncHandler(async (req, res) => {
 
   if (teamName) session.teamName = teamName;
   if (sessionName) session.sessionName = sessionName;
+
   if (date) {
     const parsedDate = new Date(date).getTime();
     if (!isNaN(parsedDate)) {
       session.date = parsedDate;
     }
   }
+
   if (type) session.type = type;
   if (duration) session.duration = Number(duration);
   if (notes) session.notes = notes;
 
+  // Convert splits => add offset to session.date
   if (splits && Array.isArray(splits)) {
+    const dateMs = session.date; // already updated
     const convertedSplits = splits.map((split, index) => {
       if (!split.title) {
         res.status(400);
         throw new Error('Split title is required.');
       }
-      const startSec =
-        typeof split.start === 'number'
-          ? split.start
-          : Math.floor(new Date(`1970-01-01T${split.start}`).getTime() / 1000);
-      const endSec =
-        typeof split.end === 'number'
-          ? split.end
-          : Math.floor(new Date(`1970-01-01T${split.end}`).getTime() / 1000);
+
+      const startOffset = typeof split.start === 'number'
+        ? split.start
+        : new Date(`1970-01-01T${split.start}`).getTime();
+      const endOffset = typeof split.end === 'number'
+        ? split.end
+        : new Date(`1970-01-01T${split.end}`).getTime();
 
       return {
         title: split.title,
         splitNumber: index + 1,
-        start: startSec,
-        end: endSec,
+        start: dateMs + startOffset,
+        end: dateMs + endOffset,
       };
     });
     session.splits = convertedSplits;
@@ -406,7 +414,7 @@ export const updateSession = asyncHandler(async (req, res) => {
 
   await session.save();
 
-  // Recompute metrics if splits changed
+  // If splits changed, recalc metrics
   if (splits && Array.isArray(splits)) {
     const allPlayerDocs = await SessionPlayerData.find({ sessionId: session._id });
     session.sessionPlayerData = [];
@@ -414,9 +422,12 @@ export const updateSession = asyncHandler(async (req, res) => {
     for (const doc of allPlayerDocs) {
       const speeds = doc.speeds || [];
 
-      // Fetch real name if available
+      // Possibly fetch real Player name
       let realName = doc.playerName;
-      const playerDoc = await Player.findOne({ userId: session.userId, playerId: doc.playerName });
+      const playerDoc = await Player.findOne({
+        userId: session.userId,
+        playerId: doc.playerName,
+      });
       const realPlayerId = playerDoc ? playerDoc._id : null;
       if (playerDoc && playerDoc.name) {
         realName = playerDoc.name;
@@ -449,7 +460,9 @@ export const updateSession = asyncHandler(async (req, res) => {
 });
 
 /**
- * DELETE /api/sessions/:id/csvs/all
+ * ===========================
+ * deleteAllSessionCSVs
+ * ===========================
  */
 export const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
   const sessionId = req.params.id;
@@ -457,12 +470,14 @@ export const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('Session ID is required.');
   }
+
   await SessionPlayerData.deleteMany({ sessionId });
   const session = await Session.findByIdAndUpdate(
     sessionId,
     { sessionPlayerData: [], number: 0, avgDistance: 0 },
     { new: true }
   );
+
   if (!session) {
     res.status(404);
     throw new Error('Session not found.');
