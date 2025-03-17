@@ -1,154 +1,60 @@
-// import mongoose from "mongoose";
-
-// /**
-//  * Calculates per-play metrics for each play in a session, given:
-//  *   - play.timeStart (in seconds)
-//  *   - play.timeEnd   (in seconds)
-//  *   - speeds array, recorded at 10 readings per second
-//  *
-//  * Metrics (per play):
-//  *   1) Distance (km): sumOfSpeeds / 10000
-//  *   2) HighSpeedRunning (km): sum of speeds > 5.5 m/s, / 10000
-//  *   3) Sprinting (km): sum of speeds > 7 m/s, / 10000
-//  *   4) TopSpeed (m/s): max value in the slice
-//  *   5) AvgDistance (km per 15-minute interval): (distanceKm / playLengthSeconds) * 900
-//  *   6) NumSprint (increments if top speed > 7 m/s)
-//  */
-// const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
-//   let currentIndex = 0; // Tracks position in speeds array
-
-//   // Ensure plays are sorted by timeStart for sequential processing
-//   const sortedPlays = [...plays].sort((a, b) => a.timeStart - b.timeStart);
-//   //console.log("calculatePlayPlayerMetrics: Sorted plays:", sortedPlays);
-
-//   return sortedPlays.map((play, index) => {
-//     const playLengthSeconds = play.timeEnd - play.timeStart;
-//     const playSize = Math.round(playLengthSeconds * 10); // number of readings expected
-
-//     const startIndex = currentIndex;
-//     const endIndex = currentIndex + playSize;
-//    // console.log(
-//    //   `Play #${index + 1}: timeStart=${play.timeStart}, timeEnd=${play.timeEnd}, duration=${playLengthSeconds}s, expected readings=${playSize}, currentIndex=${currentIndex}, endIndex=${endIndex}`
-//    // );
-
-//     if (startIndex >= speeds.length) {
-//       // console.warn(`⚠️ Play #${index + 1} has no speed data!`);
-//       return {
-//         PlayNumber: index + 1,
-//         TotalDistance: 0,
-//         TopSpeed: 0,
-//         AvgDistance: 0,
-//         NumSprint: 0,
-//         PlayMetrics: [
-//           { MetricName: "Distance", Value: 0, Unit: "km" },
-//           { MetricName: "HighSpeedRunning", Value: 0, Unit: "km" },
-//           { MetricName: "Sprinting", Value: 0, Unit: "km" },
-//           { MetricName: "TopSpeed", Value: 0, Unit: "m/s" },
-//         ],
-//       };
-//     }
-
-//     const playSpeeds = speeds.slice(startIndex, endIndex);
-//     // console.log(`Play #${index + 1}: Number of speed readings: ${playSpeeds.length}`);
-
-//     const sumSpeeds = playSpeeds.reduce((acc, val) => acc + val, 0);
-//     const distanceKm = sumSpeeds / 10000;
-//     const sumHSR = playSpeeds.filter((val) => val > 5.5).reduce((acc, val) => acc + val, 0);
-//     const hsrKm = sumHSR / 10000;
-//     const sumSprinting = playSpeeds.filter((val) => val > 7).reduce((acc, val) => acc + val, 0);
-//     const sprintKm = sumSprinting / 10000;
-//     const topSpeed = playSpeeds.length ? Math.max(...playSpeeds) : 0;
-    
-//     // Calculate average distance per 15-minute interval (900 seconds)
-//     const avgDistance = playLengthSeconds > 0 ? (distanceKm / playLengthSeconds) * 900 : 0;
-    
-//     const numSprint = topSpeed > 7 ? 1 : 0;
-    
-//     // console.log(
-//     //   `Play #${index + 1}: TotalDistance=${distanceKm.toFixed(3)} km, TopSpeed=${topSpeed.toFixed(2)} m/s, AvgDistance=${avgDistance.toFixed(3)} km/15min, NumSprint=${numSprint}`
-//     // );
-
-//     currentIndex = endIndex;
-
-//     return {
-//       PlayNumber: index + 1,
-//       TotalDistance: distanceKm,
-//       TopSpeed: topSpeed,
-//       AvgDistance: avgDistance,
-//       NumSprint: numSprint,
-//       PlayMetrics: [
-//         { MetricName: "Distance", Value: distanceKm, Unit: "km" },
-//         { MetricName: "HighSpeedRunning", Value: hsrKm, Unit: "km" },
-//         { MetricName: "Sprinting", Value: sprintKm, Unit: "km" },
-//         { MetricName: "TopSpeed", Value: topSpeed, Unit: "m/s" },
-//       ],
-//     };
-//   });
-// };
-
-// export default calculatePlayPlayerMetrics;
-import mongoose from "mongoose";
+// file: calculation/calculatePlayPlayerMetrics.js
 
 /**
- * Calculates per-play metrics for each play in a session, given:
- *   - play.timeStart (in seconds)
- *   - play.timeEnd   (in seconds)
- *   - speeds array, recorded at 10 readings per second
- *
- * Metrics (per play):
- *   1) Distance (km): sumOfSpeeds / 10000
- *   2) HighSpeedRunning (km): sum of speeds > 5.5 m/s, / 10000
- *   3) Sprinting (km): sum of speeds > 7 m/s, / 10000
- *   4) TopSpeed (m/s): max value in the slice
- *   5) AvgDistance (km per 15-minute interval): (distanceKm / playLengthSeconds) * 900
- *   6) NumSprint (increments if top speed > 7 m/s)
+ * Calculates per-play metrics by filtering times[] and speeds[] to the snippet
+ * [play.timeStart, play.timeEnd].
  */
-const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
-  let currentIndex = 0; // Tracks position in speeds array
+export default function calculatePlayPlayerMetrics(times = [], speeds = [], plays = []) {
+  console.log(`\n[calculatePlayPlayerMetrics] START. times.length=${times.length}, speeds.length=${speeds.length}, plays.length=${plays.length}`);
 
-  // Ensure plays are sorted by timeStart for sequential processing
+  // Sort plays by timeStart just in case
   const sortedPlays = [...plays].sort((a, b) => a.timeStart - b.timeStart);
 
   return sortedPlays.map((play, index) => {
-    const playLengthSeconds = play.timeEnd - play.timeStart;
-    const playSize = Math.round(playLengthSeconds * 10); // number of readings expected
+    console.log(`\n[Play #${index + 1}] timeStart=${play.timeStart}, timeEnd=${play.timeEnd}`);
 
-    const startIndex = currentIndex;
-    const endIndex = currentIndex + playSize;
-
-    // If there's no data for this play, return zeros.
-    if (startIndex >= speeds.length) {
-      return {
-        PlayNumber: index + 1,
-        TotalDistance: 0,
-        TopSpeed: 0,
-        AvgDistance: 0,
-        NumSprint: 0,
-        PlayMetrics: [
-          { MetricName: "Distance", Value: 0, Unit: "km" },
-          { MetricName: "HighSpeedRunning", Value: 0, Unit: "km" },
-          { MetricName: "Sprinting", Value: 0, Unit: "km" },
-          { MetricName: "TopSpeed", Value: 0, Unit: "m/s" },
-        ],
-      };
+    // Gather speeds that fall within [timeStart, timeEnd]
+    const snippetIndices = [];
+    for (let i = 0; i < times.length; i++) {
+      if (times[i] >= play.timeStart && times[i] <= play.timeEnd) {
+        snippetIndices.push(i);
+      }
     }
 
-    const playSpeeds = speeds.slice(startIndex, endIndex);
+    const snippetSpeeds = snippetIndices.map(i => speeds[i]);
+    const snippetTimes = snippetIndices.map(i => times[i]);
 
-    const sumSpeeds = playSpeeds.reduce((acc, val) => acc + val, 0);
+    console.log(`[Play #${index + 1}] snippetIndices=`, snippetIndices);
+    console.log(`[Play #${index + 1}] snippetTimes=`, snippetTimes);
+    console.log(`[Play #${index + 1}] snippetSpeeds=`, snippetSpeeds);
+
+    // Sum of snippet speeds => distance
+    const sumSpeeds = snippetSpeeds.reduce((acc, val) => acc + val, 0);
+    // If you record at 10 Hz in m/s => sum / 10000 => distance in km
     const distanceKm = sumSpeeds / 10000;
-    const sumHSR = playSpeeds.filter((val) => val > 5.5).reduce((acc, val) => acc + val, 0);
+
+    // High Speed Running
+    const sumHSR = snippetSpeeds.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0);
     const hsrKm = sumHSR / 10000;
-    const sumSprinting = playSpeeds.filter((val) => val > 7).reduce((acc, val) => acc + val, 0);
+
+    // Sprinting
+    const sumSprinting = snippetSpeeds.filter(v => v > 7).reduce((acc, val) => acc + val, 0);
     const sprintKm = sumSprinting / 10000;
-    const topSpeed = playSpeeds.length ? Math.max(...playSpeeds) : 0;
-    
-    // Calculate average distance per 15-minute interval (900 seconds)
-    const avgDistance = playLengthSeconds > 0 ? (distanceKm / playLengthSeconds) * 900 : 0;
-    
+
+    // Top Speed
+    const topSpeed = snippetSpeeds.length ? Math.max(...snippetSpeeds) : 0;
+
+    // Duration in seconds
+    const playLengthSec = (play.timeEnd - play.timeStart) / 1000;
+    // Avg distance => distance per 15 minutes
+    const avgDistance = playLengthSec > 0
+      ? (distanceKm / playLengthSec) * 900
+      : 0;
+
+    // # sprints
     const numSprint = topSpeed > 7 ? 1 : 0;
-    
-    currentIndex = endIndex;
+
+    console.log(`[Play #${index + 1}] snippetSpeeds.length=${snippetSpeeds.length}, distanceKm=${distanceKm.toFixed(3)}, topSpeed=${topSpeed.toFixed(2)}, avgDistance=${avgDistance.toFixed(3)}, numSprint=${numSprint}`);
 
     return {
       PlayNumber: index + 1,
@@ -164,6 +70,4 @@ const calculatePlayPlayerMetrics = (speeds = [], plays = []) => {
       ],
     };
   });
-};
-
-export default calculatePlayPlayerMetrics;
+}
