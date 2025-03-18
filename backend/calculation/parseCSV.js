@@ -80,9 +80,13 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
     const [hh, mm, ss] = timeStr.split(':').map(Number);
 
     // Combine with session date
-    const combinedDateTime = new Date(sessionDate);
-    combinedDateTime.setHours(hh || 0, mm || 0, ss || 0, 0);
-    const unixMs = combinedDateTime.getTime();
+    // Uses the game's start time as reference if available, otherwise uses session.date
+    const referenceTime = (session.plays && session.plays.length > 0) 
+    ? session.plays[0].timeStart 
+    : session.date;
+    // Converts the CSV "Time" to a time offset in milliseconds
+    const timeOffsetMs = (((hh || 0) * 60 + (mm || 0)) * 60 + (ss || 0)) * 1000;
+    const unixMs = referenceTime + timeOffsetMs;
 
     if (!playersData[csvName]) {
       playersData[csvName] = {
@@ -184,6 +188,22 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
       playPlayerMetrics,
     });
   }
+
+  session.plays = session.plays.map(play => {
+    let totalAvgDistance = 0;
+    let count = 0;
+    session.sessionPlayerData.forEach(playerData => {
+      const playMetricsObj = playerData.playPlayerMetrics.find(pm => pm.PlayNumber === play.playNumber);
+      if (playMetricsObj && typeof playMetricsObj.AvgDistance === 'number') {
+        totalAvgDistance += playMetricsObj.AvgDistance;
+        count++;
+      }
+    });
+    return {
+      ...play,
+      avgDistance: count > 0 ? totalAvgDistance / count : 0,
+    };
+  });
 
   await session.save();
 
