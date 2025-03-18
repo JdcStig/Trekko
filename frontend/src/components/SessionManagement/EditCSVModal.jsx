@@ -4,7 +4,9 @@ import { toast } from 'react-toastify';
 import { 
   useGetSessionCSVsQuery, 
   useDeleteAllSessionCSVsMutation,
-  useUploadSessionCSVMutation
+  useUploadSessionCSVMutation,
+  useUploadPlayCSVMutation,
+  useDeleteAllPlayCSVsMutation
 } from '../../slices/sessionsApiSlice';
 
 const EditCSVModal = ({ 
@@ -19,14 +21,17 @@ const EditCSVModal = ({
   
   // Mutations for deleting all CSVs and uploading a CSV file
   const [deleteAllSessionCSVs] = useDeleteAllSessionCSVsMutation();
+  const [deleteAllPlayCSVs] = useDeleteAllPlayCSVsMutation();
   const [uploadSessionCSV] = useUploadSessionCSVMutation();
+  const [uploadPlayCSV] = useUploadPlayCSVMutation();
 
   // Local state for pending CSV actions
-  const [pendingDeleteAll, setPendingDeleteAll] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState([]); // Array of File objects
+  const [pendingPlayerFiles, setPendingPlayerFiles] = useState([]);
+  const [pendingPlayFiles, setPendingPlayFiles] = useState([]); // Array of File objects
   const [processing, setProcessing] = useState(false); // Local loader state
   
-  const fileInputRef = useRef(null);
+  const playerFileInputRef = useRef(null);
+  const playFileInputRef = useRef(null);
   
   useEffect(() => {
     if (show) {
@@ -35,77 +40,111 @@ const EditCSVModal = ({
   }, [show, sessionId, refetch]);
   
   // Trigger hidden file input
-  const handleAddCSVClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+  const handleAddPlayerCSVClick = () => {
+    if (playerFileInputRef.current) {
+      playerFileInputRef.current.click();
+    }
+  };
+
+  const handleAddPlayCSVClick = () => {
+    if (playFileInputRef.current) {
+      playFileInputRef.current.click();
     }
   };
   
   // When files are selected, add them to pendingFiles array
-  const handleFileChange = (e) => {
+  const handlePlayerFileChange = (e) => {
     const files = Array.from(e.target.files);
     if (!files || files.length === 0) return;
-    setPendingFiles(prev => [...prev, ...files]);
+    setPendingPlayerFiles(prev => [...prev, ...files]);
+  };
+  
+  const handlePlayFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (!files || files.length === 0) return;
+    setPendingPlayFiles(prev => [...prev, ...files]);
   };
   
   // Remove a selected file from pendingFiles
-  const handleRemoveFile = (index) => {
-    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  const handleRemovePlayerFile = (index) => {
+    setPendingPlayerFiles(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  const handleRemovePlayFile = (index) => {
+    setPendingPlayFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // When Delete All CSVs is clicked, delete them in the DB immediately and refresh the CSV list.
-  const handleDeleteAll = async () => {
+   // Delete all player CSV data using deleteAllSessionCSVs
+   const handleDeleteAllPlayers = async () => {
     setProcessing(true);
     try {
       await deleteAllSessionCSVs(sessionId).unwrap();
-      // Clear any pending new files
-      setPendingFiles([]);
-      // Refresh the CSV list
+      setPendingPlayerFiles([]);
       await refetch();
     } catch (error) {
-      //console.error("Error deleting all CSVs", error);
+      toast.error('Error deleting all player CSVs');
     } finally {
       setProcessing(false);
-      setPendingDeleteAll(false);
+    }
+  };
+
+  // Delete all play CSV data using deleteAllPlayCSVs
+  const handleDeleteAllPlays = async () => {
+    setProcessing(true);
+    try {
+      await deleteAllPlayCSVs(sessionId).unwrap();
+      setPendingPlayFiles([]);
+      await refetch();
+    } catch (error) {
+      toast.error('Error deleting all play CSVs');
+    } finally {
+      setProcessing(false);
     }
   };
   
   // When the user clicks Save CSV Changes, perform uploads (if any) and check for new players.
+  // Save action: upload all pending files (both players and plays) then refresh data
   const handleSave = async () => {
     setProcessing(true);
-    let allCreatedPlayers = [];
     try {
-      // If there are pending files, upload each one
-      if (pendingFiles.length > 0) {
-        const uploadPromises = pendingFiles.map((file) => {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('sessionId', sessionId);
-          formData.append('type', 'session');
-          return uploadSessionCSV(formData).unwrap();
-        });
-        const responses = await Promise.all(uploadPromises);
-        responses.forEach((response) => {
-          if (response.createdPlayers && response.createdPlayers.length > 0) {
-            allCreatedPlayers = allCreatedPlayers.concat(response.createdPlayers);
-          }
-        });
+      const uploadPromises = [];
+      // Upload pending player CSVs (using type "session")
+      if (pendingPlayerFiles.length > 0) {
+        uploadPromises.push(
+          ...pendingPlayerFiles.map((file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('sessionId', sessionId);
+            formData.append('type', 'session'); // for players CSV
+            return uploadSessionCSV(formData).unwrap();
+          })
+        );
       }
-      // Refresh CSV list after uploads
+      // Upload pending play CSVs (using uploadPlayCSV)
+      if (pendingPlayFiles.length > 0) {
+        uploadPromises.push(
+          ...pendingPlayFiles.map((file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('sessionId', sessionId);
+            // No "type" field is needed here since uploadPlayCSV always uploads play CSVs
+            return uploadPlayCSV(formData).unwrap();
+          })
+        );
+      }
+      if (uploadPromises.length > 0) {
+        await Promise.all(uploadPromises);
+      }
       await refetch();
-  
-      // Pass updated CSV data back to the parent
       onSave(data?.sessionPlayerDataArray || null);
-  
-      // Automatically close the CSV modal when done
       onCancel();
     } catch (error) {
-      // Optionally, handle errors here (e.g. show a toast notification)
+      toast.error('Error saving CSV changes');
     } finally {
       setProcessing(false);
-      // Clear pending files and reset delete flag
-      setPendingFiles([]);
-      setPendingDeleteAll(false);
+      setPendingPlayerFiles([]);
+      setPendingPlayFiles([]);
     }
   };
   
@@ -124,34 +163,32 @@ const EditCSVModal = ({
           <>
             <h5>Existing Player Data</h5>
             {data?.sessionPlayerDataArray && data.sessionPlayerDataArray.length > 0 ? (
-               
-               <ListGroup className="mb-3">
-                  {data.sessionPlayerDataArray.map((playerData) => (
-                    <ListGroup.Item key={playerData._id}>
-                      <strong>{playerData.playerName}</strong> 
-                    </ListGroup.Item>
-                  ))}
-                </ListGroup>
-              ) : (
-                <p>No Player Data available.</p>
-              )}
-
+              <ListGroup className="mb-3">
+                {data.sessionPlayerDataArray.map((playerData) => (
+                  <ListGroup.Item key={playerData._id}>
+                    <strong>{playerData.playerName}</strong>
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            ) : (
+              <p>No Player Data available.</p>
+            )}
             <div className="d-flex justify-content-around mb-3">
-              <Button variant="danger" onClick={handleDeleteAll}>
-                Delete All CSVs
+              <Button variant="danger" onClick={handleDeleteAllPlayers}>
+                Delete all Player CSVs
               </Button>
-              <Button variant="primary" onClick={handleAddCSVClick}>
-                Add CSV(s)
+              <Button variant="primary" onClick={handleAddPlayerCSVClick}>
+                Add Player CSV(s)
               </Button>
             </div>
-            {pendingFiles.length > 0 && (
-              <div>
-                <p className="text-info">Files to add:</p>
+            {pendingPlayerFiles.length > 0 && (
+              <div className="mb-3">
+                <p className="text-info">Player files to add:</p>
                 <ListGroup>
-                  {pendingFiles.map((file, index) => (
+                  {pendingPlayerFiles.map((file, index) => (
                     <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
                       {file.name}
-                      <Button variant="outline-danger" size="sm" onClick={() => handleRemoveFile(index)}>
+                      <Button variant="outline-danger" size="sm" onClick={() => handleRemovePlayerFile(index)}>
                         Remove
                       </Button>
                     </ListGroup.Item>
@@ -159,14 +196,58 @@ const EditCSVModal = ({
                 </ListGroup>
               </div>
             )}
-            {/* Hidden file input accepting multiple files */}
+            <hr />
+            <h5>Existing Play Data</h5>
+            {data?.plays && data.plays.length > 0 ? (
+              <ListGroup className="mb-3">
+                {data.plays.map((play) => (
+                  <ListGroup.Item key={play.playNumber}>
+                    <strong>{play.title}</strong> (Duration: {play.duration} sec)
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            ) : (
+              <p>No Play Data available.</p>
+            )}
+            <div className="d-flex justify-content-around mb-3">
+              <Button variant="danger" onClick={handleDeleteAllPlays}>
+                Delete all Play CSVs
+              </Button>
+              <Button variant="primary" onClick={handleAddPlayCSVClick}>
+                Add Play CSV(s)
+              </Button>
+            </div>
+            {pendingPlayFiles.length > 0 && (
+              <div className="mb-3">
+                <p className="text-info">Play files to add:</p>
+                <ListGroup>
+                  {pendingPlayFiles.map((file, index) => (
+                    <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
+                      {file.name}
+                      <Button variant="outline-danger" size="sm" onClick={() => handleRemovePlayFile(index)}>
+                        Remove
+                      </Button>
+                    </ListGroup.Item>
+                  ))}
+                </ListGroup>
+              </div>
+            )}
+            {/* Hidden file inputs */}
             <input
               type="file"
               accept=".csv"
               multiple
-              ref={fileInputRef}
+              ref={playerFileInputRef}
               style={{ display: 'none' }}
-              onChange={handleFileChange}
+              onChange={handlePlayerFileChange}
+            />
+            <input
+              type="file"
+              accept=".csv"
+              multiple
+              ref={playFileInputRef}
+              style={{ display: 'none' }}
+              onChange={handlePlayFileChange}
             />
             <div className="d-flex justify-content-end mt-3">
               <Button variant="success" onClick={handleSave}>

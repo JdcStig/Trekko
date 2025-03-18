@@ -62,7 +62,9 @@ import {
   deleteSession,
   updateSession,
   deleteAllSessionCSVs,
+  deleteAllPlayCSVs,
   uploadSessionCSV,
+  uploadPlayCSV
 } from '../controllers/sessionController.js';
 
 const router = express.Router();
@@ -80,7 +82,10 @@ router.route('/:id')
   .put(protect, updateSession);
 
 // Upload CSV
-router.post('/upload', protect, upload.single('file'), uploadSessionCSV);
+router.post('/uploadSession', protect, upload.single('file'), uploadSessionCSV);
+
+// Upload play CSV
+router.post('/uploadPlay', protect, upload.single('file'), uploadPlayCSV);
 
 /**
  * GET CSV data for a session
@@ -113,6 +118,9 @@ router.get('/:id/csvs', protect, async (req, res) => {
 });
 
 // Delete all CSV data for a session
-router.delete('/:id/csvs/all', protect, deleteAllSessionCSVs);
+router.delete('/:id/csvs/players', protect, deleteAllSessionCSVs);
+
+// Delete all CSV data for a session
+router.delete('/:id/csvs/plays', protect, deleteAllPlayCSVs);
 
 export default router;

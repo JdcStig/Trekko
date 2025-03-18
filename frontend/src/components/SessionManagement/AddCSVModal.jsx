@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Button, Form, ListGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import { useUploadSessionCSVMutation } from '../../slices/sessionsApiSlice';
+import { useUploadSessionCSVMutation, useUploadPlayCSVMutation } from '../../slices/sessionsApiSlice';
 
 const AddCSVModal = ({ show, onHide, sessionId }) => {
   const [sessionFiles, setSessionFiles] = useState([]);
@@ -9,6 +9,7 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
   const sessionFileInputRef = useRef(null);
   const playByPlayFileInputRef = useRef(null);
   const [uploadSessionCSV] = useUploadSessionCSVMutation();
+  const [uploadPlayCSV] = useUploadPlayCSVMutation();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -48,8 +49,8 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("sessionId", sessionId);
-        formData.append("type", "playbyplay");
-        await uploadSessionCSV(formData).unwrap();
+        // no need for formData.append("type", "playbyplay") if your server doesn't require it
+        await uploadPlayCSV(formData).unwrap(); 
       }
 
       toast.success("CSV uploaded successfully!", { position: 'top-right' });
