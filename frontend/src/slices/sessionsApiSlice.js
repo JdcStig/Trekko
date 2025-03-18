@@ -41,11 +41,21 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
     // POST /api/sessions/upload
     uploadSessionCSV: builder.mutation({
       query: (formData) => ({
-        url: '/sessions/upload',
+        url: '/sessions/uploadSession',
         method: 'POST',
         body: formData,
       }),
       invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
+    }),
+
+     // POST /api/sessions/upload
+     uploadPlayCSV: builder.mutation({
+      query: (formData) => ({
+        url: '/sessions/uploadPlay',
+        method: 'POST',
+        body: formData,
+      }),
+      invalidatesTags: [{ type: 'PlayCSV', id: 'LIST' }],
     }),
 
     // GET /api/sessions/:id/csvs
@@ -66,10 +76,19 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
     // DELETE /api/sessions/:id/csvs/all
     deleteAllSessionCSVs: builder.mutation({
       query: (sessionId) => ({
-        url: `/sessions/${sessionId}/csvs/all`,
+        url: `/sessions/${sessionId}/csvs/players`,
         method: 'DELETE',
       }),
       invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
+    }),
+
+    // DELETE /api/sessions/:id/csvs/all
+    deleteAllPlayCSVs: builder.mutation({
+      query: (sessionId) => ({
+        url: `/sessions/${sessionId}/csvs/plays`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: [{ type: 'PlayCSV', id: 'LIST' }],
     }),
 
     // DELETE /api/sessions/:id/csvs/:fileId
@@ -94,4 +113,6 @@ export const {
   useGetSessionCSVsQuery,
   useDeleteAllSessionCSVsMutation,
   useDeleteSessionCSVMutation,
+  useUploadPlayCSVMutation,
+  useDeleteAllPlayCSVsMutation
 } = sessionsApiSlice;

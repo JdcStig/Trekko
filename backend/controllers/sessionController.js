@@ -235,12 +235,14 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
     if (type === 'session') {
       // Use the "parseCSV" function for your session/player data
       updatedData = await parseCSV(req.file.buffer, sessionId, req.user._id);
-    } else if (type === 'playbyplay') {
-      // Use the "parsePlayByPlayCSV" function for your plays data
-      updatedData = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
-    } else {
+    }  else {
       return res.status(400).json({ message: 'Invalid CSV type.' });
     }
+
+    // else if (type === 'playbyplay') {
+    //   // Use the "parsePlayByPlayCSV" function for your plays data
+    //   updatedData = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
+    // }
 
     return res.status(201).json(updatedData);
   } catch (error) {
@@ -248,6 +250,36 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
+
+/**
+ * ===========================
+ * uploadPlayCSV
+ * ===========================
+ *  - Expects req.body.type === 'playbyplay' to parse players CSV
+ * 
+ */
+
+export const uploadPlayCSV = asyncHandler(async (req, res) => {
+  const { sessionId } = req.body;
+  if (!sessionId) {
+    return res.status(400).json({ message: 'Session ID is required.' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded.' });
+  }
+  if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+    return res.status(400).json({ message: 'Invalid session ID.' });
+  }
+  try {
+    // Directly calls the parsePlayByPlayCSV function from playByPlayAnalysisController.js
+    const updatedSession = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
+    return res.status(201).json(updatedSession);
+  } catch (error) {
+    console.error('[uploadPlayCSV] ERROR:', error.message);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 
 /**
  * ===========================
@@ -554,3 +586,44 @@ export const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
   }
   res.status(200).json({ message: 'All CSV data deleted', session });
 });
+
+/**
+ * ===========================
+ * deleteAllPlayCSVs
+ * ===========================
+ */
+
+export const deleteAllPlayCSVs = asyncHandler(async (req, res) => {
+  const sessionId = req.params.id;
+  if (!sessionId) {
+    res.status(400);
+    throw new Error('Session ID is required.');
+  }
+
+  // Fetch the session document
+  const session = await Session.findById(sessionId);
+  if (!session) {
+    res.status(404);
+    throw new Error('Session not found.');
+  }
+
+  // Clear the plays array
+  session.plays = [];
+
+  // Clear only the playPlayerMetrics for each sessionPlayerData subdocument
+  if (session.sessionPlayerData && session.sessionPlayerData.length > 0) {
+    session.sessionPlayerData.forEach(doc => {
+      doc.playPlayerMetrics = [];
+    });
+    // Explicitly mark nested field as modified so changes are persisted
+    session.markModified('sessionPlayerData');
+  }
+
+  // Reset overall session avgDistance to 0
+  session.avgDistance = 0;
+
+  await session.save();
+  res.status(200).json({ message: 'All play CSV data deleted', session });
+});
+
+
