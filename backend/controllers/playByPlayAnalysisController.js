@@ -118,7 +118,7 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
   await session.save();
   console.log(`[parsePlayByPlayCSV] Saved session with new plays.`);
 
-  // ***** FIX: Re-fetch session so that plays are updated in-memory *****
+  // Re-fetch session so that plays are updated in-memory
   session = await Session.findById(sessionId);
   console.log(`[parsePlayByPlayCSV] Re-fetched session.plays length: ${session.plays.length}`);
 
@@ -136,12 +136,12 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     }
   }
 
-  // Now fetch updated SessionPlayerData docs
+  // Fetch updated SessionPlayerData docs
   const playerDocs = await SessionPlayerData.find({ sessionId });
   if (!playerDocs.length) {
     console.warn('⚠️ No SessionPlayerData found. Skipping metrics calculation.');
   } else {
-    // IMPORTANT: Aggregate both times and speeds from all docs!
+    // Aggregate times and speeds from all docs
     const combinedTimes = playerDocs.flatMap(doc => doc.times || []);
     const combinedSpeeds = playerDocs.flatMap(doc => doc.speeds || []);
     console.log(`[parsePlayByPlayCSV] Combined times length: ${combinedTimes.length}`);
@@ -150,7 +150,7 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     const combinedPlayMetrics = calculatePlayPlayerMetrics(combinedTimes, combinedSpeeds, session.plays || []);
     console.log('[parsePlayByPlayCSV] Combined play metrics:', combinedPlayMetrics);
 
-    // Patch each play in session.plays with avgDistance, numSprint
+    // Patch each play in session.plays with avgDistance and numSprint from combined metrics
     session.plays = session.plays.map(play => {
       const pm = combinedPlayMetrics.find(m => m.PlayNumber === play.playNumber);
       return {
@@ -205,7 +205,6 @@ export const uploadPlayByPlayAnalysisCSV = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(playByPlayAnalysisId)) {
     return res.status(400).json({ message: 'Invalid playByPlayAnalysis ID.' });
   }
-
   try {
     const updatedSession = await parsePlayByPlayCSV(
       req.file.buffer,

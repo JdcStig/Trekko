@@ -473,6 +473,42 @@ export const updateSession = asyncHandler(async (req, res) => {
         { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
       ];
 
+      if (session.plays && session.plays.length > 0) {
+        session.plays = session.plays.map(play => {
+          let totalSprints = 0;
+          let totalDistance = 0;
+          // Calculate play duration in seconds
+          const playDurationSec = (play.timeEnd - play.timeStart) / 1000;
+          
+          // Iterate over each player's data to aggregate metrics for this play
+          session.sessionPlayerData.forEach(playerData => {
+            // Find the corresponding play metrics for the current play
+            const playMetricsObj = playerData.playPlayerMetrics.find(pm => pm.PlayNumber === play.playNumber);
+            if (playMetricsObj) {
+              // For numSprint: check if the player's top speed exceeds 7 m/s
+              const topSpeedMetric = playMetricsObj.PlayMetrics.find(m => m.MetricName === 'TopSpeed');
+              if (topSpeedMetric && topSpeedMetric.Value > 7) {
+                totalSprints += 1;
+              }
+              // Sum the "Distance" from this player's metrics
+              const distanceMetric = playMetricsObj.PlayMetrics.find(m => m.MetricName === 'Distance');
+              if (distanceMetric) {
+                totalDistance += distanceMetric.Value;
+              }
+            }
+          });
+        
+          // Compute avgDistance using the new formula
+          const avgDistance = playDurationSec > 0 ? (totalDistance / playDurationSec) * 900 : 0;
+        
+          return {
+            ...play,
+            numSprint: totalSprints,
+            avgDistance: avgDistance
+          };
+        });
+      }
+
       const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits);
       // Snippet-based approach for plays
       const playPlayerMetrics = calculatePlayPlayerMetrics(times, speeds, session.plays || []);

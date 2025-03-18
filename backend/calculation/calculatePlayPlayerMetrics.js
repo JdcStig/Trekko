@@ -73,7 +73,11 @@ export default function calculatePlayPlayerMetrics(times = [], speeds = [], play
 
     const topSpeed = snippetSpeeds.length ? Math.max(...snippetSpeeds) : 0;
     const playLengthSec = (play.timeEnd - play.timeStart) / 1000;
+    
+    // Avg distance => distance per 15 minutes
     const avgDistance = playLengthSec > 0 ? (distanceKm / playLengthSec) * 900 : 0;
+
+    // # sprints
     const numSprint = topSpeed > 7 ? 1 : 0;
 
     results.push({
