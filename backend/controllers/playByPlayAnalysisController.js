@@ -144,16 +144,41 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     console.warn('⚠️ No SessionPlayerData found. Skipping metrics calculation.');
   } else {
     // 1) AGGREGATE each play's avgDistance + numSprint for the entire session
-    const combinedSpeeds = playerDocs.flatMap((doc) => doc.speeds || []);
-    const combinedPlayMetrics = calculatePlayPlayerMetrics(combinedSpeeds, session.plays || []);
+    // const combinedSpeeds = playerDocs.flatMap((doc) => doc.speeds || []);
+    // const combinedPlayMetrics = calculatePlayPlayerMetrics(combinedSpeeds, session.plays || []);
 
     // Patch each play in session.plays with avgDistance, numSprint
-    session.plays = session.plays.map((play) => {
-      const pm = combinedPlayMetrics.find((m) => m.PlayNumber === play.playNumber);
+    session.plays = session.plays.map(play => {
+      let totalSprints = 0;
+      let totalDistance = 0;
+      // Calculate play duration in seconds
+      const playDurationSec = (play.timeEnd - play.timeStart) / 1000;
+      
+      // Iterate over each player's data to aggregate metrics for this play
+      session.sessionPlayerData.forEach(playerData => {
+        // Find the corresponding play metrics for the current play
+        const playMetricsObj = playerData.playPlayerMetrics.find(pm => pm.PlayNumber === play.playNumber);
+        if (playMetricsObj) {
+          // For numSprint: check if the player's top speed exceeds 7 m/s
+          const topSpeedMetric = playMetricsObj.PlayMetrics.find(m => m.MetricName === 'TopSpeed');
+          if (topSpeedMetric && topSpeedMetric.Value > 7) {
+            totalSprints += 1;
+          }
+          // Sum the "Distance" from this player's metrics
+          const distanceMetric = playMetricsObj.PlayMetrics.find(m => m.MetricName === 'Distance');
+          if (distanceMetric) {
+            totalDistance += distanceMetric.Value;
+          }
+        }
+      });
+    
+      // Compute avgDistance using the new formula
+      const avgDistance = playDurationSec > 0 ? (totalDistance / playDurationSec) * 4 : 0;
+    
       return {
         ...play,
-        avgDistance: pm ? pm.AvgDistance : 0,
-        numSprint: pm ? pm.NumSprint : 0,
+        numSprint: totalSprints,
+        avgDistance: avgDistance
       };
     });
 
