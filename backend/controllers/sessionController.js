@@ -217,7 +217,6 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
  *  - or req.body.type === 'playbyplay' to parse the plays CSV
  */
 export const uploadSessionCSV = asyncHandler(async (req, res) => {
-  console.log(`[uploadSessionCSV] sessionId=${req.body.sessionId}, type=${req.body.type}`);
   const { sessionId, type } = req.body;
   if (!sessionId) {
     return res.status(400).json({ message: 'Session ID is required.' });
@@ -231,11 +230,13 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
 
   try {
     let updatedData;
+
+    // Decide which parser to call based on "type"
     if (type === 'session') {
-      // Player CSV
+      // Use the "parseCSV" function for your session/player data
       updatedData = await parseCSV(req.file.buffer, sessionId, req.user._id);
     } else if (type === 'playbyplay') {
-      // Plays CSV
+      // Use the "parsePlayByPlayCSV" function for your plays data
       updatedData = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
     } else {
       return res.status(400).json({ message: 'Invalid CSV type.' });
@@ -257,7 +258,7 @@ export const registerSession = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
   const userId = req.user._id;
 
-  // Convert date => ms
+  // Convert date to ms
   let parsedDate;
   if (typeof date === 'string') {
     parsedDate = new Date(date).getTime();
@@ -272,31 +273,47 @@ export const registerSession = asyncHandler(async (req, res) => {
     throw new Error('Invalid date format. Could not parse date.');
   }
 
-  // Validate team
+  // Validate team exists
   const team = await Team.findOne({ name: teamName, userId });
   if (!team) {
     res.status(400);
     throw new Error('Team does not exist. Please create a team first.');
   }
 
-  // Process splits => add offset to session.date
+  // Process splits using manual time conversion (to avoid timezone offset)
   let processedSplits = [];
   if (splits && Array.isArray(splits)) {
+    // Function to convert HH:MM(:SS) to milliseconds (from midnight)
+    const parseTimeString = (timeStr) => {
+      const parts = timeStr.split(':').map(Number);
+      const hours = parts[0] || 0;
+      const minutes = parts[1] || 0;
+      const seconds = parts[2] || 0;
+      return ((hours * 3600) + (minutes * 60) + seconds) * 1000;
+    };
+
     processedSplits = splits.map((split, i) => {
       if (!split.title) {
         res.status(400);
         throw new Error('Split title is required.');
       }
-
-      // If "09:00:00", convert to offset in ms from midnight (1970-01-01)
+      // Use manual parsing instead of new Date(...)
       const startOffset = typeof split.start === 'number'
         ? split.start
-        : new Date(`1970-01-01T${split.start}`).getTime();
+        : parseTimeString(split.start);
       const endOffset = typeof split.end === 'number'
         ? split.end
-        : new Date(`1970-01-01T${split.end}`).getTime();
+        : parseTimeString(split.end);
 
-      // final ms = session date + offset
+      // Debug log the computed offsets
+      console.log(
+        `[registerSession] Split ${i + 1} - Input start: ${split.start}, computed start offset: ${startOffset} ms`
+      );
+      console.log(
+        `[registerSession] Split ${i + 1} - Input end: ${split.end}, computed end offset: ${endOffset} ms`
+      );
+
+      // final milliseconds = session date (ms) + offset (ms)
       const finalStartMs = parsedDate + startOffset;
       const finalEndMs = parsedDate + endOffset;
 
@@ -314,7 +331,7 @@ export const registerSession = asyncHandler(async (req, res) => {
     userId,
     teamName,
     sessionName,
-    date: parsedDate, // ms
+    date: parsedDate,
     type,
     duration,
     splits: processedSplits,
@@ -323,6 +340,13 @@ export const registerSession = asyncHandler(async (req, res) => {
   });
 
   if (session) {
+    console.log(
+      `[registerSession] New session created. Splits: ${JSON.stringify(
+        processedSplits,
+        null,
+        2
+      )}`
+    );
     return res.status(200).json(session);
   } else {
     res.status(400);
