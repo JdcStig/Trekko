@@ -1,3 +1,5 @@
+// file: controllers/sessionController.js
+
 import asyncHandler from '../middleware/asyncHandler.js';
 import mongoose from 'mongoose';
 import csvParser from 'csv-parser';
@@ -25,11 +27,12 @@ const metricsCalculations = {
 };
 
 /**
- * ==============================
- * parseCSV:
- *  Reads CSV rows, inserts data,
- *  updates sessionPlayerData
- * ==============================
+ * ===========================
+ * parseCSV (Players CSV)
+ * ===========================
+ *  Reads the CSV containing player data (Time, Speed, etc.).
+ *  Stores them in SessionPlayerData with a 'times' array.
+ *  Then calculates snippet-based per-play metrics using timeStart/timeEnd from session.plays.
  */
 export const parseCSV = async (fileBuffer, sessionId, userId) => {
   console.log(`\n[parseCSV] sessionId=${sessionId}, userId=${userId}`);
@@ -62,10 +65,10 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
       .on('end', resolve)
       .on('error', reject);
   });
+  console.log(`[parseCSV] CSV parse complete. Total rows: ${rows.length}`);
   if (!rows.length) {
     throw new Error('CSV is empty or could not be parsed.');
   }
-  console.log(`[parseCSV] CSV parse complete. Total rows: ${rows.length}`);
 
   // 3) Fetch the session
   const session = await Session.findById(sessionId);
@@ -78,6 +81,7 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
   const playersData = {};
 
   for (const row of rows) {
+    // console.log('DEBUG player row:', row);
     const csvName = row['Player Display Name'] || 'Unknown Player';
     const speed = parseFloat(row['Speed (m/s)']) || 0;
     const lat = parseFloat(row['Latitude']) || 0;
@@ -85,13 +89,14 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
     const hr = parseFloat(row['Heart Rate']) || 0;
     const accel = parseFloat(row['Acceleration (m/s^2)']) || 0;
 
-    // "Time" in HH:MM:SS
+    // "Time" in HH:MM:SS (or similar)
     const timeStr = row['Time'] || '00:00:00';
+    // console.log(`DEBUG row Time=`, timeStr);
     const [hh, mm, ss] = timeStr.split(':').map(Number);
 
     // Combine session date + CSV time => store in ms
     const combinedDateTime = new Date(sessionDate);
-    combinedDateTime.setHours(hh, mm, ss || 0, 0);
+    combinedDateTime.setHours(hh || 0, mm || 0, ss || 0, 0);
     const unixMs = combinedDateTime.getTime();
 
     if (!playersData[csvName]) {
@@ -129,6 +134,8 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
       playerName: csvName,
       startTime: startMs,
       endTime: endMs,
+      // Make sure your schema has 'times: [Number]'
+      times: pdata.times,
       lats: pdata.lats,
       lons: pdata.lons,
       speeds: pdata.speeds,
@@ -150,19 +157,23 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
     const playerDoc = await Player.findOne({ userId, playerId: csvName });
     if (playerDoc) {
       doc.playerId = playerDoc._id;
-      // Optionally rename to real Player name
       doc.playerName = playerDoc.name;
       await doc.save();
     }
   }
 
-  // 8) Rebuild session.sessionPlayerData
+  // 8) Rebuild session.sessionPlayerData with snippet-based per-play metrics
   session.sessionPlayerData = [];
   const allPlayerDocs = await SessionPlayerData.find({ sessionId });
 
   for (const doc of allPlayerDocs) {
+    console.log(`\n[parseCSV] Building metrics for docId=${doc._id}, playerName=${doc.playerName}`);
+    console.log('[parseCSV] times=', doc.times);
+
+    const times = doc.times || [];
     const speeds = doc.speeds || [];
 
+    // Overall doc metrics
     const sessionPlayerMetrics = [
       { MetricName: 'Distance', Value: metricsCalculations.Distance(speeds), Unit: 'km' },
       { MetricName: 'TopSpeed', Value: metricsCalculations.TopSpeed(speeds), Unit: 'm/s' },
@@ -170,8 +181,13 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
       { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
     ];
 
+    // Snippet-based per-play
+    console.log(`[parseCSV] session.plays.length=${session.plays ? session.plays.length : 0}`);
+    const playPlayerMetrics = calculatePlayPlayerMetrics(times, speeds, session.plays || []);
+    console.log(`[parseCSV] playPlayerMetrics=`, playPlayerMetrics);
+
+    // If you still do sequential splits:
     const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits || []);
-    const playPlayerMetrics = calculatePlayPlayerMetrics(speeds, session.plays || []);
 
     session.sessionPlayerData.push({
       csvId: doc._id,
@@ -189,13 +205,7 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
   await calculateAverageDistance(sessionId);
 
   // 10) Return updated session
-  //    NOTE: Only populating sessionPlayerData (one‐way).
-  //    Then calling .lean() to avoid circular references.
-  const updatedSession = await Session
-    .findById(sessionId)
-    .populate('sessionPlayerData')
-    .lean();
-
+  const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
   return updatedSession;
 };
 
@@ -203,6 +213,8 @@ export const parseCSV = async (fileBuffer, sessionId, userId) => {
  * ===========================
  * uploadSessionCSV
  * ===========================
+ *  - Expects req.body.type === 'session' to parse players CSV
+ *  - or req.body.type === 'playbyplay' to parse the plays CSV
  */
 export const uploadSessionCSV = asyncHandler(async (req, res) => {
   console.log(`[uploadSessionCSV] sessionId=${req.body.sessionId}, type=${req.body.type}`);
@@ -220,8 +232,10 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
   try {
     let updatedData;
     if (type === 'session') {
+      // Player CSV
       updatedData = await parseCSV(req.file.buffer, sessionId, req.user._id);
     } else if (type === 'playbyplay') {
+      // Plays CSV
       updatedData = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
     } else {
       return res.status(400).json({ message: 'Invalid CSV type.' });
@@ -237,7 +251,6 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
 /**
  * ===========================
  * registerSession
- * (Creating new Session)
  * ===========================
  */
 export const registerSession = asyncHandler(async (req, res) => {
@@ -387,24 +400,20 @@ export const updateSession = asyncHandler(async (req, res) => {
   if (duration) session.duration = Number(duration);
   if (notes) session.notes = notes;
 
-  // ----- Here’s the key fix: We do NOT add old offset + new offset. -----
-  // We simply REPLACE the old splits array with brand-new splits from req.body.
+  // We simply REPLACE the old splits array with brand-new splits
   if (splits && Array.isArray(splits)) {
     session.splits = splits.map((split, index) => {
       if (!split.title) {
         res.status(400);
         throw new Error('Split title is required.');
       }
-
-      // If your front-end sends the final absolute ms, store it as is:
       const newStart = Number(split.start) || 0;
       const newEnd   = Number(split.end)   || 0;
-
       return {
         title: split.title,
         splitNumber: index + 1,
-        start: newStart,  // REPLACE old start
-        end: newEnd,      // REPLACE old end
+        start: newStart,
+        end: newEnd,
       };
     });
   }
@@ -419,6 +428,7 @@ export const updateSession = asyncHandler(async (req, res) => {
 
     for (const doc of allPlayerDocs) {
       const speeds = doc.speeds || [];
+      const times = doc.times || [];
 
       // Possibly fetch real Player name
       let realName = doc.playerName;
@@ -440,7 +450,8 @@ export const updateSession = asyncHandler(async (req, res) => {
       ];
 
       const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits);
-      const playPlayerMetrics = calculatePlayPlayerMetrics(speeds, session.plays || []);
+      // Snippet-based approach for plays
+      const playPlayerMetrics = calculatePlayPlayerMetrics(times, speeds, session.plays || []);
 
       session.sessionPlayerData.push({
         csvId: doc._id,
@@ -457,7 +468,6 @@ export const updateSession = asyncHandler(async (req, res) => {
 
   res.status(200).json(session);
 });
-
 
 /**
  * ===========================
