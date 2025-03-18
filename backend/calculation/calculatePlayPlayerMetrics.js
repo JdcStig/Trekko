@@ -1,13 +1,41 @@
-export default function calculatePlayPlayerMetrics(times = [], speeds = [], plays = []) {
-  console.log(`\n[calculatePlayPlayerMetrics] START. times.length=${times.length}, speeds.length=${speeds.length}, plays.length=${plays.length}`);
+// file: calculation/calculatePlayPlayerMetrics.js
 
-  // Convert speeds to a safe array of numbers
-  const safeSpeeds = speeds.map(n => {
+/**
+ * Given:
+ *   - times[] (timestamps in ms)
+ *   - speeds[] (in m/s, recorded at 10Hz by default)
+ *   - plays[] (each play has { timeStart, timeEnd, ... })
+ *
+ * Returns an array of objects, one per play:
+ *   [
+ *     {
+ *       PlayNumber: number,
+ *       TotalDistance: number, // in km
+ *       TopSpeed: number,     // snippet top speed (m/s)
+ *       AvgDistance: number,  // for this single player's snippet (same as distance)
+ *       NumSprint: number,    // 1 if topSpeed >= 7, else 0
+ *       PlayMetrics: [
+ *         { MetricName: "Distance", Value: X, Unit: "km" },
+ *         { MetricName: "HighSpeedRunning", Value: Y, Unit: "km" },
+ *         { MetricName: "Sprinting", Value: Z, Unit: "km" },
+ *         { MetricName: "TopSpeed", Value: T, Unit: "m/s" },
+ *       ],
+ *     },
+ *     ...
+ *   ]
+ */
+export default function calculatePlayPlayerMetrics(times = [], speeds = [], plays = []) {
+  console.log(
+    `\n[calculatePlayPlayerMetrics] START. times.length=${times.length}, speeds.length=${speeds.length}, plays.length=${plays.length}`
+  );
+
+  // Convert speeds to numeric array
+  const safeSpeeds = speeds.map((n) => {
     const num = Number(n);
     return isNaN(num) ? 0 : num;
   });
 
-  // If times array is empty or safeSpeeds is empty, return default metrics for each play
+  // If no times or speeds, return zeroed-out metrics for each play
   if (times.length === 0 || safeSpeeds.length === 0) {
     return plays.map((play, index) => ({
       PlayNumber: index + 1,
@@ -24,39 +52,44 @@ export default function calculatePlayPlayerMetrics(times = [], speeds = [], play
     }));
   }
 
-  // If there are no plays defined, use overall metrics as a fallback
+  // If no plays, fallback to overall metrics
   if (plays.length === 0) {
     const sumSpeeds = safeSpeeds.reduce((acc, val) => acc + val, 0);
-    const distanceKm = sumSpeeds / 10000;
+    const distanceKm = sumSpeeds / 10000; // sumSpeeds/10 => meters => /1000 => km
     const topSpeed = safeSpeeds.length ? Math.max(...safeSpeeds) : 0;
-    return [{
-      PlayNumber: 1,
-      TotalDistance: distanceKm,
-      TopSpeed: topSpeed,
-      AvgDistance: distanceKm, // fallback using overall distance
-      NumSprint: topSpeed > 7 ? 1 : 0,
-      PlayMetrics: [
-        { MetricName: "Distance", Value: distanceKm, Unit: "km" },
-        { MetricName: "HighSpeedRunning", Value: 0, Unit: "km" },
-        { MetricName: "Sprinting", Value: 0, Unit: "km" },
-        { MetricName: "TopSpeed", Value: topSpeed, Unit: "m/s" },
-      ],
-    }];
+    const isSprint = topSpeed >= 7 ? 1 : 0;
+    return [
+      {
+        PlayNumber: 1,
+        TotalDistance: distanceKm,
+        TopSpeed: topSpeed,
+        AvgDistance: distanceKm,
+        NumSprint: isSprint,
+        PlayMetrics: [
+          { MetricName: "Distance", Value: distanceKm, Unit: "km" },
+          { MetricName: "HighSpeedRunning", Value: 0, Unit: "km" },
+          { MetricName: "Sprinting", Value: 0, Unit: "km" },
+          { MetricName: "TopSpeed", Value: topSpeed, Unit: "m/s" },
+        ],
+      },
+    ];
   }
 
-  // Otherwise, use a two-pointer approach for each play
+  // Otherwise, do a two-pointer approach for each play snippet
   const sortedPlays = [...plays].sort((a, b) => a.timeStart - b.timeStart);
   const results = [];
   let timeIndex = 0;
 
   for (let i = 0; i < sortedPlays.length; i++) {
     const play = sortedPlays[i];
-    // Advance pointer to the play's start time
+
+    // Move pointer to the start of this play
     while (timeIndex < times.length && times[timeIndex] < play.timeStart) {
       timeIndex++;
     }
     const startIndex = timeIndex;
-    // Advance pointer until the play's end time
+
+    // Move pointer up until the end time
     while (timeIndex < times.length && times[timeIndex] <= play.timeEnd) {
       timeIndex++;
     }
@@ -64,21 +97,25 @@ export default function calculatePlayPlayerMetrics(times = [], speeds = [], play
 
     const snippetSpeeds = safeSpeeds.slice(startIndex, endIndex);
     const sumSnippet = snippetSpeeds.reduce((acc, val) => acc + val, 0);
+    // Distance in km => sumSnippet (m/s) / 10 => total meters => /1000 => km
     const distanceKm = sumSnippet / 10000;
 
-    const sumHSR = snippetSpeeds.filter(v => v > 5.5).reduce((acc, val) => acc + val, 0);
+    // High Speed Running
+    const sumHSR = snippetSpeeds.filter((v) => v > 5.5).reduce((acc, val) => acc + val, 0);
     const hsrKm = sumHSR / 10000;
-    const sumSprinting = snippetSpeeds.filter(v => v > 7).reduce((acc, val) => acc + val, 0);
-    const sprintKm = sumSprinting / 10000;
 
+    // Sprinting
+    const sumSprint = snippetSpeeds.filter((v) => v >= 7).reduce((acc, val) => acc + val, 0);
+    const sprintKm = sumSprint / 10000;
+
+    // Top Speed
     const topSpeed = snippetSpeeds.length ? Math.max(...snippetSpeeds) : 0;
-    const playLengthSec = (play.timeEnd - play.timeStart) / 1000;
-    
-    // Avg distance => distance per 15 minutes
-    const avgDistance = playLengthSec > 0 ? (distanceKm / playLengthSec) * 900 : 0;
 
-    // # sprints
-    const numSprint = topSpeed > 7 ? 1 : 0;
+    // For a single player's snippet, we'll store snippetDistance in "AvgDistance"
+    const avgDistance = distanceKm;
+
+    // 1 if topSpeed >= 7, else 0
+    const numSprint = topSpeed >= 7 ? 1 : 0;
 
     results.push({
       PlayNumber: i + 1,

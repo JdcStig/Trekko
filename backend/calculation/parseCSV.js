@@ -79,14 +79,10 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
     const timeStr = row['Time'] || '00:00:00';
     const [hh, mm, ss] = timeStr.split(':').map(Number);
 
-    // Combine with session date
-    // Uses the game's start time as reference if available, otherwise uses session.date
-    const referenceTime = (session.plays && session.plays.length > 0) 
-    ? session.plays[0].timeStart 
-    : session.date;
-    // Converts the CSV "Time" to a time offset in milliseconds
-    const timeOffsetMs = (((hh || 0) * 60 + (mm || 0)) * 60 + (ss || 0)) * 1000;
-    const unixMs = referenceTime + timeOffsetMs;
+    // Combine with session date => store in ms
+    const combinedDateTime = new Date(sessionDate);
+    combinedDateTime.setHours(hh || 0, mm || 0, ss || 0, 0);
+    const unixMs = combinedDateTime.getTime();
 
     if (!playersData[csvName]) {
       playersData[csvName] = {
@@ -171,13 +167,12 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
       { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
     ];
 
-
     // Snippet-based per-play
     console.log(`[parseCSV] session.plays.length=${session.plays ? session.plays.length : 0}`);
     const playPlayerMetrics = calculatePlayPlayerMetrics(times, speeds, session.plays || []);
     console.log(`[parseCSV] playPlayerMetrics=`, playPlayerMetrics);
 
-    // Splits (still index-based if you want)
+    // Splits
     const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits || []);
 
     session.sessionPlayerData.push({
@@ -190,26 +185,7 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
     });
   }
 
-  session.plays = session.plays.map(play => {
-    let totalAvgDistance = 0;
-    let count = 0;
-    session.sessionPlayerData.forEach(playerData => {
-      const playMetricsObj = playerData.playPlayerMetrics.find(pm => pm.PlayNumber === play.playNumber);
-      if (playMetricsObj && typeof playMetricsObj.AvgDistance === 'number') {
-        totalAvgDistance += playMetricsObj.AvgDistance;
-        count++;
-      }
-    });
-    return {
-      ...play,
-      avgDistance: count > 0 ? totalAvgDistance / count : 0,
-    };
-  });
-
   await session.save();
-
-  // 9) Recalc average distance
-  await calculateAverageDistance(sessionId);
 
   // 10) Return updated session
   const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
