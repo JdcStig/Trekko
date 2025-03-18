@@ -167,6 +167,7 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
       { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
     ];
 
+
     // Snippet-based per-play
     console.log(`[parseCSV] session.plays.length=${session.plays ? session.plays.length : 0}`);
     const playPlayerMetrics = calculatePlayPlayerMetrics(times, speeds, session.plays || []);

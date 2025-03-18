@@ -76,7 +76,11 @@ const createPlayersFromCSV = async (sessionId, userId) => {
       getIO().emit('playerCreated', { playerName: p.name });
     });
   } catch (err) {
-    console.error(`🚨 [createPlayersFromCSV] ERROR: ${err.message}`);
+    if (err.code === 11000) {
+      console.warn(`[createPlayersFromCSV] Duplicate key error: ignoring`, err.message);
+    } else {
+      throw err;
+    }
   }
 };
 
