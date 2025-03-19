@@ -47,6 +47,8 @@ const SessionManagementScreen = () => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [newSessionId, setNewSessionId] = useState(null);
+  // Local state for refresh loader after CSV changes
+  const [loadingRefresh, setLoadingRefresh] = useState(false);
 
   // ----- 3) Sorting, filtering, search -----
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -167,10 +169,7 @@ const SessionManagementScreen = () => {
     try {
       await updateSession(sessionData).unwrap();
       toast.success('Session updated successfully!', { position: 'top-right' });
-      // Re-fetch so the next time we open the edit modal, 
-      // we have fresh data in ms from the DB (no doubling).
-      refetch(); 
-
+      refetch();
       setShowEditModal(false);
       setSelectedSession(null);
     } catch (err) {
@@ -183,8 +182,16 @@ const SessionManagementScreen = () => {
     setChartSessionId((prev) => (prev === sessionId ? null : sessionId));
   };
 
+  // ----- CSV Modal Closure with Refresh Loader -----
+  const handleCSVModalClose = async () => {
+    setShowCSVModal(false);
+    setLoadingRefresh(true);
+    await refetch();
+    setLoadingRefresh(false);
+  };
+
   // ----- Render -----
-  if (isLoading || loadingDelete || loadingCreate || loadingUpdate) {
+  if (isLoading || loadingDelete || loadingCreate || loadingUpdate || loadingRefresh) {
     return <Loader />;
   }
   if (error) {
@@ -349,7 +356,6 @@ const SessionManagementScreen = () => {
                               <tr key={idx}>
                                 <td>{split.title}</td>
                                 <td>{split.splitNumber}</td>
-                                {/* No "*1000" since DB is in ms */}
                                 <td>{new Date(split.start).toLocaleTimeString()}</td>
                                 <td>{new Date(split.end).toLocaleTimeString()}</td>
                               </tr>
@@ -413,12 +419,10 @@ const SessionManagementScreen = () => {
         session={selectedSession}
       />
 
+      {/* CSV Modal now uses our handleCSVModalClose to show a loader and refresh sessions */}
       <AddCSVModal
         show={showCSVModal}
-        onHide={() => {
-          setShowCSVModal(false);
-          refetch();
-        }}
+        onHide={handleCSVModalClose}
         sessionId={newSessionId}
       />
     </Container>
