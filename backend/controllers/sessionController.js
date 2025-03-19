@@ -347,7 +347,7 @@ export const deleteAllPlayCSVs = asyncHandler(async (req, res) => {
 
 // 8) Upload Session CSV (calls parseCSV)
 export const uploadSessionCSV = asyncHandler(async (req, res) => {
-  const { sessionId } = req.body;
+  const { sessionId, finalize } = req.body;
   if (!sessionId) {
     return res.status(400).json({ message: 'Session ID is required.' });
   }
@@ -356,17 +356,26 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
   }
 
   try {
-    const updatedSession = await parseCSV(req.file.buffer, sessionId, req.user._id);
-    res.status(201).json(updatedSession);
+    // 1) Parse & insert CSV data (does NOT do a final recalc)
+    await parseCSV(req.file.buffer, sessionId, req.user._id);
+
+    // 2) If this is the last CSV (finalize = true), recalc metrics
+    if (finalize) {
+      const updatedSession = await recalcSessionMetrics(sessionId);
+      return res.status(201).json(updatedSession);
+    } else {
+      return res.status(201).json({
+        message: 'CSV uploaded successfully. Metrics not recalculated yet.',
+      });
+    }
   } catch (error) {
     console.error('[uploadSessionCSV] ERROR:', error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 
-// 9) Upload Play CSV (calls parsePlayByPlayCSV)
 export const uploadPlayCSV = asyncHandler(async (req, res) => {
-  const { sessionId } = req.body;
+  const { sessionId, finalize } = req.body;
   if (!sessionId) {
     return res.status(400).json({ message: 'Session ID is required.' });
   }
@@ -375,10 +384,20 @@ export const uploadPlayCSV = asyncHandler(async (req, res) => {
   }
 
   try {
-    const updatedSession = await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
-    res.status(201).json(updatedSession);
+    // 1) Parse & insert the play-by-play CSV data
+    await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
+
+    // 2) Only recalc once all files are in
+    if (finalize) {
+      const updatedSession = await recalcSessionMetrics(sessionId);
+      return res.status(201).json(updatedSession);
+    } else {
+      return res.status(201).json({
+        message: 'Play CSV uploaded. Metrics not recalculated yet.',
+      });
+    }
   } catch (error) {
     console.error('[uploadPlayCSV] ERROR:', error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
