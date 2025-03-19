@@ -658,19 +658,18 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
   }
   try {
     await parseCSV(req.file.buffer, sessionId, req.user._id);
-    if (finalize) {
-      const updatedSession = await recalcSessionMetrics(sessionId);
-      return res.status(201).json(updatedSession);
+    if (finalize === 'true' || finalize === true) {
+      await recalcSessionMetrics(sessionId);
+      return res.status(201).json({ message: 'CSV uploaded and metrics recalculated.' });
     } else {
-      return res.status(201).json({
-        message: 'CSV uploaded successfully. Metrics not recalculated yet.',
-      });
+      return res.status(201).json({ message: 'CSV uploaded successfully. Metrics not recalculated yet.' });
     }
   } catch (error) {
     console.error('[uploadSessionCSV] ERROR:', error);
     return res.status(500).json({ message: error.message });
   }
 });
+
 
 // 9) Upload Play CSV (calls parsePlayByPlayCSV)
 export const uploadPlayCSV = asyncHandler(async (req, res) => {
@@ -683,13 +682,11 @@ export const uploadPlayCSV = asyncHandler(async (req, res) => {
   }
   try {
     await parsePlayByPlayCSV(req.file.buffer, sessionId, req.user._id);
-    if (finalize) {
-      const updatedSession = await recalcSessionMetrics(sessionId);
-      return res.status(201).json(updatedSession);
+    if (finalize === 'true' || finalize === true) {
+      await recalcSessionMetrics(sessionId);
+      return res.status(201).json({ message: 'Play CSV uploaded and metrics recalculated.' });
     } else {
-      return res.status(201).json({
-        message: 'Play CSV uploaded. Metrics not recalculated yet.',
-      });
+      return res.status(201).json({ message: 'Play CSV uploaded successfully. Metrics not recalculated yet.' });
     }
   } catch (error) {
     console.error('[uploadPlayCSV] ERROR:', error);
