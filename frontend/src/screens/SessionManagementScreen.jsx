@@ -356,8 +356,16 @@ const SessionManagementScreen = () => {
                               <tr key={idx}>
                                 <td>{split.title}</td>
                                 <td>{split.splitNumber}</td>
-                                <td>{new Date(split.start).toLocaleTimeString()}</td>
-                                <td>{new Date(split.end).toLocaleTimeString()}</td>
+                                <td>
+                                    {new Date(split.start).toLocaleTimeString('en-GB', {
+                                      hour12: false,
+                                    })}
+                                  </td>
+                                  <td>
+                                    {new Date(split.end).toLocaleTimeString('en-GB', {
+                                      hour12: false,
+                                    })}
+                                  </td>
                               </tr>
                             ))}
                           </tbody>
