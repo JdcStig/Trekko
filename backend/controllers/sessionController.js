@@ -507,19 +507,25 @@ function aggregateSprintMetrics(session) {
     return;
   }
 
-  session.plays.forEach((play, playIndex) => {
-    console.log(`\n[aggregateSprintMetrics] Checking play #${play.playNumber} (index=${playIndex})`);
-    let sprintCount = 0;
+  // Iterate each play in the session
+  session.plays.forEach((play) => {
+    console.log(`\n[aggregateSprintMetrics] Checking play #${play.playNumber}`);
 
-    session.sessionPlayerData.forEach((playerData, pdIndex) => {
+    let sprintCount = 0;
+    let totalDistance = 0;
+    let distanceCount = 0;
+
+    // Iterate each player's snippet metrics
+    session.sessionPlayerData.forEach((playerData) => {
       if (!playerData.playPlayerMetrics) return;
 
+      // Find the snippet for this particular playNumber
       const pm = playerData.playPlayerMetrics.find(
         (p) => p.PlayNumber === play.playNumber
       );
       if (!pm) return;
 
-      // The snippet-based top speed is stored in pm.PlayMetrics
+      // 1) Count sprints if snippet TopSpeed >= 7 m/s
       const topSpeedMetric = pm.PlayMetrics.find(
         (m) => m.MetricName === 'TopSpeed'
       );
@@ -529,12 +535,28 @@ function aggregateSprintMetrics(session) {
           `[aggregateSprintMetrics] Player "${playerData.playerName}" snippet TopSpeed=${topSpeedMetric.Value} => sprintCount=${sprintCount}`
         );
       }
+
+      // 2) Accumulate each player’s distance from PlayMetrics
+      const distanceMetric = pm.PlayMetrics.find(
+        (m) => m.MetricName === 'Distance'
+      );
+      if (distanceMetric && typeof distanceMetric.Value === 'number') {
+        totalDistance += distanceMetric.Value;
+        distanceCount++;
+      }
     });
 
-    // Store the final sprint count on the play
+    // 3) Compute final results for this play
     play.numSprint = sprintCount;
-    console.log(`[aggregateSprintMetrics] Final for Play #${play.playNumber}: numSprint=${sprintCount}`);
+    play.avgDistance = distanceCount > 0 ? totalDistance / distanceCount : 0;
+
+    console.log(
+      `[aggregateSprintMetrics] Final for Play #${play.playNumber}: ` +
+      `numSprint=${sprintCount}, avgDistance=${play.avgDistance.toFixed(5)} km`
+    );
   });
 
   console.log('[aggregateSprintMetrics] DONE');
 }
+
+

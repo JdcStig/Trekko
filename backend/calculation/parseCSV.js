@@ -57,8 +57,8 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
     throw new Error("CSV is empty or could not be parsed.");
   }
 
-  // 3) Fetch the session
-  const session = await Session.findById(sessionId);
+  // 3) Fetch the session (using let so we can reassign later)
+  let session = await Session.findById(sessionId);
   if (!session) {
     throw new Error(`Session not found: ${sessionId}`);
   }
@@ -120,9 +120,9 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
       startTime: startMs,
       endTime: endMs,
       times: pdata.times,
-      speeds: pdata.speeds,
       lats: pdata.lats,
       lons: pdata.lons,
+      speeds: pdata.speeds,
       heartRates: pdata.heartRates,
       accelerationImpulses: pdata.accelerations,
       playerId: null,
@@ -135,12 +135,10 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
   // 6) Create missing players
   await createPlayersFromCSV(sessionId, userId);
 
-  // 7) Link doc with real Player
+  // 7) Link each doc with the real Player
   for (const doc of insertedDocs) {
-    const playerDoc = await Player.findOne({
-      userId,
-      playerId: doc.playerName,
-    });
+    const csvName = doc.playerName;
+    const playerDoc = await Player.findOne({ userId, playerId: csvName });
     if (playerDoc) {
       doc.playerId = playerDoc._id;
       doc.playerName = playerDoc.name;
@@ -148,18 +146,14 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
     }
   }
 
-  // 8) Rebuild session.sessionPlayerData
+  // 8) Rebuild session.sessionPlayerData with metrics
+  // Re-fetch the session record to update its sessionPlayerData field
+  session = await Session.findById(sessionId);
   session.sessionPlayerData = [];
   const allPlayerDocs = await SessionPlayerData.find({ sessionId });
-
   for (const doc of allPlayerDocs) {
-    console.log(`\n[parseCSV] Building metrics for docId=${doc._id}, playerName=${doc.playerName}`);
-    console.log('[parseCSV] times=', doc.times);
-
-    const speeds = doc.speeds || [];
     const times = doc.times || [];
-
-    // Overall doc metrics
+    const speeds = doc.speeds || [];
     const sessionPlayerMetrics = [
       { MetricName: 'Distance', Value: metricsCalculations.Distance(speeds), Unit: 'km' },
       { MetricName: 'TopSpeed', Value: metricsCalculations.TopSpeed(speeds), Unit: 'm/s' },
@@ -167,12 +161,7 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
       { MetricName: 'Sprinting', Value: metricsCalculations.Sprinting(speeds), Unit: 'km' },
     ];
 
-    // Snippet-based per-play
-    console.log(`[parseCSV] session.plays.length=${session.plays ? session.plays.length : 0}`);
     const playPlayerMetrics = calculatePlayPlayerMetrics(times, speeds, session.plays || []);
-    console.log(`[parseCSV] playPlayerMetrics=`, playPlayerMetrics);
-
-    // Splits
     const splitPlayerMetrics = calculateSplitPlayerMetrics(speeds, session.splits || []);
 
     session.sessionPlayerData.push({
@@ -187,7 +176,13 @@ export default async function parseCSV(fileBuffer, sessionId, userId) {
 
   await session.save();
 
-  // 10) Return updated session
+  // ── FIX: Wait a short time to ensure all writes are flushed ──
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // 9) Recalculate overall session.avgDistance (this call now sees all new CSV docs)
+  await calculateAverageDistance(sessionId);
+
+  // 10) Return updated session (with populated sessionPlayerData)
   const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
   return updatedSession;
 }

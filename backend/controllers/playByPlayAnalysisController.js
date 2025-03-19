@@ -34,6 +34,7 @@ const metricsCalculations = {
 // 7) Recalculate session.avgDistance
 // 8) Return updated session
 export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
+  // Validate inputs
   if (!fileBuffer || fileBuffer.length === 0) {
     throw new Error('Uploaded file is empty.');
   }
@@ -66,7 +67,7 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     throw new Error('CSV is empty or could not be parsed.');
   }
 
-  // Fetch the session
+  // Fetch the session (use let so we can update later)
   let session = await Session.findById(sessionId);
   if (!session) {
     throw new Error(`Session not found: ${sessionId}`);
@@ -136,21 +137,21 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
     }
   }
 
-  // Fetch updated SessionPlayerData docs
+  // Fetch updated SessionPlayerData docs and calculate metrics
   const playerDocs = await SessionPlayerData.find({ sessionId });
   if (!playerDocs.length) {
     console.warn('⚠️ No SessionPlayerData found. Skipping metrics calculation.');
   } else {
-    // Aggregate times and speeds from all docs
+    // Combine times and speeds from all docs for overall play metrics.
     const combinedTimes = playerDocs.flatMap(doc => doc.times || []);
     const combinedSpeeds = playerDocs.flatMap(doc => doc.speeds || []);
     console.log(`[parsePlayByPlayCSV] Combined times length: ${combinedTimes.length}`);
     console.log(`[parsePlayByPlayCSV] Combined speeds length: ${combinedSpeeds.length}`);
-    
+
     const combinedPlayMetrics = calculatePlayPlayerMetrics(combinedTimes, combinedSpeeds, session.plays || []);
     console.log('[parsePlayByPlayCSV] Combined play metrics:', combinedPlayMetrics);
 
-    // Patch each play in session.plays with avgDistance and numSprint from combined metrics
+    // Update each play in session.plays with avgDistance and numSprint from snippet metrics.
     session.plays = session.plays.map(play => {
       const pm = combinedPlayMetrics.find(m => m.PlayNumber === play.playNumber);
       return {
@@ -160,7 +161,7 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
       };
     });
 
-    // For each player: calculate overall, per-play, and per-split metrics
+    // Update sessionPlayerData metrics for each player.
     session.sessionPlayerData = playerDocs.map(doc => {
       const speeds = doc.speeds || [];
       const sessionPlayerMetrics = [
@@ -181,14 +182,16 @@ export const parsePlayByPlayCSV = async (fileBuffer, sessionId, userId) => {
       };
     });
 
-    // Save the session with updated metrics
     await session.save();
   }
 
-  // Recalculate average distance for the entire session
+  // ── FIX: Wait a short period to ensure all CSV processing and writes are complete ──
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // Recalculate average distance for the session (now including new CSV data)
   await calculateAverageDistance(sessionId);
 
-  // Return the updated session with populated sessionPlayerData
+  // Return updated session with populated sessionPlayerData
   const updatedSession = await Session.findById(sessionId).populate('sessionPlayerData');
   return updatedSession;
 };
