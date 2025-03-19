@@ -1,7 +1,8 @@
-import Player from '../models/playerModel.js';
-import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import mongoose from 'mongoose';
 import Session from '../models/sessionModel.js';
-import { getIO } from '../socket.js';
+import SessionPlayerData from '../models/sessionPlayerDataModel.js';
+import Player from '../models/playerModel.js';
+import { getIO } from '../socket.js';  // <-- Add this import
 
 const sportPositions = {
   Soccer: ["FullBack", "CentreDefender", "Midfield", "Forward"],
@@ -11,12 +12,6 @@ const sportPositions = {
   Other: ["Other"],
 };
 
-/**
- * Creates missing players from CSV by:
- *  1) Gathering distinct 'playerName' from SessionPlayerData for this session.
- *  2) Checking which are already in the Player collection (by playerId).
- *  3) Inserting the missing ones with position=some random pick.
- */
 const createPlayersFromCSV = async (sessionId, userId) => {
   console.log(`\n🛠️ [createPlayersFromCSV] Starting. sessionId=${sessionId}, userId=${userId}`);
   try {
