@@ -45,8 +45,9 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
         method: 'POST',
         body: formData,
       }),
-      invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }],
+      invalidatesTags: [{ type: 'SessionCSV', id: 'LIST' }, 'Session'],
     }),
+    
 
      // POST /api/sessions/upload
      uploadPlayCSV: builder.mutation({
@@ -55,8 +56,9 @@ export const sessionsApiSlice = apiSlice.injectEndpoints({
         method: 'POST',
         body: formData,
       }),
-      invalidatesTags: [{ type: 'PlayCSV', id: 'LIST' }],
+      invalidatesTags: [{ type: 'PlayCSV', id: 'LIST' }, 'Session'],
     }),
+    
 
     // GET /api/sessions/:id/csvs
     getSessionCSVs: builder.query({

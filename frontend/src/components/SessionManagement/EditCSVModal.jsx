@@ -128,7 +128,6 @@ const EditCSVModal = ({
             const formData = new FormData();
             formData.append('file', file);
             formData.append('sessionId', sessionId);
-            // No "type" field is needed here since uploadPlayCSV always uploads play CSVs
             return uploadPlayCSV(formData).unwrap();
           })
         );
@@ -137,17 +136,18 @@ const EditCSVModal = ({
         await Promise.all(uploadPromises);
       }
       await refetch();
+      // Display a toast when CSV updates are successful
+      toast.success("CSV updated successfully!", { position: 'top-right' });
       onSave(data?.sessionPlayerDataArray || null);
       onCancel();
     } catch (error) {
-      toast.error('Error saving CSV changes');
+      toast.error('Error saving CSV changes', { position: 'top-right' });
     } finally {
       setProcessing(false);
       setPendingPlayerFiles([]);
       setPendingPlayFiles([]);
     }
-  };
-  
+  };  
   
   return (
     <Modal show={show} onHide={onCancel} centered>
