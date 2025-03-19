@@ -1,3 +1,5 @@
+// file: components/AddCSVModal.js
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Button, Form, ListGroup } from 'react-bootstrap';
 import { toast } from 'react-toastify';
@@ -17,7 +19,6 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
     console.log("PlayByPlay Files updated:", playByPlayFiles.length);
   }, [sessionFiles, playByPlayFiles]);
   
-
   const handleFileChange = (e, setFiles) => {
     const selectedFiles = Array.from(e.target.files);
     setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
@@ -32,25 +33,38 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
     if (inputRef.current) inputRef.current.value = '';
   };
 
+  /**
+   * Helper: uploadMultipleCSVs
+   * Loops through the given files and uploads them one by one.
+   * For the last file, it sets the 'finalize' flag to true so that the backend
+   * recalculates metrics only after the last file has been processed.
+   *
+   * @param {File[]} files - Array of File objects to upload.
+   * @param {Function} uploadFn - The mutation function to call (uploadSessionCSV or uploadPlayCSV).
+   */
+  async function uploadMultipleCSVs(files, uploadFn) {
+    for (let i = 0; i < files.length; i++) {
+      const formData = new FormData();
+      formData.append('file', files[i]);
+      formData.append('sessionId', sessionId);
+      // Set finalize flag to true on the last file
+      formData.append('finalize', i === files.length - 1);
+      await uploadFn(formData).unwrap();
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      for (let file of sessionFiles) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("sessionId", sessionId);
-        formData.append("type", "session");
-        await uploadSessionCSV(formData).unwrap();
+      // Upload all session CSV files
+      if (sessionFiles.length > 0) {
+        await uploadMultipleCSVs(sessionFiles, uploadSessionCSV);
       }
-      
-      for (let file of playByPlayFiles) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("sessionId", sessionId);
-        // no need for formData.append("type", "playbyplay") if your server doesn't require it
-        await uploadPlayCSV(formData).unwrap(); 
+      // Upload all play-by-play CSV files
+      if (playByPlayFiles.length > 0) {
+        await uploadMultipleCSVs(playByPlayFiles, uploadPlayCSV);
       }
 
       toast.success("CSV uploaded successfully!", { position: 'top-right' });
@@ -71,7 +85,6 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          
           {/* Session CSV Upload */}
           <Form.Group controlId="sessionCsv" className="mb-3">
             <Form.Label>Upload Session CSV</Form.Label>
@@ -91,7 +104,13 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
               {sessionFiles.map((file, index) => (
                 <ListGroup.Item key={index}>
                   {file.name}
-                  <Button variant="danger" size="sm" onClick={() => removeFile(index, setSessionFiles, sessionFiles)}>Delete</Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => removeFile(index, setSessionFiles, sessionFiles)}
+                  >
+                    Delete
+                  </Button>
                 </ListGroup.Item>
               ))}
             </ListGroup>
@@ -116,7 +135,13 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
               {playByPlayFiles.map((file, index) => (
                 <ListGroup.Item key={index}>
                   {file.name}
-                  <Button variant="danger" size="sm" onClick={() => removeFile(index, setPlayByPlayFiles, playByPlayFiles)}>Delete</Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => removeFile(index, setPlayByPlayFiles, playByPlayFiles)}
+                  >
+                    Delete
+                  </Button>
                 </ListGroup.Item>
               ))}
             </ListGroup>
