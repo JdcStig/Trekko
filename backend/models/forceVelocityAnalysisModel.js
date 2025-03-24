@@ -1,4 +1,5 @@
-// file: models/forceVelocityAnalysis.js
+// file: models/forceVelocityAnalysisModel.js
+
 import mongoose from 'mongoose';
 
 const forceVelocityAnalysisSchema = new mongoose.Schema(
@@ -23,6 +24,7 @@ const forceVelocityAnalysisSchema = new mongoose.Schema(
     grouped: {
       type: String,
       required: true,
+      default: 'none',
     },
     number: {
       type: Number,
@@ -46,7 +48,9 @@ const forceVelocityAnalysisSchema = new mongoose.Schema(
       default: 0.0,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model('ForceVelocityAnalysis', forceVelocityAnalysisSchema);

@@ -25,15 +25,35 @@ const __dirname = path.dirname(__filename);
  *   grouping  - (optional) 'none'|'day'|'week'|'month'
  */
 export const getForceVelocityData = asyncHandler(async (req, res) => {
-  const { startDate, endDate, playerIds, grouping } = req.query;
-  const startMs = new Date(startDate).getTime();
-  const endMs = new Date(endDate).getTime();
-
+  const { startDate, endDate, playerIds, grouping } = req.query; // grouping: 'none'|'day'|'week'|'month'
+  
+  // 1) Validate and parse dates
+  let startMs = new Date(startDate).getTime();
+  let endMs   = new Date(endDate).getTime();
   if (isNaN(startMs) || isNaN(endMs)) {
     res.status(400);
-    throw new Error('Invalid or missing startDate/endDate');
+    throw new Error("Invalid or missing startDate/endDate");
   }
 
+  // If grouping is 'week', adjust start and end dates to cover full week (Sunday to Saturday)
+  if (grouping === 'week') {
+    // Adjust start date to the previous Sunday (or same if already Sunday)
+    const startDateObj = new Date(startMs);
+    const startDay = startDateObj.getDay(); // Sunday=0, Saturday=6
+    if (startDay !== 0) {
+      startDateObj.setDate(startDateObj.getDate() - startDay);
+      startMs = startDateObj.getTime();
+    }
+    // Adjust end date to the following Saturday (or same if already Saturday)
+    const endDateObj = new Date(endMs);
+    const endDay = endDateObj.getDay();
+    if (endDay !== 6) {
+      endDateObj.setDate(endDateObj.getDate() + (6 - endDay));
+      endMs = endDateObj.getTime();
+    }
+  }
+
+  // 2) Convert playerIds query param into an array of IDs
   let playerIdArray = [];
   if (playerIds) {
     if (Array.isArray(playerIds)) {
@@ -47,34 +67,33 @@ export const getForceVelocityData = asyncHandler(async (req, res) => {
     return res.status(200).json([]);
   }
 
-  // Find all sessions in the date range for this user
+  // 3) Find all sessions in the date range for this user
   const sessionsInRange = await Session.find({
     userId: req.user._id,
-    date: { $gte: startMs, $lte: endMs },
+    date: { $gte: startMs, $lte: endMs }
   });
   if (!sessionsInRange.length) {
     // No sessions found => return 0 for each player
     const zeroResults = await Player.find({ _id: { $in: playerIdArray } });
-    const response = zeroResults.map((p) => ({
+    const response = zeroResults.map(p => ({
       playerName: p.name,
-      numberSessions: 0,
+      numberSessions: 0
     }));
     return res.status(200).json(response);
   }
 
-  const sessionIds = sessionsInRange.map((s) => s._id);
+  // 4) Extract session IDs
+  const sessionIds = sessionsInRange.map(s => s._id);
 
-  // Find SessionPlayerData docs matching these sessions + players
+  // 5) Look up SessionPlayerData docs that match these sessionIds AND these players
   const spdDocs = await SessionPlayerData.find({
     sessionId: { $in: sessionIds },
-    playerId: {
-      $in: playerIdArray.map((id) => new mongoose.Types.ObjectId(id)),
-    },
+    playerId: { $in: playerIdArray.map(id => new mongoose.Types.ObjectId(id)) },
   });
 
-  // Build a map: playerId -> Set of sessionIds
+  // 6) Group by playerId => set of sessionIds => count
   const playerSessionMap = {};
-  spdDocs.forEach((doc) => {
+  spdDocs.forEach(doc => {
     const pId = doc.playerId.toString();
     if (!playerSessionMap[pId]) {
       playerSessionMap[pId] = new Set();
@@ -82,11 +101,11 @@ export const getForceVelocityData = asyncHandler(async (req, res) => {
     playerSessionMap[pId].add(doc.sessionId.toString());
   });
 
-  // Build response for each requested player
+  // 7) For each requested player, get the # of sessions from the set
   const results = [];
   for (const pId of playerIdArray) {
     const pDoc = await Player.findById(pId);
-    if (!pDoc) continue;
+    if (!pDoc) continue; // skip if not found
     const setOfSessions = playerSessionMap[pId] || new Set();
     results.push({
       playerName: pDoc.name,
@@ -94,8 +113,8 @@ export const getForceVelocityData = asyncHandler(async (req, res) => {
     });
   }
 
-  // (Optional) handle grouping if grouping !== 'none'
-  // For now, no grouping logic implemented
+  // 8) (Optional) Additional grouping logic can be implemented if grouping !== 'none'
+
   res.status(200).json(results);
 });
 
@@ -107,9 +126,9 @@ export const getForceVelocityData = asyncHandler(async (req, res) => {
  * Expects JSON body:
  * {
  *   analysisValue: string|number,
- *   startDate: string,
- *   endDate: string,
- *   grouping: string ('none','day','week','month'),
+ *   startDate: string (e.g. '2025-03-17'),
+ *   endDate: string   (e.g. '2025-03-21'),
+ *   grouping: string  ('none','day','week','month'),
  *   playerIds: array of IDs
  * }
  * Returns: the created ForceVelocityAnalysis document.
@@ -126,11 +145,47 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
     throw new Error('startDate and endDate are required');
   }
 
-  // Construct an absolute path to your Python script
+  // Convert the dates to numeric timestamps
+  let startMs = new Date(startDate).getTime();
+  let endMs   = new Date(endDate).getTime();
+
+  // ==========================
+  // 1) SHIFT DATES IF grouping='week'
+  // ==========================
+  if (grouping === 'week') {
+    // Convert timestamps to Date objects
+    const startDateObj = new Date(startMs);
+    const endDateObj   = new Date(endMs);
+
+    // a) SHIFT START TO PREVIOUS SUNDAY
+    // Sunday has getDay() = 0
+    const startDay = startDateObj.getDay(); 
+    if (startDay !== 0) {
+      // If startDay is 1 (Monday), this subtracts 1 day => Sunday
+      // If startDay is 2 (Tuesday), subtract 2 days => Sunday, etc.
+      startDateObj.setDate(startDateObj.getDate() - startDay);
+    }
+
+    // b) SHIFT END TO FOLLOWING SATURDAY
+    // Saturday has getDay() = 6
+    const endDay = endDateObj.getDay();
+    if (endDay !== 6) {
+      // If endDay is 5 (Friday), we add 1 => Saturday
+      // If endDay is 4 (Thursday), we add 2 => Saturday, etc.
+      endDateObj.setDate(endDateObj.getDate() + (6 - endDay));
+    }
+
+    // Convert back to timestamps
+    startMs = startDateObj.getTime();
+    endMs   = endDateObj.getTime();
+  }
+
+  // ==========================
+  // 2) RUN PYTHON SCRIPT
+  // ==========================
   const scriptPath = path.join(__dirname, '..', 'python', 'TestPython.py');
   console.log('Running Python script at:', scriptPath);
 
-  // Utility to spawn the script and return stdout as a string
   const runPythonScript = () =>
     new Promise((resolve, reject) => {
       const pythonProcess = spawn('python', [scriptPath, analysisValue]);
@@ -174,11 +229,10 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
       .json({ message: 'Invalid JSON from Python', scriptOutput: output });
   }
 
-  // Convert date to numeric timestamps
-  const startMs = new Date(startDate).getTime();
-  const endMs = new Date(endDate).getTime();
-
-  // Build a list of players to store
+  // ==========================
+  // 3) BUILD & SAVE ANALYSIS DOC
+  // ==========================
+  // Convert the playerIds to a doc array
   const playerArray = await Promise.all(
     (playerIds || []).map(async (id) => {
       const p = await Player.findById(id);
@@ -187,11 +241,10 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
   );
   const filteredPlayers = playerArray.filter(Boolean);
 
-  // Save analysis result to the DB
-  // Note we store `grouped: grouping` to avoid "grouped is not defined"
+  // Create & save the analysis doc
   const analysisDoc = await ForceVelocityAnalysis.create({
     userId: req.user._id,
-    sessions: [], // Optionally fill session details if desired
+    sessions: [], // Optionally add session details if needed
     player: filteredPlayers,
     grouped: grouping,
     number: 0,
