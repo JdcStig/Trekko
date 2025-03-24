@@ -1,3 +1,4 @@
+// file: src/screens/ForceVelocityScreen.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Container,
@@ -12,10 +13,8 @@ import { FaSortUp, FaSortDown } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import Message from '../components/Message';
 import { useGetPlayersQuery } from '../slices/playersApiSlice';
-import {
-  useGetForceVelocityDataQuery,
-  useRunForceVelocityAnalysisMutation,
-} from '../slices/forceVelocityApiSlice';
+import { useGetForceVelocityDataQuery } from '../slices/forceVelocityApiSlice';
+import { useRunForceVelocityAnalysisMutation } from '../slices/forceVelocityApiSlice';
 
 const ForceVelocityScreen = () => {
   const [startDate, setStartDate] = useState('');
@@ -47,13 +46,8 @@ const ForceVelocityScreen = () => {
   );
 
   // 3) Mutation to run analysis (calls the Python script)
-  const [runForceVelocityAnalysis, { isLoading: loadingAnalysis }] =
+  const [runAnalysis, { isLoading: loadingAnalysis }] =
     useRunForceVelocityAnalysisMutation();
-
-  // Reset current selections when dates or players change (if needed)
-  useEffect(() => {
-    // You may add additional actions here
-  }, [selectedPlayers, startDate, endDate]);
 
   // Toggle an individual player's checkbox
   const handleTogglePlayer = (playerId) => {
@@ -75,7 +69,7 @@ const ForceVelocityScreen = () => {
     }
   };
 
-  // Sorting (if needed later; currently no search/filter options are provided)
+  // Sorting (if needed later)
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -87,8 +81,7 @@ const ForceVelocityScreen = () => {
   // Prepare table data from ForceVelocity API data
   const tableData = useMemo(() => {
     if (!fvData || !Array.isArray(fvData)) return [];
-    let filtered = fvData;
-
+    let filtered = [...fvData];
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         const valA = a[sortConfig.key];
@@ -107,7 +100,7 @@ const ForceVelocityScreen = () => {
     return filtered;
   }, [fvData, sortConfig]);
 
-  // Show loader if data is loading/refetching
+  // Show loader if any data is loading/refetching
   if (
     loadingPlayers ||
     fetchingPlayers ||
@@ -124,10 +117,17 @@ const ForceVelocityScreen = () => {
   const isSelectAllChecked =
     allPlayers.length > 0 && selectedPlayers.length === allPlayers.length;
 
-  // Handler for analysis button click: pass the analysisValue to the python script via the API
+  // Handler for analysis button click: pass an object with all required keys to the API
   const handleAnalysisClick = async () => {
     try {
-      const result = await runForceVelocityAnalysis(analysisValue).unwrap();
+      // Pass an object containing analysisValue, startDate, endDate, grouping, and playerIds
+      const result = await runAnalysis({
+        analysisValue,
+        startDate,
+        endDate,
+        grouping,
+        playerIds: selectedPlayers,
+      }).unwrap();
       setAnalysisResult(result);
       console.log('Analysis result:', result);
     } catch (error) {
@@ -237,7 +237,7 @@ const ForceVelocityScreen = () => {
       </Row>
 
       {/* Force Velocity Data Table or fallback messages */}
-      {!startDate || !endDate ? (
+      {(!startDate || !endDate) ? (
         <Alert variant="info" className="text-center">
           Please select a start date and end date.
         </Alert>
@@ -249,11 +249,21 @@ const ForceVelocityScreen = () => {
         <Table striped bordered hover responsive className="table-sm text-center">
           <thead className="table-dark">
             <tr>
-              <th onClick={() => handleSort('playerName')} style={{ cursor: 'pointer' }}>
-                Player Name {sortConfig.key === 'playerName' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+              <th
+                onClick={() => handleSort('playerName')}
+                style={{ cursor: 'pointer' }}
+              >
+                Player Name{' '}
+                {sortConfig.key === 'playerName' &&
+                  (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
               </th>
-              <th onClick={() => handleSort('numberSessions')} style={{ cursor: 'pointer' }}>
-                Number Sessions {sortConfig.key === 'numberSessions' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+              <th
+                onClick={() => handleSort('numberSessions')}
+                style={{ cursor: 'pointer' }}
+              >
+                Number Sessions{' '}
+                {sortConfig.key === 'numberSessions' &&
+                  (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
               </th>
             </tr>
           </thead>

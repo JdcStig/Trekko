@@ -1,31 +1,32 @@
-import mongoose from "mongoose";
+// file: models/forceVelocityAnalysis.js
+import mongoose from 'mongoose';
 
 const forceVelocityAnalysisSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Reference to the users model
+      ref: 'User',
       required: true,
     },
     sessions: [
-        {
-          sessionId: { type: mongoose.Schema.Types.ObjectId, ref: "Session", required: true },
-          sessionName: { type: String, required: true, default: "Unknown Session" },
-        },
-      ],
+      {
+        sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true },
+        sessionName: { type: String, required: true, default: 'Unknown Session' },
+      },
+    ],
     player: [
-        {
-          playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: false },
-          name: { type: String, required: true, default: "Unknown Player" },
-        },
-      ],
+      {
+        playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', required: false },
+        name: { type: String, required: true, default: 'Unknown Player' },
+      },
+    ],
     grouped: {
-        type: String,
-        required: true,
+      type: String,
+      required: true,
     },
     number: {
       type: Number,
-      default: 0, // Default value 
+      default: 0,
       required: true,
     },
     startDate: {
@@ -41,13 +42,11 @@ const forceVelocityAnalysisSchema = new mongoose.Schema(
       default: 0.0,
     },
     maxSpeed: {
-        type: Number,
-        default: 0.0,
-      },
+      type: Number,
+      default: 0.0,
+    },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-export default mongoose.model("forceVelocityAnalysis", forceVelocityAnalysisSchema);
+export default mongoose.model('ForceVelocityAnalysis', forceVelocityAnalysisSchema);
