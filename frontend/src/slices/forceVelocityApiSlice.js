@@ -12,6 +12,7 @@ export const forceVelocityApiSlice = apiSlice.injectEndpoints({
         if (startDate) params.set('startDate', startDate);
         if (endDate)   params.set('endDate', endDate);
         if (grouped)   params.set('grouped', grouped);
+
         if (Array.isArray(playerIds)) {
           playerIds.forEach((pid) => params.append('playerIds', pid));
         }
@@ -23,12 +24,13 @@ export const forceVelocityApiSlice = apiSlice.injectEndpoints({
       },
     }),
 
-    // Mutation to run the force velocity analysis (i.e. call the Python script)
+    // Mutation to run force velocity analysis (calls Python script and saves result)
     runForceVelocityAnalysis: builder.mutation({
-      query: (analysisValue) => ({
+      // Expects an object with { analysisValue, startDate, endDate, grouping, playerIds }
+      query: (body) => ({
         url: '/forcevelocity/runAnalysis',
         method: 'POST',
-        body: { analysisValue },
+        body,
       }),
     }),
   }),

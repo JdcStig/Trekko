@@ -9,7 +9,7 @@ const router = express.Router();
 // GET /api/forcevelocity -> returns force-velocity data
 router.get('/', protect, getForceVelocityData);
 
-// POST /api/forcevelocity/runAnalysis -> invokes the Python script with analysisValue
+// POST /api/forcevelocity/runAnalysis -> invokes the Python script and saves analysis
 router.post('/runAnalysis', protect, runForceVelocityAnalysis);
 
 export default router;
