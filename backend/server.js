@@ -16,6 +16,7 @@ import sessionRoutes from './routes/sessionRoutes.js';
 import playByPlayAnalysisRoutes from './routes/playByPlayAnalysisRoutes.js';
 import { initSocket } from './socket.js';
 import forceVelocityRoutes from './routes/forceVelocityRoutes.js';
+import pythonRoutes from './routes/pythonRoutes.js'; 
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -55,6 +56,7 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/playbyplayanalysis', playByPlayAnalysisRoutes);
 app.use('/api/forcevelocity', forceVelocityRoutes);
+app.use('/api/run-python', pythonRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
