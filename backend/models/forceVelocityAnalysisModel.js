@@ -11,20 +11,27 @@ const forceVelocityAnalysisSchema = new mongoose.Schema(
     },
     sessions: [
       {
-        sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true },
+        sessionId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Session',
+          required: true,
+        },
         sessionName: { type: String, required: true, default: 'Unknown Session' },
       },
     ],
     player: [
       {
-        playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', required: false },
+        playerId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Player',
+          required: false,
+        },
         name: { type: String, required: true, default: 'Unknown Player' },
       },
     ],
     grouped: {
       type: String,
       required: true,
-      default: 'none',
     },
     number: {
       type: Number,
@@ -32,11 +39,11 @@ const forceVelocityAnalysisSchema = new mongoose.Schema(
       required: true,
     },
     startDate: {
-      type: Number,
+      type: Number, // storing as a Unix ms timestamp
       required: true,
     },
     endDate: {
-      type: Number,
+      type: Number, // storing as a Unix ms timestamp
       required: true,
     },
     maxAccel: {
