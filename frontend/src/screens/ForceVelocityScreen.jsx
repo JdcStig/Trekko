@@ -1,5 +1,6 @@
 // file: src/screens/ForceVelocityScreen.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import {
   Container,
   Row,
@@ -13,16 +14,20 @@ import { FaSortUp, FaSortDown } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import Message from '../components/Message';
 import { useGetPlayersQuery } from '../slices/playersApiSlice';
-import { useGetForceVelocityDataQuery } from '../slices/forceVelocityApiSlice';
-import { useRunForceVelocityAnalysisMutation } from '../slices/forceVelocityApiSlice';
+import {
+  useGetForceVelocityDataQuery,
+  useRunForceVelocityAnalysisMutation,
+} from '../slices/forceVelocityApiSlice';
 
 const ForceVelocityScreen = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [grouping, setGrouping] = useState('none'); // 'none' | 'day' | 'week' | 'month'
+  const [grouping, setGrouping] = useState('week'); // 'none' | 'day' | 'week' | 'month'
   const [selectedPlayers, setSelectedPlayers] = useState([]);
   const [analysisValue, setAnalysisValue] = useState('');
   const [analysisResult, setAnalysisResult] = useState(null);
+
+  // Sorting config (if you need it for the table)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   // 1) Fetch all players
@@ -45,9 +50,13 @@ const ForceVelocityScreen = () => {
     { skip: skipQuery }
   );
 
-  // 3) Mutation to run analysis (calls the Python script)
+  // 3) Mutation to run local Python script & store doc
   const [runAnalysis, { isLoading: loadingAnalysis }] =
     useRunForceVelocityAnalysisMutation();
+
+  // Are we busy?
+  const isBusy =
+    loadingPlayers || fetchingPlayers || loadingFV || fetchingFV || loadingAnalysis;
 
   // Toggle an individual player's checkbox
   const handleTogglePlayer = (playerId) => {
@@ -69,7 +78,7 @@ const ForceVelocityScreen = () => {
     }
   };
 
-  // Sorting (if needed later)
+  // Sorting for the table (if you need it)
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -78,12 +87,13 @@ const ForceVelocityScreen = () => {
     setSortConfig({ key, direction });
   };
 
-  // Prepare table data from ForceVelocity API data
+  // Build table data
   const tableData = useMemo(() => {
     if (!fvData || !Array.isArray(fvData)) return [];
-    let filtered = [...fvData];
+    const dataCopy = [...fvData];
+
     if (sortConfig.key) {
-      filtered.sort((a, b) => {
+      dataCopy.sort((a, b) => {
         const valA = a[sortConfig.key];
         const valB = b[sortConfig.key];
         if (typeof valA === 'string') {
@@ -97,49 +107,49 @@ const ForceVelocityScreen = () => {
         return 0;
       });
     }
-    return filtered;
+    return dataCopy;
   }, [fvData, sortConfig]);
 
-  // Show loader if any data is loading/refetching
-  if (
-    loadingPlayers ||
-    fetchingPlayers ||
-    loadingFV ||
-    fetchingFV ||
-    loadingAnalysis
-  ) {
-    return <Loader />;
-  }
-  if (errorPlayers)
-    return <Message variant="danger">{errorPlayers.message}</Message>;
-
-  const allPlayers = playersData?.players || [];
-  const isSelectAllChecked =
-    allPlayers.length > 0 && selectedPlayers.length === allPlayers.length;
-
-  // Handler for analysis button click: pass an object with all required keys to the API
+  // Handler for analysis button
   const handleAnalysisClick = async () => {
     try {
-      // Pass an object containing analysisValue, startDate, endDate, grouping, and playerIds
-      const result = await runAnalysis({
+      // Prepare the request body
+      const payload = {
         analysisValue,
         startDate,
         endDate,
         grouping,
         playerIds: selectedPlayers,
-      }).unwrap();
+      };
+      // Run analysis, save doc, get the doc back
+      const result = await runAnalysis(payload).unwrap();
       setAnalysisResult(result);
-      console.log('Analysis result:', result);
-    } catch (error) {
-      console.error('Error running analysis:', error);
+      console.log('Analysis doc:', result);
+    } catch (err) {
+      console.error('Error running analysis:', err);
     }
   };
+
+  // If busy, show loader
+  if (isBusy) {
+    return <Loader />;
+  }
+
+  // If error loading players
+  if (errorPlayers) {
+    return <Message variant="danger">{errorPlayers.message}</Message>;
+  }
+
+  // Prepare players
+  const allPlayers = playersData?.players || [];
+  const isSelectAllChecked =
+    allPlayers.length > 0 && selectedPlayers.length === allPlayers.length;
 
   return (
     <Container>
       <h2 className="my-4 text-center">Force‐Velocity Analysis</h2>
 
-      {/* Row for Start Date & End Date */}
+      {/* Start & End Date */}
       <Row className="mb-3 justify-content-center">
         <Col md={3} className="text-center">
           <Form.Group controlId="startDate">
@@ -163,7 +173,7 @@ const ForceVelocityScreen = () => {
         </Col>
       </Row>
 
-      {/* Row for grouping radio + "Select All Players" checkboxes */}
+      {/* Grouping + Select All */}
       <Row className="mb-4 justify-content-center">
         <Col
           md="auto"
@@ -171,14 +181,7 @@ const ForceVelocityScreen = () => {
           style={{ gap: '1rem' }}
         >
           <span className="fw-bold">Group By:</span>
-          <Form.Check
-            type="radio"
-            id="group-none"
-            name="grouping"
-            label="None"
-            checked={grouping === 'none'}
-            onChange={() => setGrouping('none')}
-          />
+          
           <Form.Check
             type="radio"
             id="group-day"
@@ -214,7 +217,7 @@ const ForceVelocityScreen = () => {
         </Col>
       </Row>
 
-      {/* Row of player checkboxes */}
+      {/* Player Checkboxes */}
       <Row className="mb-3 justify-content-center">
         <Col className="text-center">
           <div
@@ -236,8 +239,8 @@ const ForceVelocityScreen = () => {
         </Col>
       </Row>
 
-      {/* Force Velocity Data Table or fallback messages */}
-      {(!startDate || !endDate) ? (
+      {/* Force Velocity Table */}
+      {!startDate || !endDate ? (
         <Alert variant="info" className="text-center">
           Please select a start date and end date.
         </Alert>
@@ -268,7 +271,7 @@ const ForceVelocityScreen = () => {
             </tr>
           </thead>
           <tbody>
-            {fvData.map((row, idx) => (
+            {tableData.map((row, idx) => (
               <tr key={idx}>
                 <td>{row.playerName}</td>
                 <td>{row.numberSessions}</td>
@@ -278,7 +281,7 @@ const ForceVelocityScreen = () => {
         </Table>
       )}
 
-      {/* Input field and button to run analysis */}
+      {/* Analysis input + button */}
       <Row className="justify-content-center mt-4">
         <Col md={4} className="text-center">
           <Form.Group controlId="analysisValue" className="mb-2">
@@ -296,13 +299,13 @@ const ForceVelocityScreen = () => {
         </Col>
       </Row>
 
-      {/* Display analysis result if available */}
+      {/* Display result if available */}
       {analysisResult && (
         <Row className="justify-content-center mt-4">
           <Col md={4} className="text-center border p-3">
             <h5>Analysis Result</h5>
-            <p>Max Speed: {analysisResult.MaxSpeed}</p>
-            <p>Max Accel: {analysisResult.MaxAccel}</p>
+            <p>Max Speed: {analysisResult.maxSpeed}</p>
+            <p>Max Accel: {analysisResult.maxAccel}</p>
           </Col>
         </Row>
       )}
