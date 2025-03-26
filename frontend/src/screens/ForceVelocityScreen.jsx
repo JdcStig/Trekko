@@ -24,7 +24,7 @@ const ForceVelocityScreen = () => {
   const [endDate, setEndDate] = useState('');
   const [grouping, setGrouping] = useState('week'); // 'none' | 'day' | 'week' | 'month'
   const [selectedPlayers, setSelectedPlayers] = useState([]);
-  const [analysisValue, setAnalysisValue] = useState('');
+  const [setAnalysisValue] = useState('');
   const [analysisResult, setAnalysisResult] = useState(null);
 
   // Sorting config (if you need it for the table)
@@ -115,13 +115,15 @@ const ForceVelocityScreen = () => {
     try {
       // Prepare the request body
       const payload = {
-        analysisValue,
         startDate,
         endDate,
         grouping,
         playerIds: selectedPlayers,
       };
-      // Run analysis, save doc, get the doc back
+
+
+      // Creates a payload object with  these values
+      // It then calls the mutation hook runAnalysis(payload) in the api
       const result = await runAnalysis(payload).unwrap();
       setAnalysisResult(result);
       console.log('Analysis doc:', result);
@@ -284,31 +286,14 @@ const ForceVelocityScreen = () => {
       {/* Analysis input + button */}
       <Row className="justify-content-center mt-4">
         <Col md={4} className="text-center">
-          <Form.Group controlId="analysisValue" className="mb-2">
+          <Form.Group controlId="" className="mb-2">
             <Form.Label>Analysis Value</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter a value"
-              value={analysisValue}
-              onChange={(e) => setAnalysisValue(e.target.value)}
-            />
           </Form.Group>
           <Button variant="primary" onClick={handleAnalysisClick}>
             Run Analysis
           </Button>
         </Col>
       </Row>
-
-      {/* Display result if available */}
-      {analysisResult && (
-        <Row className="justify-content-center mt-4">
-          <Col md={4} className="text-center border p-3">
-            <h5>Analysis Result</h5>
-            <p>Max Speed: {analysisResult.maxSpeed}</p>
-            <p>Max Accel: {analysisResult.maxAccel}</p>
-          </Col>
-        </Row>
-      )}
     </Container>
   );
 };
