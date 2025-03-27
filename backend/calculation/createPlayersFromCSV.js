@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import Session from '../models/sessionModel.js';
 import SessionPlayerData from '../models/sessionPlayerDataModel.js';
 import Player from '../models/playerModel.js';
-import { getIO } from '../socket.js';  // <-- Add this import
+import { getIO } from '../socket.js';  
 
 const sportPositions = {
   Soccer: ["FullBack", "CentreDefender", "Midfield", "Forward"],

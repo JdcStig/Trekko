@@ -214,7 +214,6 @@ if __name__ == "__main__":
    
    
     debug_log("Starting main")#added
-    raw_input = sys.stdin.read()  # Read input from stdin  #added
-    payload = json.loads(raw_input)  # Parse the input JSON  #added
-    debug_log("Payload received for runAlg")  #added
+    raw_input = sys.stdin.read()  # grabs all of that data as a single string in the form of JSON object  #added
+    payload = json.loads(raw_input)  #  JSON string in raw_input, json.loads(...) Parse the input JSON  #added
     runAlg(payload)  #added
