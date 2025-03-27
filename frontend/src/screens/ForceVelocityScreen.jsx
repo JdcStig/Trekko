@@ -54,7 +54,7 @@ const ForceVelocityScreen = () => {
   const [runAnalysis, { isLoading: loadingAnalysis }] =
     useRunForceVelocityAnalysisMutation();
 
-  // Are we busy?
+  // Check if any of the queries are loading
   const isBusy =
     loadingPlayers || fetchingPlayers || loadingFV || fetchingFV || loadingAnalysis;
 
@@ -78,14 +78,6 @@ const ForceVelocityScreen = () => {
     }
   };
 
-  // Sorting for the table (if you need it)
-  const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
 
   // Build table data
   const tableData = useMemo(() => {
@@ -254,18 +246,12 @@ const ForceVelocityScreen = () => {
         <Table striped bordered hover responsive className="table-sm text-center">
           <thead className="table-dark">
             <tr>
-              <th
-                onClick={() => handleSort('playerName')}
-                style={{ cursor: 'pointer' }}
-              >
+              <th>
                 Player Name{' '}
                 {sortConfig.key === 'playerName' &&
                   (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
               </th>
-              <th
-                onClick={() => handleSort('numberSessions')}
-                style={{ cursor: 'pointer' }}
-              >
+              <th>
                 Number Sessions{' '}
                 {sortConfig.key === 'numberSessions' &&
                   (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
