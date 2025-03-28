@@ -1,6 +1,5 @@
 // file: src/screens/ForceVelocityScreen.jsx
-
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Row,
@@ -17,16 +16,18 @@ import {
   useGetForceVelocityDataQuery,
   useRunForceVelocityAnalysisMutation,
 } from '../slices/forceVelocityApiSlice';
+import CalculationModal from '../components/CalculationModal';
 import ForceVelocityLineChart from '../components/ForceVelocityLineChart';
 
 const ForceVelocityScreen = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [grouping, setGrouping] = useState('week'); // 'none' | 'day' | 'week' | 'month'
+  const [grouping, setGrouping] = useState('week'); // Options: 'none', 'day', 'week', 'month'
   const [selectedPlayers, setSelectedPlayers] = useState([]);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [showCalculationModal, setShowCalculationModal] = useState(false);
 
-  // 1) Fetch all players
+  // Fetch players
   const {
     data: playersData,
     isLoading: loadingPlayers,
@@ -34,7 +35,7 @@ const ForceVelocityScreen = () => {
     error: errorPlayers,
   } = useGetPlayersQuery();
 
-  // 2) Fetch ForceVelocity data (skip if no dates)
+  // Fetch Force Velocity data (if already calculated)
   const skipQuery = !startDate || !endDate;
   const {
     data: fvData,
@@ -46,15 +47,14 @@ const ForceVelocityScreen = () => {
     { skip: skipQuery }
   );
 
-  // 3) Mutation to run local Python script & store doc
+  // Mutation to run analysis
   const [runAnalysis, { isLoading: loadingAnalysis }] =
     useRunForceVelocityAnalysisMutation();
 
-  // Are we busy?
   const isBusy =
     loadingPlayers || fetchingPlayers || loadingFV || fetchingFV || loadingAnalysis;
 
-  // Toggle an individual player's checkbox
+  // Toggle individual player
   const handleTogglePlayer = (playerId) => {
     setSelectedPlayers((prev) =>
       prev.includes(playerId)
@@ -63,7 +63,7 @@ const ForceVelocityScreen = () => {
     );
   };
 
-  // Toggle “Select All Players”
+  // Toggle all players
   const handleToggleAllPlayers = (e) => {
     if (!playersData?.players) return;
     if (e.target.checked) {
@@ -74,8 +74,9 @@ const ForceVelocityScreen = () => {
     }
   };
 
-  // Handler for analysis button
+  // Analysis button handler
   const handleAnalysisClick = async () => {
+    setShowCalculationModal(true); // Show modal while calculating
     try {
       const payload = {
         startDate,
@@ -84,19 +85,18 @@ const ForceVelocityScreen = () => {
         playerIds: selectedPlayers,
       };
       const result = await runAnalysis(payload).unwrap();
-      setAnalysisResult(result); // e.g. { message, docs: [ ... ] }
+      setAnalysisResult(result); // result expected as { message, docs: [ ... ], didCalculate }
       console.log('Analysis doc:', result);
     } catch (err) {
       console.error('Error running analysis:', err);
+    } finally {
+      setShowCalculationModal(false);
     }
   };
 
-  // If busy, show loader
   if (isBusy) {
     return <Loader />;
   }
-
-  // If error loading players
   if (errorPlayers) {
     return <Message variant="danger">{errorPlayers.message}</Message>;
   }
@@ -135,13 +135,8 @@ const ForceVelocityScreen = () => {
 
       {/* Grouping + Select All */}
       <Row className="mb-4 justify-content-center">
-        <Col
-          md="auto"
-          className="d-inline-flex align-items-center"
-          style={{ gap: '1rem' }}
-        >
+        <Col md="auto" className="d-inline-flex align-items-center" style={{ gap: '1rem' }}>
           <span className="fw-bold">Group By:</span>
-          
           <Form.Check
             type="radio"
             id="group-day"
@@ -180,10 +175,7 @@ const ForceVelocityScreen = () => {
       {/* Player Checkboxes */}
       <Row className="mb-3 justify-content-center">
         <Col className="text-center">
-          <div
-            className="d-flex flex-wrap justify-content-center"
-            style={{ gap: '1rem' }}
-          >
+          <div className="d-flex flex-wrap justify-content-center" style={{ gap: '1rem' }}>
             {allPlayers.map((player) => (
               <Form.Check
                 key={player._id}
@@ -199,7 +191,7 @@ const ForceVelocityScreen = () => {
         </Col>
       </Row>
 
-      {/* Force Velocity Table (no sorting) */}
+      {/* Force Velocity Table (without sorting) */}
       {!startDate || !endDate ? (
         <Alert variant="info" className="text-center">
           Please select a start date and end date.
@@ -227,7 +219,7 @@ const ForceVelocityScreen = () => {
         </Table>
       )}
 
-      {/* Analysis input + button */}
+      {/* Analysis Button */}
       <Row className="justify-content-center mt-4">
         <Col md={4} className="text-center">
           <Button variant="primary" onClick={handleAnalysisClick}>
@@ -236,14 +228,17 @@ const ForceVelocityScreen = () => {
         </Col>
       </Row>
 
-      {/* After analysis, if we have docs, display the line chart */}
+      {/* Calculation Modal */}
+      <CalculationModal
+        show={showCalculationModal}
+        onHide={() => setShowCalculationModal(false)}
+      />
+
+      {/* Display Line Chart if analysis results exist */}
       {analysisResult?.docs && analysisResult.docs.length > 0 && (
         <Row className="mt-5">
           <Col>
-            <ForceVelocityLineChart
-              analysisDocs={analysisResult.docs}
-              grouping={grouping}
-            />
+            <ForceVelocityLineChart analysisDocs={analysisResult.docs} grouping={grouping} />
           </Col>
         </Row>
       )}

@@ -1,5 +1,4 @@
 // file: src/components/ForceVelocityLineChart.jsx
-
 import React, { useMemo } from 'react';
 import { Chart } from 'react-google-charts';
 
@@ -10,47 +9,44 @@ function ForceVelocityLineChart({ analysisDocs, grouping }) {
     return [...analysisDocs].sort((a, b) => a.startDate - b.startDate);
   }, [analysisDocs]);
 
-  // Build chart data with 4 columns => ["Date", "Max Speed", "Max Accel", "Num Sessions"]
-  // Convert zero => null for speed/accel if you want to skip plotting zeros
-  // Keep zero for sessions if you want to see a dot at zero
+  // Build chart data with columns: ["Date", "Max Speed", "Max Accel", "Num Sessions"]
   const chartData = useMemo(() => {
     const dataArr = [['Date', 'Max Speed', 'Max Accel', 'Num Sessions']];
-
     sortedData.forEach((doc) => {
       let dateLabel = new Date(doc.startDate).toLocaleDateString();
       if (grouping === 'week') {
         const startLbl = new Date(doc.startDate).toLocaleDateString();
         const endLbl = new Date(doc.endDate).toLocaleDateString();
         dateLabel = `${startLbl} - ${endLbl}`;
+      } else if (grouping === 'month') {
+        const d = new Date(doc.startDate);
+        const monthName = d.toLocaleString('default', { month: 'short' });
+        dateLabel = `${monthName} ${d.getFullYear()}`;
       }
-
+      // If a value is zero, we use null so that the line is drawn across but no dot is placed.
       const speedVal = doc.maxSpeed === 0 ? null : doc.maxSpeed;
       const accelVal = doc.maxAccel === 0 ? null : doc.maxAccel;
-      const sessionsVal = doc.number ?? 0; // or doc.numSessions, doc.numberSessions, etc.
-
+      const sessionsVal = doc.number ?? 0;
       dataArr.push([dateLabel, speedVal, accelVal, sessionsVal]);
     });
-
     return dataArr;
   }, [sortedData, grouping]);
 
-  // Count how many x‐axis labels => used for vertical gridlines
+  // Count the number of x-axis labels for gridlines
   const dateCount = chartData.length > 1 ? chartData.length - 1 : 1;
 
   // Chart options
   const options = {
     title: 'Force Velocity Analysis Over Time',
     legend: { position: 'bottom' },
-    curveType: 'function',       // smooth lines
-    pointSize: 6,                // show dots
+    curveType: 'function',
+    pointSize: 6,
     lineWidth: 2,
-    interpolateNulls: true,      // connect lines across "null"
-
+    interpolateNulls: true,
     hAxis: {
       title: 'Date',
-      // Rotate the text ~ -45° => set angle to 315
       slantedText: true,
-      slantedTextAngle: 315, // 315 deg is about -45 from horizontal
+      slantedTextAngle: 315,
       gridlines: {
         count: dateCount,
         color: '#ccc',
@@ -58,7 +54,6 @@ function ForceVelocityLineChart({ analysisDocs, grouping }) {
     },
     vAxis: {
       title: 'Value',
-      // Force the vertical axis to start at 0
       viewWindowMode: 'explicit',
       viewWindow: { min: 0 },
       gridlines: {
@@ -66,18 +61,16 @@ function ForceVelocityLineChart({ analysisDocs, grouping }) {
         count: 5,
       },
     },
-    // Increase the bottom margin so the rotated labels fit
     chartArea: {
       left: 60,
       top: 40,
       right: 20,
-      bottom: 100, // <--- Adjust as needed (e.g. 120, 140)
+      bottom: 100,
     },
-    // Series styling: color, shapes, etc.
     series: {
-      0: { color: 'blue',  pointShape: 'circle'   }, // Max Speed
-      1: { color: 'red',   pointShape: 'square'   }, // Max Accel
-      2: { color: 'green', pointShape: 'triangle' }, // Num Sessions
+      0: { color: 'blue',  pointShape: 'circle'   },
+      1: { color: 'red',   pointShape: 'square'   },
+      2: { color: 'green', pointShape: 'triangle' },
     },
   };
 
