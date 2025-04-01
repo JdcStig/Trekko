@@ -69,6 +69,18 @@ function adjustDatesForMonth(startMs, endMs) {
   };
 }
 
+/**
+ * Helper function:
+ * Compare cached session IDs with current session IDs.
+ * cachedSessions is an array of objects { sessionId, sessionName }
+ * currentSessionIds is an array of sessionId strings.
+ */
+function areSessionIdsEqual(cachedSessions, currentSessionIds) {
+  const cachedIds = cachedSessions.map(s => s.sessionId.toString()).sort();
+  const newIds = currentSessionIds.slice().sort();
+  return cachedIds.join(',') === newIds.join(',');
+}
+
 export const getForceVelocityData = asyncHandler(async (req, res) => {
   const { startDate, endDate, playerIds, grouping } = req.query;
 
@@ -261,7 +273,18 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
       const daySessionIds = daySessions.map((s) => s._id);
 
       for (const playerId of playerIdArray) {
-        // Check caching
+        // Get current session IDs for this player (sessions that have associated SessionPlayerData)
+        const spdDocs = await SessionPlayerData.find({
+          sessionId: { $in: daySessionIds },
+          playerId: new mongoose.Types.ObjectId(playerId),
+        });
+        const currentSessionIds = daySessions
+          .filter((s) =>
+            spdDocs.some((spd) => spd.sessionId.toString() === s._id.toString())
+          )
+          .map((s) => s._id.toString());
+
+        // Check caching and update if necessary
         const existingDoc = await ForceVelocityAnalysis.findOne({
           userId: req.user._id,
           grouped: 'day',
@@ -269,26 +292,15 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: dayTs,
           'player.playerId': playerId,
         });
-
-        const currentSessionIds = daySessionIds.map((id) => id.toString()).sort();
-
-
-        if (
-           existingDoc &&
-           existingDoc.sessions?.length === currentSessionIds.length &&
-           existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
-           ) {
-           console.log(`Found existing day analysis for player ${playerId} on day ${dayTs} with matching sessions`
-           );
-           analysisDocs.push(existingDoc);
-           continue;
-           }
+        if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+          console.log(`Cached calculation is up-to-date for player ${playerId} on day ${dayTs}`);
+          analysisDocs.push(existingDoc);
+          continue;
+        } else if (existingDoc) {
+          console.log(`Session list changed for player ${playerId} on day ${dayTs}, recalculating...`);
+        }
 
         // Build python payload
-        const spdDocs = await SessionPlayerData.find({
-          sessionId: { $in: daySessionIds },
-          playerId: new mongoose.Types.ObjectId(playerId),
-        });
         const pythonPayloadData = spdDocs.map((doc) => ({
           playerId: doc.playerId.toString(),
           playerName: doc.playerName,
@@ -321,18 +333,28 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           ? { playerId: pDoc._id, name: pDoc.name }
           : { playerId, name: 'Unknown Player' };
 
-        const newDoc = await ForceVelocityAnalysis.create({
-          userId: req.user._id,
-          sessions: sessionsArray,
-          player: [playerObj],
-          grouped: 'day',
-          number: sessionsArray.length,
-          startDate: dayTs,
-          endDate: dayTs,
-          maxAccel: parsed.MaxAccel,
-          maxSpeed: parsed.MaxSpeed,
-        });
-        analysisDocs.push(newDoc);
+        if (existingDoc) {
+          // Update the existing document
+          existingDoc.sessions = sessionsArray;
+          existingDoc.number = sessionsArray.length;
+          existingDoc.maxAccel = parsed.MaxAccel;
+          existingDoc.maxSpeed = parsed.MaxSpeed;
+          await existingDoc.save();
+          analysisDocs.push(existingDoc);
+        } else {
+          const newDoc = await ForceVelocityAnalysis.create({
+            userId: req.user._id,
+            sessions: sessionsArray,
+            player: [playerObj],
+            grouped: 'day',
+            number: sessionsArray.length,
+            startDate: dayTs,
+            endDate: dayTs,
+            maxAccel: parsed.MaxAccel,
+            maxSpeed: parsed.MaxSpeed,
+          });
+          analysisDocs.push(newDoc);
+        }
       }
     }
     return res
@@ -378,6 +400,17 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
       const weekSessionIds = weekSessions.map((s) => s._id);
 
       for (const playerId of playerIdArray) {
+        // Get current session IDs for this player
+        const spdDocs = await SessionPlayerData.find({
+          sessionId: { $in: weekSessionIds },
+          playerId: new mongoose.Types.ObjectId(playerId),
+        });
+        const currentSessionIds = weekSessions
+          .filter((s) =>
+            spdDocs.some((spd) => spd.sessionId.toString() === s._id.toString())
+          )
+          .map((s) => s._id.toString());
+
         const existingDoc = await ForceVelocityAnalysis.findOne({
           userId: req.user._id,
           grouped: 'week',
@@ -385,22 +418,14 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: weekEnd,
           'player.playerId': playerId,
         });
-
-        const currentSessionIds = weekSessionIds.map((id) => id.toString()).sort();
-
-        if (
-          existingDoc &&
-          existingDoc.sessions?.length === currentSessionIds.length &&
-          existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
-        ) {
+        if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+          console.log(`Cached week analysis is up-to-date for player ${playerId} => weekStart=${weekStart}`);
           analysisDocs.push(existingDoc);
           continue;
+        } else if (existingDoc) {
+          console.log(`Week session list changed for player ${playerId} => weekStart=${weekStart}, recalculating...`);
         }
 
-        const spdDocs = await SessionPlayerData.find({
-          sessionId: { $in: weekSessionIds },
-          playerId: new mongoose.Types.ObjectId(playerId),
-        });
         const pythonPayloadData = spdDocs.map((doc) => ({
           playerId: doc.playerId.toString(),
           playerName: doc.playerName,
@@ -434,18 +459,27 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           ? { playerId: pDoc._id, name: pDoc.name }
           : { playerId, name: 'Unknown Player' };
 
-        const newDoc = await ForceVelocityAnalysis.create({
-          userId: req.user._id,
-          sessions: sessionsArray,
-          player: [playerObj],
-          grouped: 'week',
-          number: sessionsArray.length,
-          startDate: weekStart,
-          endDate: weekEnd,
-          maxAccel: parsed.MaxAccel,
-          maxSpeed: parsed.MaxSpeed,
-        });
-        analysisDocs.push(newDoc);
+        if (existingDoc) {
+          existingDoc.sessions = sessionsArray;
+          existingDoc.number = sessionsArray.length;
+          existingDoc.maxAccel = parsed.MaxAccel;
+          existingDoc.maxSpeed = parsed.MaxSpeed;
+          await existingDoc.save();
+          analysisDocs.push(existingDoc);
+        } else {
+          const newDoc = await ForceVelocityAnalysis.create({
+            userId: req.user._id,
+            sessions: sessionsArray,
+            player: [playerObj],
+            grouped: 'week',
+            number: sessionsArray.length,
+            startDate: weekStart,
+            endDate: weekEnd,
+            maxAccel: parsed.MaxAccel,
+            maxSpeed: parsed.MaxSpeed,
+          });
+          analysisDocs.push(newDoc);
+        }
       }
     }
     return res
@@ -472,22 +506,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
     }
 
     // Build monthMap => for each monthStart => the sessions that fall in that month
-    // (from monthStart to nextMonthStart-1)
-    // We'll do this by looping monthBuckets in pairs: [monthStart, nextMonthStart)
-    // or up to endMs if no nextMonthStart
     const monthMap = {};
     for (let i = 0; i < monthBuckets.length; i++) {
       const monthStart = monthBuckets[i];
       const nextIndex = i + 1 < monthBuckets.length ? i + 1 : null;
       let monthEnd;
       if (nextIndex) {
-        monthEnd = monthBuckets[nextIndex] - 1; // the day before next month's start
+        monthEnd = monthBuckets[nextIndex] - 1;
       } else {
-        // last bucket => the end is endMs
         monthEnd = endMs;
       }
-
-      // Filter sessionsInRange that fall in [monthStart, monthEnd]
       const subSessions = sessionsInRange.filter(
         (s) => s.date >= monthStart && s.date <= monthEnd
       );
@@ -504,7 +532,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
       const monthSessionIds = sessions.map((s) => s._id);
 
       for (const playerId of playerIdArray) {
-        // Check caching
+        const spdDocs = await SessionPlayerData.find({
+          sessionId: { $in: monthSessionIds },
+          playerId: new mongoose.Types.ObjectId(playerId),
+        });
+        const currentSessionIds = sessions
+          .filter((s) =>
+            spdDocs.some((spd) => spd.sessionId.toString() === s._id.toString())
+          )
+          .map((s) => s._id.toString());
+
         const existingDoc = await ForceVelocityAnalysis.findOne({
           userId: req.user._id,
           grouped: 'month',
@@ -512,25 +549,14 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: end,
           'player.playerId': playerId,
         });
+        if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+          console.log(`Cached month analysis is up-to-date for player ${playerId} => monthStart=${start}`);
+          analysisDocs.push(existingDoc);
+          continue;
+        } else if (existingDoc) {
+          console.log(`Month session list changed for player ${playerId} => monthStart=${start}, recalculating...`);
+        }
 
-        const currentSessionIds = monthSessionIds.map((id) => id.toString()).sort();
-
-
-        if (
-           existingDoc &&
-           existingDoc.sessions?.length === currentSessionIds.length &&
-           existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
-           ) {
-           console.log(`Found existing month analysis for player ${playerId} => monthStart=${start} with matching sessions`);
-           analysisDocs.push(existingDoc);
-           continue;
-           }
-
-        // Build python payload
-        const spdDocs = await SessionPlayerData.find({
-          sessionId: { $in: monthSessionIds },
-          playerId: new mongoose.Types.ObjectId(playerId),
-        });
         const pythonPayloadData = spdDocs.map((doc) => ({
           playerId: doc.playerId.toString(),
           playerName: doc.playerName,
@@ -550,30 +576,41 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           }
         }
 
-        const sessionsArray = sessions.filter((s) =>
-          spdDocs.some((spd) => spd.sessionId.toString() === s._id.toString())
-        ).map((s) => ({
-          sessionId: s._id,
-          sessionName: s.sessionName || 'Unknown Session',
-        }));
+        const sessionsArray = sessions
+          .filter((s) =>
+            spdDocs.some((spd) => spd.sessionId.toString() === s._id.toString())
+          )
+          .map((s) => ({
+            sessionId: s._id,
+            sessionName: s.sessionName || 'Unknown Session',
+          }));
 
         const pDoc = await Player.findById(playerId);
         const playerObj = pDoc
           ? { playerId: pDoc._id, name: pDoc.name }
           : { playerId, name: 'Unknown Player' };
 
-        const newDoc = await ForceVelocityAnalysis.create({
-          userId: req.user._id,
-          sessions: sessionsArray,
-          player: [playerObj],
-          grouped: 'month',
-          number: sessionsArray.length,
-          startDate: start,
-          endDate: end,
-          maxAccel: parsed.MaxAccel,
-          maxSpeed: parsed.MaxSpeed,
-        });
-        analysisDocs.push(newDoc);
+        if (existingDoc) {
+          existingDoc.sessions = sessionsArray;
+          existingDoc.number = sessionsArray.length;
+          existingDoc.maxAccel = parsed.MaxAccel;
+          existingDoc.maxSpeed = parsed.MaxSpeed;
+          await existingDoc.save();
+          analysisDocs.push(existingDoc);
+        } else {
+          const newDoc = await ForceVelocityAnalysis.create({
+            userId: req.user._id,
+            sessions: sessionsArray,
+            player: [playerObj],
+            grouped: 'month',
+            number: sessionsArray.length,
+            startDate: start,
+            endDate: end,
+            maxAccel: parsed.MaxAccel,
+            maxSpeed: parsed.MaxSpeed,
+          });
+          analysisDocs.push(newDoc);
+        }
       }
     }
 
@@ -588,6 +625,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
   else {
     const allSessionIds = sessionsInRange.map((s) => s._id);
     for (const playerId of playerIdArray) {
+      const spdDocs = await SessionPlayerData.find({
+        sessionId: { $in: allSessionIds },
+        playerId: new mongoose.Types.ObjectId(playerId),
+      });
+      const currentSessionIds = sessionsInRange
+        .filter((s) =>
+          spdDocs.some((spd) => spd.sessionId.toString() === s._id.toString())
+        )
+        .map((s) => s._id.toString());
+
       const existingDoc = await ForceVelocityAnalysis.findOne({
         userId: req.user._id,
         grouped: grouping || 'none',
@@ -595,23 +642,14 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
         endDate: endMs,
         'player.playerId': playerId,
       });
+      if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+        console.log(`Cached fallback analysis is up-to-date for player ${playerId}`);
+        analysisDocs.push(existingDoc);
+        continue;
+      } else if (existingDoc) {
+        console.log(`Fallback session list changed for player ${playerId}, recalculating...`);
+      }
 
-      const currentSessionIds = allSessionIds.map((id) => id.toString()).sort();
-
-      if (
-         existingDoc &&
-         existingDoc.sessions?.length === currentSessionIds.length &&
-         existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
-         ) {
-         console.log(`Found existing fallback analysis for player ${playerId} with matching sessions`);
-         analysisDocs.push(existingDoc);
-         continue;
-        }
-
-      const spdDocs = await SessionPlayerData.find({
-        sessionId: { $in: allSessionIds },
-        playerId: new mongoose.Types.ObjectId(playerId),
-      });
       const pythonPayloadData = spdDocs.map((doc) => ({
         playerId: doc.playerId.toString(),
         playerName: doc.playerName,
@@ -645,18 +683,27 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
         ? { playerId: pDoc._id, name: pDoc.name }
         : { playerId, name: 'Unknown Player' };
 
-      const newDoc = await ForceVelocityAnalysis.create({
-        userId: req.user._id,
-        sessions: sessionsArray,
-        player: [playerObj],
-        grouped: grouping || 'none',
-        number: sessionsArray.length,
-        startDate: startMs,
-        endDate: endMs,
-        maxAccel: parsed.MaxAccel,
-        maxSpeed: parsed.MaxSpeed,
-      });
-      analysisDocs.push(newDoc);
+      if (existingDoc) {
+        existingDoc.sessions = sessionsArray;
+        existingDoc.number = sessionsArray.length;
+        existingDoc.maxAccel = parsed.MaxAccel;
+        existingDoc.maxSpeed = parsed.MaxSpeed;
+        await existingDoc.save();
+        analysisDocs.push(existingDoc);
+      } else {
+        const newDoc = await ForceVelocityAnalysis.create({
+          userId: req.user._id,
+          sessions: sessionsArray,
+          player: [playerObj],
+          grouped: grouping || 'none',
+          number: sessionsArray.length,
+          startDate: startMs,
+          endDate: endMs,
+          maxAccel: parsed.MaxAccel,
+          maxSpeed: parsed.MaxSpeed,
+        });
+        analysisDocs.push(newDoc);
+      }
     }
     return res
       .status(200)
