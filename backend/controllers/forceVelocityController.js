@@ -269,13 +269,20 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: dayTs,
           'player.playerId': playerId,
         });
-        if (existingDoc) {
-          console.log(
-            `Found existing day analysis for player ${playerId} on day ${dayTs}`
-          );
-          analysisDocs.push(existingDoc);
-          continue;
-        }
+
+        const currentSessionIds = daySessionIds.map((id) => id.toString()).sort();
+
+
+        if (
+           existingDoc &&
+           existingDoc.sessions?.length === currentSessionIds.length &&
+           existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
+           ) {
+           console.log(`Found existing day analysis for player ${playerId} on day ${dayTs} with matching sessions`
+           );
+           analysisDocs.push(existingDoc);
+           continue;
+           }
 
         // Build python payload
         const spdDocs = await SessionPlayerData.find({
@@ -378,10 +385,14 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: weekEnd,
           'player.playerId': playerId,
         });
-        if (existingDoc) {
-          console.log(
-            `Found existing week analysis for player ${playerId} => weekStart=${weekStart}`
-          );
+
+        const currentSessionIds = weekSessionIds.map((id) => id.toString()).sort();
+
+        if (
+          existingDoc &&
+          existingDoc.sessions?.length === currentSessionIds.length &&
+          existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
+        ) {
           analysisDocs.push(existingDoc);
           continue;
         }
@@ -501,13 +512,19 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: end,
           'player.playerId': playerId,
         });
-        if (existingDoc) {
-          console.log(
-            `Found existing month analysis for player ${playerId} => monthStart=${start}`
-          );
-          analysisDocs.push(existingDoc);
-          continue;
-        }
+
+        const currentSessionIds = monthSessionIds.map((id) => id.toString()).sort();
+
+
+        if (
+           existingDoc &&
+           existingDoc.sessions?.length === currentSessionIds.length &&
+           existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
+           ) {
+           console.log(`Found existing month analysis for player ${playerId} => monthStart=${start} with matching sessions`);
+           analysisDocs.push(existingDoc);
+           continue;
+           }
 
         // Build python payload
         const spdDocs = await SessionPlayerData.find({
@@ -578,13 +595,18 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
         endDate: endMs,
         'player.playerId': playerId,
       });
-      if (existingDoc) {
-        console.log(
-          `Found existing analysis for player ${playerId} in fallback grouping.`
-        );
-        analysisDocs.push(existingDoc);
-        continue;
-      }
+
+      const currentSessionIds = allSessionIds.map((id) => id.toString()).sort();
+
+      if (
+         existingDoc &&
+         existingDoc.sessions?.length === currentSessionIds.length &&
+         existingDoc.sessions.every((s, i) => s.sessionId.toString() === currentSessionIds[i])
+         ) {
+         console.log(`Found existing fallback analysis for player ${playerId} with matching sessions`);
+         analysisDocs.push(existingDoc);
+         continue;
+        }
 
       const spdDocs = await SessionPlayerData.find({
         sessionId: { $in: allSessionIds },
