@@ -13,7 +13,6 @@ import Loader from '../components/Loader';
 import Message from '../components/Message';
 import { useGetPlayersQuery } from '../slices/playersApiSlice';
 import {
-  useGetForceVelocityDataQuery,
   useRunForceVelocityAnalysisMutation,
 } from '../slices/forceVelocityApiSlice';
 import CalculationModal from '../components/CalculationModal';
@@ -35,24 +34,11 @@ const ForceVelocityScreen = () => {
     error: errorPlayers,
   } = useGetPlayersQuery();
 
-  // Fetch Force Velocity data (if already calculated)
-  const skipQuery = !startDate || !endDate;
-  const {
-    data: fvData,
-    isLoading: loadingFV,
-    isFetching: fetchingFV,
-    error: errorFV,
-  } = useGetForceVelocityDataQuery(
-    { startDate, endDate, grouping, playerIds: selectedPlayers },
-    { skip: skipQuery }
-  );
-
-  // Mutation to run analysis
+  // Mutation to run analysis on demand (when button is clicked)
   const [runAnalysis, { isLoading: loadingAnalysis }] =
     useRunForceVelocityAnalysisMutation();
 
-  const isBusy =
-    loadingPlayers || fetchingPlayers || loadingFV || fetchingFV || loadingAnalysis;
+  const isBusy = loadingPlayers || fetchingPlayers || loadingAnalysis;
 
   // Toggle individual player
   const handleTogglePlayer = (playerId) => {
@@ -85,8 +71,8 @@ const ForceVelocityScreen = () => {
         playerIds: selectedPlayers,
       };
       const result = await runAnalysis(payload).unwrap();
-      setAnalysisResult(result); // result expected as { message, docs: [ ... ], didCalculate }
-      console.log('Analysis doc:', result);
+      setAnalysisResult(result); // { message, docs: [ ... ] }
+      console.log('Analysis result:', result);
     } catch (err) {
       console.error('Error running analysis:', err);
     } finally {
@@ -104,6 +90,26 @@ const ForceVelocityScreen = () => {
   const allPlayers = playersData?.players || [];
   const isSelectAllChecked =
     allPlayers.length > 0 && selectedPlayers.length === allPlayers.length;
+
+  // ----------------------------------------------------
+  // AGGREGATE the docs so each player appears only once.
+  // ----------------------------------------------------
+  let aggregated = [];
+  if (analysisResult?.docs && analysisResult.docs.length > 0) {
+    const map = {};
+    analysisResult.docs.forEach((doc) => {
+      const playerObj = doc.player?.[0];
+      if (!playerObj) return;
+      const playerId = playerObj.playerId.toString();
+      const playerName = playerObj.name || 'Unknown Player';
+      if (!map[playerId]) {
+        map[playerId] = { name: playerName, totalSessions: 0 };
+      }
+      // Each doc.number = # of sessions in that time bucket
+      map[playerId].totalSessions += doc.number;
+    });
+    aggregated = Object.values(map); // => [{ name, totalSessions }, ...]
+  }
 
   return (
     <Container>
@@ -191,34 +197,6 @@ const ForceVelocityScreen = () => {
         </Col>
       </Row>
 
-      {/* Force Velocity Table (without sorting) */}
-      {!startDate || !endDate ? (
-        <Alert variant="info" className="text-center">
-          Please select a start date and end date.
-        </Alert>
-      ) : !fvData || fvData.length === 0 ? (
-        <Alert variant="info" className="text-center">
-          No data found.
-        </Alert>
-      ) : (
-        <Table striped bordered hover responsive className="table-sm text-center">
-          <thead className="table-dark">
-            <tr>
-              <th>Player Name</th>
-              <th>Number Sessions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fvData.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.playerName}</td>
-                <td>{row.numberSessions}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-
       {/* Analysis Button */}
       <Row className="justify-content-center mt-4">
         <Col md={4} className="text-center">
@@ -234,11 +212,46 @@ const ForceVelocityScreen = () => {
         onHide={() => setShowCalculationModal(false)}
       />
 
-      {/* Display Line Chart if analysis results exist */}
-      {analysisResult?.docs && analysisResult.docs.length > 0 && (
+      {/* Display Table and Line Chart only after clicking Run Analysis */}
+      {analysisResult?.docs && analysisResult.docs.length > 0 ? (
+        <>
+          <Row className="mt-5">
+            <Col>
+              <Table striped bordered hover responsive className="table-sm text-center">
+                <thead className="table-dark">
+                  <tr>
+                    <th>Player Name</th>
+                    <th>Number Sessions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aggregated.map((item, idx) => (
+                    <tr key={idx}>
+                      <td>{item.name}</td>
+                      <td>{item.totalSessions}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Col>
+          </Row>
+
+          {/* Chart (optional multiple data points) */}
+          <Row className="mt-5">
+            <Col>
+              <ForceVelocityLineChart
+                analysisDocs={analysisResult.docs}
+                grouping={grouping}
+              />
+            </Col>
+          </Row>
+        </>
+      ) : (
         <Row className="mt-5">
           <Col>
-            <ForceVelocityLineChart analysisDocs={analysisResult.docs} grouping={grouping} />
+            <Alert variant="info" className="text-center">
+              Calculations will appear here
+            </Alert>
           </Col>
         </Row>
       )}
