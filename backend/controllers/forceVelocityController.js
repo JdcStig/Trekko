@@ -46,8 +46,8 @@ function adjustDatesForWeek(startMs, endMs) {
 
 /**
  * Helper function:
- * For month grouping, adjust overall start to the **first** of the start month
- * and overall end to the **last** day of the end month (23:59:59).
+ * For month grouping, adjust overall start to the first of the start month
+ * and overall end to the last day of the end month (23:59:59).
  */
 function adjustDatesForMonth(startMs, endMs) {
   const startDate = new Date(startMs);
@@ -58,9 +58,8 @@ function adjustDatesForMonth(startMs, endMs) {
   startDate.setHours(0, 0, 0, 0);
 
   // Move endDate to last day of that month at 23:59:59
-  // E.g. go to next month, set date=0 => last day of previous month
   endDate.setMonth(endDate.getMonth() + 1);
-  endDate.setDate(0); // 0 => last day of the *previous* month
+  endDate.setDate(0); // 0 gives the last day of the previous month
   endDate.setHours(23, 59, 59, 0);
 
   return {
@@ -111,7 +110,7 @@ export const getForceVelocityData = asyncHandler(async (req, res) => {
     return res.status(200).json([]);
   }
 
-  // Find sessions in range
+  // Find sessions in range for the current user
   const sessionsInRange = await Session.find({
     userId: req.user._id,
     date: { $gte: startMs, $lte: endMs },
@@ -132,7 +131,7 @@ export const getForceVelocityData = asyncHandler(async (req, res) => {
     playerId: { $in: playerIdArray.map((id) => new mongoose.Types.ObjectId(id)) },
   });
 
-  // Build a map: key=player, val= set of sessionIDs
+  // Build a map: key = player, value = set of sessionIDs
   const playerSessionMap = {};
   spdDocs.forEach((doc) => {
     const pId = doc.playerId.toString();
@@ -193,7 +192,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
     playerIdArray = Array.isArray(playerIds) ? playerIds : playerIds.split(',');
   }
 
-  // Helper to run Python
+  // Helper to run the Python script
   const fileURL = fileURLToPath(import.meta.url);
   const dirName = path.dirname(fileURL);
   const scriptPath = path.join(dirName, '..', 'python', 'TestPython.py');
@@ -218,9 +217,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
 
       pythonProcess.on('close', (code) => {
         if (code !== 0) {
-          return reject(
-            new Error(scriptError || `Python exited with code ${code}`)
-          );
+          return reject(new Error(scriptError || `Python exited with code ${code}`));
         }
         console.log('Raw Python output:', scriptOutput);
         try {
@@ -273,7 +270,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
       const daySessionIds = daySessions.map((s) => s._id);
 
       for (const playerId of playerIdArray) {
-        // Get current session IDs for this player (sessions that have associated SessionPlayerData)
+        // Get current session IDs for this player (sessions with associated SessionPlayerData)
         const spdDocs = await SessionPlayerData.find({
           sessionId: { $in: daySessionIds },
           playerId: new mongoose.Types.ObjectId(playerId),
@@ -284,7 +281,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           )
           .map((s) => s._id.toString());
 
-        // Check caching and update if necessary
+        // Check caching including userId verification
         const existingDoc = await ForceVelocityAnalysis.findOne({
           userId: req.user._id,
           grouped: 'day',
@@ -292,12 +289,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: dayTs,
           'player.playerId': playerId,
         });
-        if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+        if (
+          existingDoc &&
+          existingDoc.userId.toString() === req.user._id.toString() &&
+          areSessionIdsEqual(existingDoc.sessions, currentSessionIds)
+        ) {
           console.log(`Cached calculation is up-to-date for player ${playerId} on day ${dayTs}`);
           analysisDocs.push(existingDoc);
           continue;
         } else if (existingDoc) {
-          console.log(`Session list changed for player ${playerId} on day ${dayTs}, recalculating...`);
+          console.log(`User mismatch or session list changed for player ${playerId} on day ${dayTs}, recalculating...`);
         }
 
         // Build python payload
@@ -334,7 +335,6 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           : { playerId, name: 'Unknown Player' };
 
         if (existingDoc) {
-          // Update the existing document
           existingDoc.sessions = sessionsArray;
           existingDoc.number = sessionsArray.length;
           existingDoc.maxAccel = parsed.MaxAccel;
@@ -418,12 +418,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: weekEnd,
           'player.playerId': playerId,
         });
-        if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+        if (
+          existingDoc &&
+          existingDoc.userId.toString() === req.user._id.toString() &&
+          areSessionIdsEqual(existingDoc.sessions, currentSessionIds)
+        ) {
           console.log(`Cached week analysis is up-to-date for player ${playerId} => weekStart=${weekStart}`);
           analysisDocs.push(existingDoc);
           continue;
         } else if (existingDoc) {
-          console.log(`Week session list changed for player ${playerId} => weekStart=${weekStart}, recalculating...`);
+          console.log(`User mismatch or session list changed for player ${playerId} => weekStart=${weekStart}, recalculating...`);
         }
 
         const pythonPayloadData = spdDocs.map((doc) => ({
@@ -491,7 +495,6 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
   // 3) Month grouping
   // -----------------------------------
   else if (grouping === 'month') {
-    // We already adjusted start/end to the 1st of start month, last day of end month
     // Build "month buckets" from startMs to endMs in 1-month increments
     const monthBuckets = [];
     let current = new Date(startMs);
@@ -499,13 +502,12 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
     current.setDate(1); // ensure day=1
     while (current.getTime() <= endMs) {
       monthBuckets.push(current.getTime());
-      // Move to next month
       current.setMonth(current.getMonth() + 1);
       current.setDate(1);
       current.setHours(0, 0, 0, 0);
     }
 
-    // Build monthMap => for each monthStart => the sessions that fall in that month
+    // Build monthMap: for each monthStart, the sessions that fall in that month
     const monthMap = {};
     for (let i = 0; i < monthBuckets.length; i++) {
       const monthStart = monthBuckets[i];
@@ -527,7 +529,6 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
     }
 
     for (const monthStart of Object.keys(monthMap)) {
-      const startNum = parseInt(monthStart, 10);
       const { start, end, sessions } = monthMap[monthStart];
       const monthSessionIds = sessions.map((s) => s._id);
 
@@ -549,12 +550,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           endDate: end,
           'player.playerId': playerId,
         });
-        if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+        if (
+          existingDoc &&
+          existingDoc.userId.toString() === req.user._id.toString() &&
+          areSessionIdsEqual(existingDoc.sessions, currentSessionIds)
+        ) {
           console.log(`Cached month analysis is up-to-date for player ${playerId} => monthStart=${start}`);
           analysisDocs.push(existingDoc);
           continue;
         } else if (existingDoc) {
-          console.log(`Month session list changed for player ${playerId} => monthStart=${start}, recalculating...`);
+          console.log(`User mismatch or session list changed for player ${playerId} => monthStart=${start}, recalculating...`);
         }
 
         const pythonPayloadData = spdDocs.map((doc) => ({
@@ -642,12 +647,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
         endDate: endMs,
         'player.playerId': playerId,
       });
-      if (existingDoc && areSessionIdsEqual(existingDoc.sessions, currentSessionIds)) {
+      if (
+        existingDoc &&
+        existingDoc.userId.toString() === req.user._id.toString() &&
+        areSessionIdsEqual(existingDoc.sessions, currentSessionIds)
+      ) {
         console.log(`Cached fallback analysis is up-to-date for player ${playerId}`);
         analysisDocs.push(existingDoc);
         continue;
       } else if (existingDoc) {
-        console.log(`Fallback session list changed for player ${playerId}, recalculating...`);
+        console.log(`User mismatch or session list changed for player ${playerId}, recalculating...`);
       }
 
       const pythonPayloadData = spdDocs.map((doc) => ({
