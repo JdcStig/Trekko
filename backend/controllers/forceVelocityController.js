@@ -59,7 +59,7 @@ function adjustDatesForMonth(startMs, endMs) {
 
   // Move endDate to last day of that month at 23:59:59
   endDate.setMonth(endDate.getMonth() + 1);
-  endDate.setDate(0); // 0 gives the last day of the previous month
+  endDate.setDate(0); // 0 gives last day of previous month
   endDate.setHours(23, 59, 59, 0);
 
   return {
@@ -197,13 +197,16 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
   const dirName = path.dirname(fileURL);
   const scriptPath = path.join(dirName, '..', 'python', 'TestPython.py');
 
+  // Updated to spawn 'python3' and improved logging
   const runPythonScript = (dataObj) =>
     new Promise((resolve, reject) => {
       const jsonPayload = JSON.stringify({ data: dataObj });
       const sizeMB = Buffer.byteLength(jsonPayload, 'utf8') / (1024 * 1024);
       console.log('Payload size: ' + sizeMB.toFixed(2) + ' MB');
 
-      const pythonProcess = spawn('python', [scriptPath]);
+      // Use python3; change this if your environment uses a different command
+      const pythonProcess = spawn('python3', [scriptPath]);
+
       let scriptOutput = '';
       let scriptError = '';
 
@@ -217,6 +220,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
 
       pythonProcess.on('close', (code) => {
         if (code !== 0) {
+          console.error(`Python process exited with code ${code}`);
           return reject(new Error(scriptError || `Python exited with code ${code}`));
         }
         console.log('Raw Python output:', scriptOutput);
@@ -225,6 +229,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
           console.log('Parsed Python output:', parsedOutput);
           resolve(scriptOutput);
         } catch (e) {
+          console.error('Error parsing Python output:', scriptOutput);
           reject(new Error('Failed to parse Python output: ' + scriptOutput));
         }
       });
@@ -357,9 +362,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
         }
       }
     }
-    return res
-      .status(200)
-      .json({ message: 'Success - daily grouping', docs: analysisDocs });
+    return res.status(200).json({ message: 'Success - daily grouping', docs: analysisDocs });
   }
 
   // -----------------------------------
@@ -486,20 +489,18 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
         }
       }
     }
-    return res
-      .status(200)
-      .json({ message: 'Success - weekly grouping', docs: analysisDocs });
+    return res.status(200).json({ message: 'Success - weekly grouping', docs: analysisDocs });
   }
 
   // -----------------------------------
   // 3) Month grouping
   // -----------------------------------
   else if (grouping === 'month') {
-    // Build "month buckets" from startMs to endMs in 1-month increments
+    // Build month buckets from startMs to endMs in 1-month increments
     const monthBuckets = [];
     let current = new Date(startMs);
     current.setHours(0, 0, 0, 0);
-    current.setDate(1); // ensure day=1
+    current.setDate(1);
     while (current.getTime() <= endMs) {
       monthBuckets.push(current.getTime());
       current.setMonth(current.getMonth() + 1);
@@ -619,9 +620,7 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
       }
     }
 
-    return res
-      .status(200)
-      .json({ message: 'Success - monthly grouping', docs: analysisDocs });
+    return res.status(200).json({ message: 'Success - monthly grouping', docs: analysisDocs });
   }
 
   // -----------------------------------
@@ -714,8 +713,6 @@ export const runForceVelocityAnalysis = asyncHandler(async (req, res) => {
         analysisDocs.push(newDoc);
       }
     }
-    return res
-      .status(200)
-      .json({ message: `Success - grouping=${grouping}`, docs: analysisDocs });
+    return res.status(200).json({ message: `Success - grouping=${grouping}`, docs: analysisDocs });
   }
 });
