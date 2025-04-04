@@ -14,11 +14,18 @@ function ForceVelocityLineChart({ analysisDocs, grouping }) {
     const dataArr = [['Date', 'Max Speed', 'Max Accel', 'Num Sessions']];
     sortedData.forEach((doc) => {
       let dateLabel = new Date(doc.startDate).toLocaleDateString();
-      if (grouping === 'week') {
+      
+      if (grouping === 'week') 
+        
+        {
         const startLbl = new Date(doc.startDate).toLocaleDateString();
         const endLbl = new Date(doc.endDate).toLocaleDateString();
         dateLabel = `${startLbl} - ${endLbl}`;
-      } else if (grouping === 'month') {
+      } 
+      
+      else if (grouping === 'month') 
+        
+        {
         const d = new Date(doc.startDate);
         const monthName = d.toLocaleString('default', { month: 'short' });
         dateLabel = `${monthName} ${d.getFullYear()}`;
@@ -39,7 +46,7 @@ function ForceVelocityLineChart({ analysisDocs, grouping }) {
   const options = {
     title: 'Force Velocity Analysis Over Time',
     legend: { position: 'bottom' },
-    curveType: 'function',
+    curveType: 'none',
     pointSize: 6,
     lineWidth: 2,
     interpolateNulls: true,
