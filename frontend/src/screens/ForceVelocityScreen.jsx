@@ -212,7 +212,7 @@ const ForceVelocityScreen = () => {
         onHide={() => setShowCalculationModal(false)}
       />
 
-      {/* Display Table and Line Chart only after clicking Run Analysis */}
+      {/* Display Table and Separate Charts only after clicking Run Analysis */}
       {analysisResult?.docs && analysisResult.docs.length > 0 ? (
         <>
           <Row className="mt-5">
@@ -236,15 +236,32 @@ const ForceVelocityScreen = () => {
             </Col>
           </Row>
 
-          {/* Chart (optional multiple data points) */}
-          <Row className="mt-5">
-            <Col>
-              <ForceVelocityLineChart
-                analysisDocs={analysisResult.docs}
-                grouping={grouping}
-              />
-            </Col>
-          </Row>
+          {/* Group analysis docs by player and render a separate chart for each */}
+          {(() => {
+            const playerCharts = {};
+            analysisResult.docs.forEach((doc) => {
+              const playerObj = doc.player && doc.player[0];
+              if (!playerObj) return;
+              const playerId = playerObj.playerId.toString();
+              if (!playerCharts[playerId]) {
+                playerCharts[playerId] = [];
+              }
+              playerCharts[playerId].push(doc);
+            });
+            return Object.keys(playerCharts).map((playerId) => (
+              <Row className="mt-5" key={playerId}>
+                <Col>
+                  <h3 className="text-center">
+                    Player: {playerCharts[playerId][0].player[0].name}
+                  </h3>
+                  <ForceVelocityLineChart
+                    analysisDocs={playerCharts[playerId]}
+                    grouping={grouping}
+                  />
+                </Col>
+              </Row>
+            ));
+          })()}
         </>
       ) : (
         <Row className="mt-5">
