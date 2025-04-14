@@ -352,22 +352,16 @@ const SessionManagementScreen = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {session.splits && session.splits.map((split, idx) => (
+                           
+                          {session.splits && session.splits.map((split, idx) => (
                               <tr key={idx}>
                                 <td>{split.title}</td>
                                 <td>{split.splitNumber}</td>
-                                <td>
-                                    {new Date(split.start).toLocaleTimeString('en-GB', {
-                                      hour12: false,
-                                    })}
-                                  </td>
-                                  <td>
-                                    {new Date(split.end).toLocaleTimeString('en-GB', {
-                                      hour12: false,
-                                    })}
-                                  </td>
+                                <td>{new Date(split.start).toISOString().substring(11, 19)}</td>
+                                <td>{new Date(split.end).toISOString().substring(11, 19)}</td>
                               </tr>
                             ))}
+                           
                           </tbody>
                         </Table>
                       </td>
