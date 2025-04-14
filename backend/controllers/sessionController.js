@@ -91,6 +91,7 @@ export const recalcSessionMetrics = async (sessionId) => {
     });
   }
 
+  session.number = session.sessionPlayerData.length;
   aggregateSprintMetrics(session);
   await session.save();
   await calculateAverageDistance(sessionId);
