@@ -5,16 +5,13 @@ import Session from '../models/sessionModel.js';
 import SessionPlayerData from '../models/sessionPlayerDataModel.js';
 import Team from '../models/teamModel.js';
 
-import parseCSV from '../calculation/parseCSV.js'; 
-import { parsePlayByPlayCSV } from '../controllers/playByPlayAnalysisController.js'; 
+import parseCSV from '../calculation/parseCSV.js';
+import { parsePlayByPlayCSV } from './playByPlayAnalysisController.js';
 
 import calculateAverageDistance from '../calculation/calculateAverageDistance.js';
 import calculatePlayPlayerMetrics from '../calculation/calculatePlayPlayerMetrics.js';
 import calculateSplitPlayerMetrics from '../calculation/calculateSplitPlayerMetrics.js';
 
-/**
- * Basic distance-based metrics
- */
 const metricsCalculations = {
   Distance: (values) => (values.reduce((acc, val) => acc + val, 0) / 10) / 1000,
   TopSpeed: (values) => Math.max(...values),
@@ -24,9 +21,6 @@ const metricsCalculations = {
     (values.filter((v) => v >= 7).reduce((acc, val) => acc + val, 0) / 10) / 1000,
 };
 
-/**
- * aggregateSprintMetrics
- */
 function aggregateSprintMetrics(session) {
   if (!session || !session.plays || !session.sessionPlayerData) return;
   session.plays.forEach((play) => {
@@ -39,11 +33,11 @@ function aggregateSprintMetrics(session) {
         (p) => p.PlayNumber === play.playNumber
       );
       if (!pm) return;
-      const topSpeedMetric = pm.PlayMetrics.find(m => m.MetricName === 'TopSpeed');
+      const topSpeedMetric = pm.PlayMetrics.find((m) => m.MetricName === 'TopSpeed');
       if (topSpeedMetric && topSpeedMetric.Value >= 7) {
         sprintCount++;
       }
-      const distanceMetric = pm.PlayMetrics.find(m => m.MetricName === 'Distance');
+      const distanceMetric = pm.PlayMetrics.find((m) => m.MetricName === 'Distance');
       if (distanceMetric && typeof distanceMetric.Value === 'number') {
         totalDistance += distanceMetric.Value;
         distanceCount++;
@@ -54,17 +48,12 @@ function aggregateSprintMetrics(session) {
   });
 }
 
-/**
- * recalcSessionMetrics
- * Recomputes all metrics for a session by reading from SessionPlayerData docs.
- */
 export const recalcSessionMetrics = async (sessionId) => {
   const session = await Session.findById(sessionId);
   if (!session) throw new Error(`Session not found: ${sessionId}`);
 
-  // Rebuild session.sessionPlayerData from the actual DB docs
   const allPlayerDocs = await SessionPlayerData.find({ sessionId });
-  session.sessionPlayerData = []; // Clear existing data
+  session.sessionPlayerData = [];
 
   for (const doc of allPlayerDocs) {
     const times = doc.times || [];
@@ -78,7 +67,6 @@ export const recalcSessionMetrics = async (sessionId) => {
     ];
 
     const playPlayerMetrics = calculatePlayPlayerMetrics(times, speeds, session.plays || []);
-    // Pass the times array to split metrics so that the correct readings are used.
     const splitPlayerMetrics = calculateSplitPlayerMetrics(times, speeds, session.splits || []);
 
     session.sessionPlayerData.push({
@@ -92,17 +80,14 @@ export const recalcSessionMetrics = async (sessionId) => {
   }
 
   session.number = session.sessionPlayerData.length;
+  session.markModified('number'); // ✅ Ensure Mongoose updates this field
+
   aggregateSprintMetrics(session);
   await session.save();
   await calculateAverageDistance(sessionId);
   return Session.findById(sessionId).populate('sessionPlayerData');
 };
 
-/**
- * Controller Endpoints
- */
-
-// 1) Register a new session
 export const registerSession = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
   const userId = req.user._id;
@@ -116,6 +101,7 @@ export const registerSession = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('Invalid date format.');
   }
+
   if (isNaN(parsedDate)) {
     res.status(400);
     throw new Error('Invalid date format. Could not parse date.');
@@ -173,13 +159,11 @@ export const registerSession = asyncHandler(async (req, res) => {
   res.status(200).json(session);
 });
 
-// 2) Get all sessions for the current user
 export const getSessions = asyncHandler(async (req, res) => {
   const sessions = await Session.find({ userId: req.user._id });
   res.status(200).json(sessions);
 });
 
-// 3) Get session by ID
 export const getSessionByID = asyncHandler(async (req, res) => {
   const session = await Session.findById(req.params.id);
   if (!session) {
@@ -189,7 +173,6 @@ export const getSessionByID = asyncHandler(async (req, res) => {
   res.status(200).json(session);
 });
 
-// 4) Delete a session (and all associated SessionPlayerData)
 export const deleteSession = asyncHandler(async (req, res) => {
   const session = await Session.findById(req.params.id);
   if (!session) {
@@ -201,7 +184,6 @@ export const deleteSession = asyncHandler(async (req, res) => {
   res.status(200).json({ message: 'Session deleted successfully' });
 });
 
-// 5) Update session details and recalc metrics
 export const updateSession = asyncHandler(async (req, res) => {
   const { teamName, sessionName, date, type, duration, splits, notes } = req.body;
   const session = await Session.findById(req.params.id);
@@ -244,7 +226,6 @@ export const updateSession = asyncHandler(async (req, res) => {
   res.status(200).json(updatedSession);
 });
 
-// 6) Delete all CSV data (SessionPlayerData) from a session
 export const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
   const sessionId = req.params.id;
   if (!sessionId) {
@@ -264,7 +245,6 @@ export const deleteAllSessionCSVs = asyncHandler(async (req, res) => {
   res.status(200).json({ message: 'All CSV data deleted', session });
 });
 
-// 7) Delete all play CSV data (clear plays array + snippet metrics)
 export const deleteAllPlayCSVs = asyncHandler(async (req, res) => {
   const sessionId = req.params.id;
   if (!sessionId) {
@@ -288,7 +268,6 @@ export const deleteAllPlayCSVs = asyncHandler(async (req, res) => {
   res.status(200).json({ message: 'All play CSV data deleted', session });
 });
 
-// 8) Upload Session CSV (calls parseCSV)
 export const uploadSessionCSV = asyncHandler(async (req, res) => {
   const { sessionId, finalize } = req.body;
   if (!sessionId) {
@@ -311,8 +290,6 @@ export const uploadSessionCSV = asyncHandler(async (req, res) => {
   }
 });
 
-
-// 9) Upload Play CSV (calls parsePlayByPlayCSV)
 export const uploadPlayCSV = asyncHandler(async (req, res) => {
   const { sessionId, finalize } = req.body;
   if (!sessionId) {
@@ -334,7 +311,7 @@ export const uploadPlayCSV = asyncHandler(async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
-  
+
 export default {
   registerSession,
   getSessions,
