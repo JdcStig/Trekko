@@ -64,7 +64,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
   const validateDateTime = () => {
     const selectedDate = new Date(date);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(23, 59, 59, 59);
 
     if (selectedDate > today) {
       toast.error("Date cannot be in the future.", { position: 'top-right' });
