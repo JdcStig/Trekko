@@ -13,7 +13,6 @@ export const playersApiSlice = createApi({
         url: 'players',
         credentials: 'include',
       }),
-      // Provide a tag for each player, plus a "LIST" tag
       transformResponse: (responseData) => ({ players: responseData }),
       providesTags: (result) =>
         result?.players
@@ -25,6 +24,11 @@ export const playersApiSlice = createApi({
               { type: 'Player', id: 'LIST' },
             ]
           : [{ type: 'Player', id: 'LIST' }],
+
+      // ✅ Auto-refetch when component mounts or arg changes
+      refetchOnMountOrArgChange: true,
+      // ✅ Disable long-term caching
+      keepUnusedDataFor: 0,
     }),
 
     // ============ DELETE /api/players/:id ============
@@ -34,14 +38,10 @@ export const playersApiSlice = createApi({
         method: 'DELETE',
         credentials: 'include',
       }),
-      // Invalidate the 'LIST' tag => triggers a re-fetch of getPlayers
       invalidatesTags: [{ type: 'Player', id: 'LIST' }],
-
-      // Optionally also re-fetch sessions if you want
       async onQueryStarted(id, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
-          // Re-fetch sessions if needed:
           dispatch(sessionsApiSlice.util.invalidateTags(['Session']));
         } catch (err) {
           console.error('Failed to delete player:', err);

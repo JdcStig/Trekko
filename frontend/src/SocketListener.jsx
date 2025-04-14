@@ -1,4 +1,3 @@
-// src/components/SocketListener.jsx
 import React, { useEffect } from 'react';
 import io from 'socket.io-client';
 import { toast } from 'react-toastify';
@@ -17,8 +16,11 @@ const SocketListener = ({ onPlayerCreated }) => {
     });
 
     socket.on('playerCreated', (data) => {
-      toast.success(`New player created: ${data.playerName}`);
-      if (onPlayerCreated) onPlayerCreated(); // 👈 trigger parent to refresh
+      // ✅ Always show a toast
+      toast.success(`New player created: ${data.playerName}`, { position: 'top-right' });
+
+      // ✅ Call callback if passed
+      if (onPlayerCreated) onPlayerCreated(data.playerName);
     });
 
     return () => {
