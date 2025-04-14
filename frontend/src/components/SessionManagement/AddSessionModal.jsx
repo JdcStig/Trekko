@@ -5,7 +5,6 @@ import { toast } from 'react-toastify';
 import { useGetTeamsQuery } from '../../slices/teamsApiSlice';
 
 const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) => {
-  // State variables for session fields
   const [teamName, setTeamName] = useState('');
   const [sessionName, setSessionName] = useState('');
   const [date, setDate] = useState('');
@@ -14,16 +13,13 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
   const [numSplits, setNumSplits] = useState('');
   const [splits, setSplits] = useState([]);
   const [notes, setNotes] = useState('');
-  // State for CSV file(s)
   const [csvFiles, setCsvFiles] = useState(null);
 
-  // Get teams and user info
   const { userInfo } = useSelector((state) => state.auth);
   const { data: teamsData } = useGetTeamsQuery();
   const filteredTeams =
     teamsData?.teams?.filter((team) => team.userId === userInfo?._id) || [];
 
-  // Reset fields when modal closes
   useEffect(() => {
     if (!show) {
       setTeamName('');
@@ -38,7 +34,6 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
     }
   }, [show]);
 
-  // Adjust splits when number changes
   useEffect(() => {
     const num = parseInt(numSplits, 10);
     if (!isNaN(num) && num > 0) {
@@ -64,43 +59,48 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
   const validateDateTime = () => {
     const selectedDate = new Date(date);
     const today = new Date();
-    today.setHours(23, 59, 59, 59);
+    today.setHours(23, 59, 59, 999);
 
     if (selectedDate > today) {
-      toast.error("Date cannot be in the future.", { position: 'top-right' });
+      toast.error('Date cannot be in the future.', { position: 'top-right' });
       return false;
     }
+
     for (let i = 0; i < splits.length; i++) {
       const { start, end } = splits[i];
       if (!start || !end) {
-        toast.error(`Start time and end time are required for split ${i + 1}.`, { position: 'top-right' });
+        toast.error(`Start and end times are required for split ${i + 1}.`, {
+          position: 'top-right',
+        });
         return false;
       }
-      if (end <= start) {
-        toast.error(`End time cannot be before start time in split ${i + 1}.`, { position: 'top-right' });
+      if (start >= end) {
+        toast.error(`Split ${i + 1}: Start time cannot be after or equal to end time.`, {
+          position: 'top-right',
+        });
         return false;
       }
     }
+
     return true;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!teamName.trim() || !sessionName.trim() || !date.trim() || !type.trim() || !duration.trim()) {
-      toast.error("All fields are required!", { position: 'top-right' });
-      return;
-    }
-    if (!validateDateTime()) {
-      return;
-    }
-    const unixDate = new Date(date).getTime();
-    if (isNaN(unixDate)) {
-      toast.error("Invalid date format. Please select a valid date.", { position: 'top-right' });
+    if (!teamName || !sessionName || !date || !type || !duration) {
+      toast.error('All fields are required!', { position: 'top-right' });
       return;
     }
 
-    // Build session data (without CSV info)
+    if (!validateDateTime()) return;
+
+    const unixDate = new Date(date).getTime();
+    if (isNaN(unixDate)) {
+      toast.error('Invalid date format.', { position: 'top-right' });
+      return;
+    }
+
     const sessionFormData = {
       teamName,
       sessionName,
@@ -111,22 +111,18 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
       notes,
     };
 
-    // If session type is "Game", attach CSV file(s)
     if (type === 'Game' && csvFiles) {
       sessionFormData.csvFiles = csvFiles;
     }
 
-    // Call the passed in onAddSession function (which should return a promise)
     onAddSession(sessionFormData)
       .then((newSession) => {
-        toast.success("Session added successfully!", { position: 'top-right' });
-        if (onAddSessionSuccess) {
-          onAddSessionSuccess(newSession);
-        }
+        toast.success('Session added successfully!', { position: 'top-right' });
+        if (onAddSessionSuccess) onAddSessionSuccess(newSession);
         onHide();
       })
-      .catch((err) => {
-        toast.error("Failed to create session.", { position: 'top-right' });
+      .catch(() => {
+        toast.error('Failed to create session.', { position: 'top-right' });
       });
   };
 
@@ -137,7 +133,6 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          {/* Team Name */}
           <Form.Group controlId="teamName" className="mb-3">
             <Form.Label>Team Name</Form.Label>
             <Form.Control
@@ -155,19 +150,16 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
             </Form.Control>
           </Form.Group>
 
-          {/* Session Name */}
           <Form.Group controlId="sessionName" className="mb-3">
             <Form.Label>Session Name</Form.Label>
             <Form.Control
               type="text"
-              placeholder="Enter session name"
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
               required
             />
           </Form.Group>
 
-          {/* Date */}
           <Form.Group controlId="date" className="mb-3">
             <Form.Label>Date</Form.Label>
             <Form.Control
@@ -178,7 +170,6 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
             />
           </Form.Group>
 
-          {/* Session Type */}
           <Form.Group controlId="type" className="mb-3">
             <Form.Label>Session Type</Form.Label>
             <Form.Control
@@ -193,58 +184,39 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
             </Form.Control>
           </Form.Group>
 
-          {/* CSV File Input (only shown if type is "Game")
-          {type === 'Game' && (
-            <Form.Group controlId="csvFiles" className="mb-3">
-              <Form.Label>Attach CSV File(s)</Form.Label>
-              <Form.Control
-                type="file"
-                accept=".csv"
-                multiple
-                onChange={(e) => setCsvFiles(e.target.files)}
-              />
-            </Form.Group>
-          )} */}
-
-          {/* Duration */}
           <Form.Group controlId="duration" className="mb-3">
-            <Form.Label>Duration (in minutes)</Form.Label>
+            <Form.Label>Duration (minutes)</Form.Label>
             <Form.Control
               type="number"
-              placeholder="Enter duration"
               value={duration}
-              onChange={(e) => setDuration(e.target.value.toString())}
+              onChange={(e) => setDuration(e.target.value)}
               required
               min="0"
             />
           </Form.Group>
 
-          {/* Number of Splits */}
           <Form.Group controlId="numSplits" className="mb-3">
             <Form.Label>Number of Splits</Form.Label>
             <Form.Control
               type="number"
-              placeholder="Enter number of splits"
               value={numSplits}
               onChange={(e) => setNumSplits(e.target.value)}
               min="0"
             />
           </Form.Group>
 
-          {/* Splits Inputs */}
           {splits.map((split, index) => (
             <div key={index} className="border p-2 mb-2">
-              <Form.Group controlId={`splitTitle${index}`} className="mb-2">
+              <Form.Group className="mb-2">
                 <Form.Label>Split {index + 1} Title</Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder="Enter title"
                   value={split.title}
                   onChange={(e) => handleSplitChange(index, 'title', e.target.value)}
                   required
                 />
               </Form.Group>
-              <Form.Group controlId={`splitStart${index}`} className="mb-2">
+              <Form.Group className="mb-2">
                 <Form.Label>Start Time</Form.Label>
                 <Form.Control
                   type="time"
@@ -254,7 +226,7 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
                   required
                 />
               </Form.Group>
-              <Form.Group controlId={`splitEnd${index}`} className="mb-2">
+              <Form.Group className="mb-2">
                 <Form.Label>End Time</Form.Label>
                 <Form.Control
                   type="time"
@@ -267,27 +239,21 @@ const AddSessionModal = ({ show, onHide, onAddSession, onAddSessionSuccess }) =>
             </div>
           ))}
 
-          {/* Notes */}
           <Form.Group controlId="notes" className="mb-3">
             <Form.Label>Notes</Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
-              placeholder="Enter notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
           </Form.Group>
 
-          <Button variant="primary" type="submit">
-            Add Session
-          </Button>
+          <Button variant="primary" type="submit">Add Session</Button>
         </Form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          Close
-        </Button>
+        <Button variant="secondary" onClick={onHide}>Close</Button>
       </Modal.Footer>
     </Modal>
   );
