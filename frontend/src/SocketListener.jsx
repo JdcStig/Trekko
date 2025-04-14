@@ -1,29 +1,32 @@
+// src/components/SocketListener.jsx
 import React, { useEffect } from 'react';
 import io from 'socket.io-client';
 import { toast } from 'react-toastify';
 
-// REACT_APP_BACKEND_URL is defined in your .env file.
-// It will switch automatically based on NODE_ENV.
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 const socket = io(BACKEND_URL, {
-  transports: ['websocket'], // optional: force use of websocket
+  transports: ['websocket'],
+  withCredentials: true,
 });
 
-const SocketListener = () => {
+const SocketListener = ({ onPlayerCreated }) => {
   useEffect(() => {
-    // Listen for the 'playerCreated' event from the backend
-    socket.on('playerCreated', (data) => {
-      toast.success(`New player created: ${data.playerName}`, { position: 'top-right' });
+    socket.on('connect', () => {
+      console.log('✅ Socket connected:', socket.id);
     });
 
-    // Cleanup on component unmount
+    socket.on('playerCreated', (data) => {
+      toast.success(`New player created: ${data.playerName}`);
+      if (onPlayerCreated) onPlayerCreated(); // 👈 trigger parent to refresh
+    });
+
     return () => {
       socket.off('playerCreated');
     };
-  }, []);
+  }, [onPlayerCreated]);
 
-  return null; // No visual output
+  return null;
 };
 
 export default SocketListener;

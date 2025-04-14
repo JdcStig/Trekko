@@ -54,7 +54,7 @@ const AddCSVModal = ({ show, onHide, sessionId }) => {
         await uploadMultipleCSVs(playByPlayFiles, uploadPlayCSV);
       }
 
-      toast.success("CSV uploaded successfully!", { position: 'top-right' });
+      toast.success("File uploaded successfully!", { position: 'top-right' });
       clearFiles(setSessionFiles, sessionFileInputRef);
       clearFiles(setPlayByPlayFiles, playByPlayFileInputRef);
       onHide();
