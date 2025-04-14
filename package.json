@@ -43,5 +43,8 @@
     "react-router-dom": "^7.1.4",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
   }
 }
